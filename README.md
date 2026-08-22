@@ -1,6 +1,6 @@
 # Occtoo .NET SDK
 
-[![ci](https://github.com/Occtoo/dotnet-sdk/actions/workflows/ci.yml/badge.svg)](https://github.com/Occtoo/dotnet-sdk/actions/workflows/ci.yml)
+[![ci](https://img.shields.io/github/actions/workflow/status/Occtoo/dotnet-sdk/ci.yml?branch=main&label=ci)](https://github.com/Occtoo/dotnet-sdk/actions/workflows/ci.yml)
 [![NuGet](https://img.shields.io/nuget/v/Occtoo.Sdk.svg)](https://www.nuget.org/packages/Occtoo.Sdk)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 

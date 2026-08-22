@@ -26,6 +26,7 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/Occtoo/dotnet-sdk</PackageProjectUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>icon.png</PackageIcon>
     <PackageTags>occtoo;ingest;events;cloudevents;sdk</PackageTags>
     <RepositoryUrl>https://github.com/Occtoo/dotnet-sdk</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
@@ -42,6 +43,7 @@
 
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)../README.md" Pack="true" PackagePath="/" Visible="false" />
+    <None Include="$(MSBuildThisFileDirectory)../icon.png" Pack="true" PackagePath="/" Visible="false" />
   </ItemGroup>
 
   <ItemGroup>
