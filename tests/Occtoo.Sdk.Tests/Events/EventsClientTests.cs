@@ -137,6 +137,73 @@ public class EventsClientTests
         result.Value.Items.ShouldHaveSingleItem().Sequence.Value.ShouldBe("0000000000000002");
     }
 
+    // ── GetMetadata ─────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task GetMetadata_reads_the_stream_shape()
+    {
+        using var handler = new StubHandler().Respond(HttpStatusCode.OK, """
+            {
+              "first": { "sequence": "003.00000000000000184001", "time": "2026-07-04T08:10:00Z" },
+              "latest": { "sequence": "003.00000000000000184467", "time": "2026-07-04T09:15:12.345Z" },
+              "after": "opaque-tail-cursor",
+              "total": 184
+            }
+            """);
+        using var client = Client(handler);
+
+        var result = await client.Events.GetMetadata(cancellationToken: TestContext.Current.CancellationToken);
+
+        result.IsSuccess.ShouldBeTrue();
+        var metadata = result.Value;
+        metadata.First.GetValueOrThrow().Sequence.Value.ShouldBe("003.00000000000000184001");
+        metadata.First.GetValueOrThrow().Time.GetValueOrDefault()
+            .ShouldBe(DateTimeOffset.Parse("2026-07-04T08:10:00Z", null));
+        metadata.Latest.GetValueOrThrow().Sequence.Value.ShouldBe("003.00000000000000184467");
+        metadata.After.GetValueOrThrow().Value.ShouldBe("opaque-tail-cursor");
+        metadata.Total.ShouldBe(184);
+
+        handler.Requests.Single().RequestUri!.ToString()
+            .ShouldBe("https://api.occtoo.com/v1/events/metadata");
+    }
+
+    [Fact]
+    public async Task GetMetadata_carries_the_filter_and_maps_an_empty_view()
+    {
+        using var handler = new StubHandler().Respond(HttpStatusCode.OK, """
+            { "first": null, "latest": null, "after": null, "total": 0 }
+            """);
+        using var client = Client(handler);
+
+        var result = await client.Events.GetMetadata(
+            EventFilter.OfType<SourceEntryAdded>(e => e.WithSource("products")),
+            TestContext.Current.CancellationToken);
+
+        result.IsSuccess.ShouldBeTrue();
+        var metadata = result.Value;
+        metadata.First.HasNoValue.ShouldBeTrue();
+        metadata.Latest.HasNoValue.ShouldBeTrue();
+        metadata.After.HasNoValue.ShouldBeTrue();
+        metadata.Total.ShouldBe(0);
+
+        handler.Requests.Single().RequestUri!.AbsoluteUri.ShouldBe(
+            "https://api.occtoo.com/v1/events/metadata"
+            + "?filter=type%20eq%20%22source_entry.added%22%20and%20sourceId%20eq%20%22products%22");
+    }
+
+    [Fact]
+    public async Task GetMetadata_classifies_api_rejections()
+    {
+        using var handler = new StubHandler()
+            .Respond(HttpStatusCode.Forbidden, """{ "title": "missing scope" }""");
+        using var client = Client(handler);
+
+        var result = await client.Events.GetMetadata(cancellationToken: TestContext.Current.CancellationToken);
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.ShouldBeOfType<ForbiddenError>();
+    }
+
     // ── PullAll ─────────────────────────────────────────────────────────────
 
     [Fact]

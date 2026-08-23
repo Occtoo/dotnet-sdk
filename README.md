@@ -177,7 +177,7 @@ tokens issued by `https://auth.occtoo.com`.
 
 | Method | Path | Purpose |
 |---|---|---|
-| `POST` | `/sources/{sourceId}` | Validate typed JSON entries and queue them for asynchronous processing |
+| `POST` | `/v1/sources/{sourceId}` | Validate typed JSON entries and queue them for asynchronous processing |
 
 Requires the `write:sources` scope. The legacy string-based import
 (`/datasources/{dataSource}/import`) and media ingest are not wrapped yet.
@@ -188,6 +188,7 @@ Requires the `write:sources` scope. The legacy string-based import
 |---|---|---|
 | `GET` | `/v1/events` | Pull a page of events in ascending `sequence` order, by cursor |
 | `GET` | `/v1/events/stream` | Subscribe to a resumable Server-Sent Events stream |
+| `GET` | `/v1/events/metadata` | Inspect the stream's shape — first/latest position, tail cursor, count — without payloads |
 
 The catalog endpoints (`/v1/event-types`, `/v1/events/schemas/{type}/{version}`)
 are not wrapped: the SDK ships the catalog as types — one sealed record per

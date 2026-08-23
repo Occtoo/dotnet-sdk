@@ -93,6 +93,43 @@ public sealed class EventsClient
     }
 
     /// <summary>
+    /// Reads the shape of the retained stream — or of one filtered view of it
+    /// — without any event payloads: first and latest positions, the tail
+    /// cursor, and the exact count. <c>GET /v1/events/metadata</c>.
+    /// </summary>
+    /// <param name="filter">Narrows the view, with the same grammar as pull and stream.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    public async Task<Result<EventStreamMetadata, OcctooError>> GetMetadata(
+        EventFilter? filter = null,
+        CancellationToken cancellationToken = default)
+    {
+        using var activity = OcctooTelemetry.Source.StartActivity("events metadata", ActivityKind.Client);
+
+        var uri = filter is null
+            ? new Uri("v1/events/metadata", UriKind.Relative)
+            : new Uri($"v1/events/metadata?filter={Uri.EscapeDataString(filter.ToString())}", UriKind.Relative);
+        using var request = new HttpRequestMessage(HttpMethod.Get, uri);
+
+        var outcome = await OcctooTransport
+            .Send(_httpClient, request, _requestTimeout, cancellationToken)
+            .Bind(async Task<Result<EventStreamMetadata, OcctooError>> (response) =>
+            {
+                using (response)
+                {
+                    return response.StatusCode == HttpStatusCode.OK
+                        ? await ReadMetadata(response, cancellationToken).ConfigureAwait(false)
+                        : await OcctooApiErrors
+                            .Classify(response, "Reading events metadata", cancellationToken)
+                            .ConfigureAwait(false);
+                }
+            }).ConfigureAwait(false);
+
+        return outcome
+            .Tap(metadata => activity?.SetTag("occtoo.events.total", metadata.Total))
+            .TapError(error => OcctooTelemetry.Fail(activity, error));
+    }
+
+    /// <summary>
     /// Reads retained events from the query's position until the stream is
     /// exhausted, fetching pages lazily — the catch-up loop as one
     /// <c>await foreach</c>.
@@ -338,6 +375,54 @@ public sealed class EventsClient
         catch (JsonException exception)
         {
             return new UnexpectedError($"The events page could not be parsed: {exception.Message}");
+        }
+    }
+
+    private static async Task<Result<EventStreamMetadata, OcctooError>> ReadMetadata(
+        HttpResponseMessage response,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+            using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
+            var root = document.RootElement;
+
+            var after = root.TryGetProperty("after", out var cursor)
+                        && cursor.ValueKind == JsonValueKind.String
+                        && cursor.GetString() is { Length: > 0 } value
+                ? Maybe.From(EventCursor.From(value))
+                : Maybe<EventCursor>.None;
+
+            var total = root.TryGetProperty("total", out var count) && count.ValueKind == JsonValueKind.Number
+                ? count.GetInt64()
+                : 0;
+
+            return new EventStreamMetadata(Position(root, "first"), Position(root, "latest"), after, total);
+        }
+        catch (JsonException exception)
+        {
+            return new UnexpectedError($"The events metadata could not be parsed: {exception.Message}");
+        }
+
+        static Maybe<EventStreamPosition> Position(JsonElement root, string name)
+        {
+            if (!root.TryGetProperty(name, out var position)
+                || position.ValueKind != JsonValueKind.Object
+                || !position.TryGetProperty("sequence", out var sequence)
+                || sequence.ValueKind != JsonValueKind.String
+                || sequence.GetString() is not { Length: > 0 } value)
+            {
+                return Maybe<EventStreamPosition>.None;
+            }
+
+            var time = position.TryGetProperty("time", out var stamp)
+                       && stamp.ValueKind == JsonValueKind.String
+                       && stamp.TryGetDateTimeOffset(out var parsed)
+                ? Maybe.From(parsed)
+                : Maybe<DateTimeOffset>.None;
+
+            return new EventStreamPosition(EventSequence.From(value), time);
         }
     }
 

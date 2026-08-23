@@ -65,6 +65,7 @@ spans when it is not:
 | `authenticate` | Client | `occtoo.credential.type` (`client_credentials`, `device_code`, `delegate`) |
 | `pull events` | Client | `occtoo.events.limit`, `occtoo.events.count` |
 | `stream events` | Client | one span per connection attempt |
+| `events metadata` | Client | `occtoo.events.total` |
 
 A token acquisition triggered mid-request nests under the operation that needed
 it, so a slow ingest that was really a slow token exchange shows up as exactly

@@ -87,6 +87,31 @@ Two rules keep checkpointing correct:
 `PullAll` folds the pagination loop into one `await foreach`, fetching pages
 lazily until the retained stream is exhausted — the catch-up path.
 
+### Metadata: the stream's shape without its payloads
+
+`GetMetadata` (`GET /v1/events/metadata`) reports the retained stream — or one
+filtered view of it — as positions and a count: `First`, `Latest` (each a
+sequence with an optional time), `After` (the pull cursor for the tail), and
+the exact `Total`. Three situations call for it:
+
+```csharp
+var metadata = await client.Events.GetMetadata(filter);
+
+metadata.Tap(m =>
+{
+    // Start consuming from "now", skipping history:
+    var live = client.Events.Stream(new EventStreamOptions { Filter = filter, After = m.After });
+
+    // Measure consumer lag: my checkpoint vs. m.Latest.
+
+    // Detect an expired checkpoint: a stored cursor before m.First means the
+    // gap was dropped from retention — decide whether to resync or accept it.
+});
+```
+
+All values are absent (and `Total` is `0`) when nothing retained matches the
+filter.
+
 A runnable checkpointing consumer lives at
 [`examples/Occtoo.Sdk.Examples.EventConsumer`](../examples/Occtoo.Sdk.Examples.EventConsumer):
 a worker that drains new events page by page, persists the cursor (with its
