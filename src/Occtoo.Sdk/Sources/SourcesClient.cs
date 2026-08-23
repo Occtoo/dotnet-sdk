@@ -32,11 +32,13 @@ public sealed class SourcesClient
 
     private readonly HttpClient _httpClient;
     private readonly ILogger _logger;
+    private readonly TimeSpan _requestTimeout;
 
-    internal SourcesClient(HttpClient httpClient, ILogger logger)
+    internal SourcesClient(HttpClient httpClient, ILogger logger, TimeSpan requestTimeout)
     {
         _httpClient = httpClient;
         _logger = logger;
+        _requestTimeout = requestTimeout;
     }
 
     /// <summary>
@@ -92,7 +94,8 @@ public sealed class SourcesClient
             new IngestRequestBody(entries),
             IngestJsonContext.Default.IngestRequestBody);
 
-        var outcome = await Send(request, cancellationToken)
+        var outcome = await OcctooTransport
+            .Send(_httpClient, request, _requestTimeout, cancellationToken)
             .Bind(async Task<Result<IngestReceipt, OcctooError>> (response) =>
             {
                 using (response)
@@ -117,36 +120,6 @@ public sealed class SourcesClient
                 OcctooTelemetry.Fail(activity, error);
                 OcctooLog.IngestFailed(_logger, sourceId.Value, error);
             });
-    }
-
-    private async Task<Result<HttpResponseMessage, OcctooError>> Send(
-        HttpRequestMessage request,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            return await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
-        }
-        catch (OcctooCredentialException exception)
-        {
-            return exception.Error;
-        }
-        catch (HttpRequestException exception)
-        {
-            return new NetworkError($"Could not reach Occtoo: {exception.Message}");
-        }
-        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
-        {
-            return new TimeoutError("Occtoo did not answer in time.");
-        }
-        catch (Exception exception) when (exception is not OperationCanceledException)
-        {
-            // Handlers the consumer layered into the pipeline (a resilience
-            // handler's timeout or circuit breaker, say) may throw their own
-            // types. The no-throw contract holds at this boundary; only the
-            // caller's own cancellation propagates.
-            return new UnexpectedError($"The request failed unexpectedly: {exception.Message}");
-        }
     }
 
     private static async Task<Result<IngestReceipt, OcctooError>> ReadReceipt(

@@ -21,8 +21,6 @@ public static class OcctooServiceCollectionExtensions
     /// <see cref="IHttpClientFactory"/>, with authentication in the handler
     /// pipeline.
     /// </summary>
-    /// <param name="services">The container.</param>
-    /// <param name="configure">Builds the options.</param>
     /// <returns>
     /// The <see cref="IHttpClientBuilder"/> for the SDK's client, so the handler
     /// pipeline can be extended — resilience, logging, a proxy.
@@ -69,9 +67,6 @@ public static class OcctooServiceCollectionExtensions
     /// it with <c>[FromKeyedServices(key)]</c> or
     /// <see cref="ServiceProviderKeyedServiceExtensions.GetRequiredKeyedService{T}(IServiceProvider, object?)"/>.
     /// </summary>
-    /// <param name="services">The container.</param>
-    /// <param name="serviceKey">The key the client is registered under.</param>
-    /// <param name="configure">Builds the options.</param>
     /// <returns>
     /// The <see cref="IHttpClientBuilder"/> for this key's client, so the handler
     /// pipeline can be extended per key.
@@ -134,7 +129,10 @@ public static class OcctooServiceCollectionExtensions
             {
                 var options = resolveOptions(provider);
                 httpClient.BaseAddress = options.BaseAddress;
-                httpClient.Timeout = options.Timeout;
+                // The HttpClient-level timeout stays infinite: it would sever
+                // long-lived event streams. OcctooTransport enforces
+                // options.Timeout per request.
+                httpClient.Timeout = Timeout.InfiniteTimeSpan;
             })
             .AddHttpMessageHandler(provider =>
             {

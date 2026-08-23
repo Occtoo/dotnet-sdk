@@ -23,7 +23,6 @@ public readonly partial struct SourceId
     /// Converts a string through the same validation as <see cref="From"/>,
     /// so a call site can pass the literal while the signature keeps the type.
     /// </summary>
-    /// <param name="value">The value to validate and wrap.</param>
     /// <exception cref="ValueObjectValidationException">The value is invalid.</exception>
     public static implicit operator SourceId(string value) => From(value);
 
@@ -45,7 +44,6 @@ public readonly partial struct EntryId
     /// Converts a string through the same validation as <see cref="From"/>,
     /// so a call site can pass the literal while the signature keeps the type.
     /// </summary>
-    /// <param name="value">The value to validate and wrap.</param>
     /// <exception cref="ValueObjectValidationException">The value is invalid.</exception>
     public static implicit operator EntryId(string value) => From(value);
 
@@ -69,7 +67,6 @@ public readonly partial struct PropertyId
     /// Converts a string through the same validation as <see cref="From"/>,
     /// so a call site can pass the literal while the signature keeps the type.
     /// </summary>
-    /// <param name="value">The value to validate and wrap.</param>
     /// <exception cref="ValueObjectValidationException">The value is invalid.</exception>
     public static implicit operator PropertyId(string value) => From(value);
 
@@ -96,7 +93,6 @@ public readonly partial struct LanguageCode
     /// Converts a string through the same validation as <see cref="From"/>,
     /// so a call site can pass the literal while the signature keeps the type.
     /// </summary>
-    /// <param name="value">The value to validate and wrap.</param>
     /// <exception cref="ValueObjectValidationException">The value is invalid.</exception>
     public static implicit operator LanguageCode(string value) => From(value);
 

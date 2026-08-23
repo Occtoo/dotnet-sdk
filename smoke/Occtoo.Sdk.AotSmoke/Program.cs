@@ -9,6 +9,7 @@ using System.Net;
 using System.Text;
 using Occtoo;
 using Occtoo.Authentication;
+using Occtoo.Events;
 using Occtoo.Http;
 using Occtoo.Sources;
 
@@ -89,6 +90,46 @@ Check("request body carries native JSON types", transport.LastBody is { } body
 var rejected = await client.Sources.IngestEntries(SourceId.From("products"), [entry]);
 Check("problem details mapped to ValidationError",
     rejected is { IsFailure: true, Error: ValidationError { Failures.Count: 1 } });
+
+// 3. Events: envelope parsing into the typed records (hand-rolled JsonElement
+//    mapping, no reflection) and the filter grammar.
+transport.Enqueue(HttpStatusCode.OK, """
+    {
+      "items": [
+        {
+          "id": "9f4f2c74-6a3e-4a5b-9a2f-3e6f0d1c2b3a",
+          "type": "source_entry.added",
+          "sequence": "0000000000000001",
+          "time": "2026-08-01T10:00:00Z",
+          "data": { "sourceId": "products", "entryKey": "sku-123", "version": 1 }
+        },
+        {
+          "id": "9f4f2c74-6a3e-4a5b-9a2f-3e6f0d1c2b3b",
+          "type": "warehouse.opened",
+          "sequence": "0000000000000002",
+          "data": { "warehouseId": "north" }
+        }
+      ],
+      "after": "0000000000000002",
+      "hasMore": false
+    }
+    """);
+
+var pulled = await client.Events.Pull();
+Check("events page parsed into typed records", pulled.IsSuccess
+    && pulled.Value.Items is [
+        SourceEntryAdded { SourceId.Value: "products", EntryKey.Value: "sku-123" },
+        UnknownEvent { Type: "warehouse.opened" }]
+    && pulled.Value.Next.HasValue
+    && !pulled.Value.HasMore);
+Check("event sequence converts to a cursor",
+    pulled.IsSuccess && pulled.Value.Items[0].Sequence.AsCursor().Value == "0000000000000001");
+
+var filter = EventFilter
+    .OfType<SourceEntryAdded>(e => e.WithSource("products"))
+    .ToString();
+Check("event filter renders the grammar",
+    filter == """type eq "source_entry.added" and sourceId eq "products" """.TrimEnd());
 
 Console.WriteLine(failures == 0 ? "AOT smoke: OK" : $"AOT smoke: {failures} FAILED");
 return failures == 0 ? 0 : 1;

@@ -9,7 +9,9 @@ trace listener, neither costs anything.
 The SDK logs under the `Occtoo` category prefix —
 `Occtoo.Authentication` (token acquisition and renewal, device sign-in),
 `Occtoo.Http` (the revoked-token retry), `Occtoo.Sources` (batches sent,
-accepted with their correlation id, or rejected). With dependency injection the
+accepted with their correlation id, or rejected), `Occtoo.Events` (pages
+pulled, stream connections and reconnects, skipped events). With dependency
+injection the
 host's logging is picked up automatically; without it, set
 `OcctooClientOptions.LoggerFactory`.
 
@@ -61,6 +63,8 @@ spans when it is not:
 |---|---|---|
 | `ingest {source}` | Client | `occtoo.source.id`, `occtoo.ingest.entry_count`, `occtoo.ingest.correlation_id` (on acceptance) |
 | `authenticate` | Client | `occtoo.credential.type` (`client_credentials`, `device_code`, `delegate`) |
+| `pull events` | Client | `occtoo.events.limit`, `occtoo.events.count` |
+| `stream events` | Client | one span per connection attempt |
 
 A token acquisition triggered mid-request nests under the operation that needed
 it, so a slow ingest that was really a slow token exchange shows up as exactly

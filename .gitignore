@@ -70,3 +70,6 @@ desktop.ini
 # Tooling
 .tool-versions
 node_modules/
+
+# Written by examples/Occtoo.Sdk.Examples.EventConsumer at runtime
+checkpoint.json

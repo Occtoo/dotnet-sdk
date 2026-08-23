@@ -16,6 +16,7 @@
     <Project Path="tests/Occtoo.Sdk.Tests/Occtoo.Sdk.Tests.csproj" />
   </Folder>
   <Folder Name="/examples/">
+    <Project Path="examples/Occtoo.Sdk.Examples.EventConsumer/Occtoo.Sdk.Examples.EventConsumer.csproj" />
     <Project Path="examples/Occtoo.Sdk.Examples.QuickStart/Occtoo.Sdk.Examples.QuickStart.csproj" />
     <Project Path="examples/Occtoo.Sdk.Examples.Worker/Occtoo.Sdk.Examples.Worker.csproj" />
   </Folder>

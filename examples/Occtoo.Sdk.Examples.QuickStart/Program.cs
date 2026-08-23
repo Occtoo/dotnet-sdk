@@ -1,8 +1,9 @@
 // Quick start. Pick how to authenticate; everything after that is the same
-// two steps regardless of the flow:
+// three steps regardless of the flow:
 //
 //   step 1  authenticate  — prove the credential works before any real call
 //   step 2  ingest        — upsert one typed entry into a source
+//   step 3  events        — pull the source's recent events, typed
 //
 // Each flow is its own file with its own placeholders:
 //
@@ -12,6 +13,7 @@
 
 using CSharpFunctionalExtensions;
 using Occtoo;
+using Occtoo.Events;
 using Occtoo.Sdk.Examples.QuickStart;
 using Occtoo.Sources;
 
@@ -66,6 +68,17 @@ return await client
     // a token without it demonstrates the typed error surface instead.
     .Bind(_ => client.Sources.IngestEntries(SourceId.From(OcctooSourceId), [entry]))
     .Tap(PrintReceipt)
+
+    // ── Step 3: events ─────────────────────────────────────────────────────
+    // Every change in the tenant is an event; the filter builder only compiles
+    // conditions valid for the chosen event types. Ingest is asynchronous, so
+    // the entry from step 2 appears here once processing catches up.
+    .Bind(_ => client.Events.Pull(new EventQuery
+    {
+        Filter = EventFilter.OfType<SourceEntryEvent>(e => e.WithSource(OcctooSourceId)),
+        Limit = 10,
+    }))
+    .Tap(PrintEvents)
     .TapError(PrintError)
     .Finally(result => result.IsSuccess ? 0 : 1);
 
@@ -77,6 +90,24 @@ static void PrintReceipt(IngestReceipt receipt)
 
     foreach (var found in receipt.NewProperties)
         Console.WriteLine($"  new property inferred: {found.Id.Value} ({found.Type})");
+}
+
+// The concrete record type is the event type — consuming events is pattern
+// matching, with UnknownEvent for types newer than this SDK.
+static void PrintEvents(Page<CloudEvent> page)
+{
+    Console.WriteLine($"Pulled {page.Items.Count} source-entry events (more: {page.HasMore}).");
+    foreach (var evt in page.Items)
+    {
+        Console.WriteLine("  " + evt switch
+        {
+            SourceEntryAdded e => $"entry '{e.EntryKey.Value}' added to '{e.SourceId.Value}'",
+            SourceEntryUpdated e => $"entry '{e.EntryKey.Value}' updated ({e.ChangedProperties.Count} properties)",
+            SourceEntryDeleted e => $"entry '{e.EntryKey.Value}' deleted from '{e.SourceId.Value}'",
+            UnknownEvent e => $"unknown event type '{e.Type}'",
+            _ => evt.Type,
+        });
+    }
 }
 
 // The error hierarchy is what you branch on: TransientError means retry,

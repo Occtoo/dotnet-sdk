@@ -18,6 +18,9 @@ public static class OcctooLogCategories
 
     /// <summary>The Sources feature — typed ingest.</summary>
     public const string Sources = "Occtoo.Sources";
+
+    /// <summary>The Events feature — pulling and streaming.</summary>
+    public const string Events = "Occtoo.Events";
 }
 
 /// <summary>
@@ -96,4 +99,22 @@ internal static partial class OcctooLog
     [LoggerMessage(EventId = 302, Level = LogLevel.Warning,
         Message = "Ingest into '{SourceId}' failed: {Error}")]
     internal static partial void IngestFailed(ILogger logger, string sourceId, OcctooError error);
+
+    // ── Events (4xx) ───────────────────────────────────────────────────────
+
+    [LoggerMessage(EventId = 400, Level = LogLevel.Debug,
+        Message = "Pulled {Count} events (more retained: {HasMore})")]
+    internal static partial void EventsPulled(ILogger logger, int count, bool hasMore);
+
+    [LoggerMessage(EventId = 401, Level = LogLevel.Information,
+        Message = "Event stream connected")]
+    internal static partial void EventStreamConnected(ILogger logger);
+
+    [LoggerMessage(EventId = 402, Level = LogLevel.Warning,
+        Message = "Event stream disconnected; reconnecting in {Delay}")]
+    internal static partial void EventStreamReconnecting(ILogger logger, TimeSpan delay);
+
+    [LoggerMessage(EventId = 403, Level = LogLevel.Warning,
+        Message = "Skipped an event that could not be parsed: {Reason}")]
+    internal static partial void EventSkipped(ILogger logger, string reason);
 }

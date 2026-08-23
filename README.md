@@ -10,13 +10,13 @@ The official .NET client for [Occtoo](https://www.occtoo.com). One package,
 - **Authentication** — every Occtoo credential behind one abstraction, with
   token caching and refresh handled for you.
 - **Sources** — typed ingest of entries into your sources.
-- **Events** *(planned)* — react to changes across your tenant, by pulling pages
-  or subscribing to a live stream of [CloudEvents](https://cloudevents.io/).
+- **Events** — react to changes across your tenant, by pulling pages or
+  subscribing to a live stream of [CloudEvents](https://cloudevents.io/), with
+  one typed record per event type.
 
 > [!IMPORTANT]
-> **Status: pre-alpha.** Authentication and typed ingest are implemented and
-> tested; `Events` is not built yet, and nothing has been published to NuGet.
-> Expect breaking changes until `1.0`.
+> **Status: pre-alpha.** Authentication, typed ingest, and events are
+> implemented and tested. Expect breaking changes until `1.0`.
 
 ## Getting started
 
@@ -50,6 +50,29 @@ var outcome = await client.Sources
         "Accepted {Count} entries, correlation {Id}",
         receipt.AcceptedEntryCount, receipt.CorrelationId.Value))
     .TapError(error => logger.LogWarning("Ingest failed: {Error}", error));
+```
+
+And consuming events — the concrete record type *is* the event type, filters
+are built fluently and can only express combinations the API accepts (filtering
+`card_definition.updated` by `sourceId` is a compile error, not a `400`), and
+the live stream reconnects and resumes by itself:
+
+```csharp
+using Occtoo.Events;
+
+var filter = EventFilter
+    .OfType<SourceEntryEvent>(e => e.WithSource("products"))
+    .OrType<SegmentUpdated>(e => e.WithSegment("summer-sale"));
+
+await foreach (var evt in client.Events.Stream(new EventStreamOptions { Filter = filter }))
+{
+    switch (evt)
+    {
+        case SourceEntryAdded e:   Sync(e.SourceId, e.EntryKey); break;
+        case SourceEntryEvent e:   Log(e.SourceId);              break; // any other source_entry.*
+        case UnknownEvent e:       LogUnknown(e.Type, e.Data);   break; // types newer than this SDK
+    }
+}
 ```
 
 Every operation returns `Result<T, OcctooError>`
@@ -95,11 +118,15 @@ Occtoo directs you to another environment. Token acquisition, caching
 default, any distributed provider by configuration), refresh-before-expiry,
 single-flight under concurrency, and recovery from a revoked token are handled
 for you. Full guides: [docs/authentication.md](docs/authentication.md) ·
-[docs/sources.md](docs/sources.md). Runnable samples:
+[docs/sources.md](docs/sources.md) · [docs/events.md](docs/events.md).
+Runnable samples:
 [`examples/Occtoo.Sdk.Examples.QuickStart`](examples/Occtoo.Sdk.Examples.QuickStart)
-(each auth flow, then one ingest) and
+(each auth flow, then ingest and an events pull),
 [`examples/Occtoo.Sdk.Examples.Worker`](examples/Occtoo.Sdk.Examples.Worker)
-(a hosted worker service: appsettings configuration, DI, periodic ingest).
+(a hosted worker service: appsettings configuration, DI, periodic ingest), and
+[`examples/Occtoo.Sdk.Examples.EventConsumer`](examples/Occtoo.Sdk.Examples.EventConsumer)
+(a paginated event consumer that persists its cursor and resumes across
+restarts).
 
 With dependency injection:
 
@@ -137,8 +164,6 @@ See [docs/design-principles.md](docs/design-principles.md) for the reasoning.
 
 ## Installation
 
-Not yet published. Once it is:
-
 ```bash
 dotnet add package Occtoo.Sdk
 ```
@@ -157,14 +182,16 @@ tokens issued by `https://auth.occtoo.com`.
 Requires the `write:sources` scope. The legacy string-based import
 (`/datasources/{dataSource}/import`) and media ingest are not wrapped yet.
 
-### Events *(planned)*
+### Events
 
 | Method | Path | Purpose |
 |---|---|---|
-| `GET` | `/v1/event-types` | The authoritative catalog: types, schema versions, filterable properties |
 | `GET` | `/v1/events` | Pull a page of events in ascending `sequence` order, by cursor |
 | `GET` | `/v1/events/stream` | Subscribe to a resumable Server-Sent Events stream |
-| `GET` | `/v1/events/schemas/{type}/{version}` | Fetch one immutable JSON Schema |
+
+The catalog endpoints (`/v1/event-types`, `/v1/events/schemas/{type}/{version}`)
+are not wrapped: the SDK ships the catalog as types — one sealed record per
+event type, so the schema is what your code compiles against.
 
 Full reference: [Ingest API](https://docs.occtoo.com/api-reference/ingest/overview)
 · [Events API](https://docs.occtoo.com/api-reference/events/overview)
@@ -179,8 +206,8 @@ docs/       contributor and design documentation
 ```
 
 Inside `src/Occtoo.Sdk`, code is organized by feature: `Authentication/`,
-`Sources/`, and `Common/` for what they share (the error model, the HTTP
-pipeline, JSON conventions).
+`Sources/`, `Events/`, and `Common/` for what they share (the error model, the
+HTTP pipeline, JSON conventions).
 
 | File | Role |
 |---|---|

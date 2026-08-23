@@ -1,5 +1,6 @@
 using CSharpFunctionalExtensions;
 using Occtoo.Authentication;
+using Occtoo.Events;
 using Occtoo.Http;
 using Occtoo.Http.Internal;
 using Occtoo.Logging;
@@ -79,13 +80,16 @@ public sealed class OcctooClient : IDisposable
             InnerHandler = resilience ?? (HttpMessageHandler)transport,
         };
 
+        // The HttpClient-level timeout stays infinite: it would sever long-lived
+        // event streams. OcctooTransport enforces Options.Timeout per request.
         _httpClient = new HttpClient(authentication)
         {
             BaseAddress = options.BaseAddress,
-            Timeout = options.Timeout,
+            Timeout = Timeout.InfiniteTimeSpan,
         };
         _ownsHttpClient = true;
-        Sources = new SourcesClient(_httpClient, options.LoggerFactory.CreateLogger(OcctooLogCategories.Sources));
+        Sources = CreateSources();
+        Events = CreateEvents();
     }
 
     /// <summary>
@@ -115,8 +119,19 @@ public sealed class OcctooClient : IDisposable
         httpClient.BaseAddress ??= options.BaseAddress;
         _httpClient = httpClient;
         _ownsHttpClient = false;
-        Sources = new SourcesClient(_httpClient, options.LoggerFactory.CreateLogger(OcctooLogCategories.Sources));
+        Sources = CreateSources();
+        Events = CreateEvents();
     }
+
+    private SourcesClient CreateSources() => new(
+        _httpClient,
+        Options.LoggerFactory.CreateLogger(OcctooLogCategories.Sources),
+        Options.Timeout);
+
+    private EventsClient CreateEvents() => new(
+        _httpClient,
+        Options.LoggerFactory.CreateLogger(OcctooLogCategories.Events),
+        Options.Timeout);
 
     private static void AdoptCredentialLogger(OcctooClientOptions options)
     {
@@ -139,6 +154,12 @@ public sealed class OcctooClient : IDisposable
     /// The Sources feature — typed ingest of entries into sources.
     /// </summary>
     public SourcesClient Sources { get; }
+
+    /// <summary>
+    /// The Events feature — consuming tenant-scoped events by pull or live
+    /// stream.
+    /// </summary>
+    public EventsClient Events { get; }
 
     /// <summary>
     /// Establishes the credential without calling an API, so a misconfigured

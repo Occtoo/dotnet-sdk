@@ -53,6 +53,18 @@ The SDK's job is to know it once, correctly.
 - **Trim/native-AOT compatibility is a hard requirement**, enforced by
   analyzers and a CI smoke test — see
   [conventions.md](conventions.md#trimming-and-native-aot).
+- **Events are typed, cursors are opaque.** One sealed record per documented
+  event type (families as abstract bases, `UnknownEvent` for types newer than
+  the SDK); the filter builder is anchored on those types and only compiles
+  combinations the API accepts. The cursor stayed exactly the API's opaque
+  `after` value — bundling the filter into it was considered and rejected as a
+  layer of state the API does not have; the pairing rule ("persist the filter
+  alongside the cursor") lives in [events.md](events.md) instead.
+- **The enumerables throw; everything else returns.** `PullAll` and `Stream`
+  retry and reconnect internally and throw `OcctooEventsException` only for
+  permanent failures — an `IAsyncEnumerable` has no failure track, and
+  wrapping every event in a `Result` would tax the common path to decorate the
+  rare one.
 
 ## Open decisions
 
@@ -60,10 +72,6 @@ The SDK's job is to know it once, correctly.
   documents the recommended 1000-entry ceiling. An automatic batcher over the
   documented limits — with a legible answer for "batch 3 of 7 failed" — remains
   open.
-- **Events: cursors and typing.** When the Events surface lands: a cursor type
-  that carries its filter (so "store the cursor" cannot mean "store half of
-  it"), and typed payloads for known event types with the raw `JsonElement`
-  and unknown types surfaced rather than dropped.
 - **Authorization code with PKCE.** A better desktop experience than device
   code when a browser and loopback redirect exist; deferred because device
   code covers interactive sign-in without binding a port.
