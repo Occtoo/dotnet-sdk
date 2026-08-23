@@ -1,6 +1,6 @@
 using Occtoo.Authentication;
 
-namespace Occtoo.Sdk.Examples.QuickStart;
+namespace Occtoo.Sdk.Examples.Auth;
 
 /// <summary>
 /// An interactive sign-in for a CLI, container or desktop app: the SDK shows a

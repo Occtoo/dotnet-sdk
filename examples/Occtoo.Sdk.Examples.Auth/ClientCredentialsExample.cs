@@ -1,6 +1,6 @@
 using Occtoo.Authentication;
 
-namespace Occtoo.Sdk.Examples.QuickStart;
+namespace Occtoo.Sdk.Examples.Auth;
 
 /// <summary>
 /// A machine-to-machine application — the default for services, workers and
@@ -21,7 +21,9 @@ internal static class ClientCredentialsExample
             {
                 ClientId = ClientId.From(OcctooClientId),
                 Audience = Audience.From(OcctooTenantId),
-                Scopes = [OcctooScopes.WriteSources],   // typed ingest needs write:sources
+                // Request what your integration needs: write:sources for
+                // typed ingest, read:events[:pull|:sse] for events.
+                Scopes = [OcctooScopes.WriteSources, OcctooScopes.ReadEvents],
             },
             ClientSecret.From(OcctooClientSecret));
 }

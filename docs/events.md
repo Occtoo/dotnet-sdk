@@ -113,7 +113,7 @@ All values are absent (and `Total` is `0`) when nothing retained matches the
 filter.
 
 A runnable checkpointing consumer lives at
-[`examples/Occtoo.Sdk.Examples.EventConsumer`](../examples/Occtoo.Sdk.Examples.EventConsumer):
+[`examples/Occtoo.Sdk.Examples.Events.Pull`](../examples/Occtoo.Sdk.Examples.Events.Pull):
 a worker that drains new events page by page, persists the cursor (with its
 filter) after each processed page, and resumes exactly there after a restart.
 

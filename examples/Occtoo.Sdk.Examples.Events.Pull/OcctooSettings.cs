@@ -1,4 +1,4 @@
-namespace Occtoo.Sdk.Examples.EventConsumer;
+namespace Occtoo.Sdk.Examples.Events.Pull;
 
 /// <summary>
 /// The <c>"Occtoo"</c> section of <c>appsettings.json</c>. Any standard

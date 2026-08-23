@@ -1,4 +1,4 @@
-namespace Occtoo.Sdk.Examples.Worker;
+namespace Occtoo.Sdk.Examples.Sources.Ingest;
 
 /// <summary>
 /// The <c>"Occtoo"</c> section of <c>appsettings.json</c>. Any standard

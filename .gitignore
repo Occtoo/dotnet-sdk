@@ -71,5 +71,5 @@ desktop.ini
 .tool-versions
 node_modules/
 
-# Written by examples/Occtoo.Sdk.Examples.EventConsumer at runtime
+# Written by examples/Occtoo.Sdk.Examples.Events.Pull at runtime
 checkpoint.json

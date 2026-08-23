@@ -20,7 +20,7 @@ using Microsoft.Extensions.Hosting;
 using Occtoo;
 using Occtoo.Authentication;
 using Occtoo.DependencyInjection;
-using Occtoo.Sdk.Examples.EventConsumer;
+using Occtoo.Sdk.Examples.Events.Pull;
 
 var builder = Host.CreateApplicationBuilder(args);
 

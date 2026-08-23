@@ -2,7 +2,7 @@ using System.Text.Json;
 using CSharpFunctionalExtensions;
 using Occtoo.Events;
 
-namespace Occtoo.Sdk.Examples.EventConsumer;
+namespace Occtoo.Sdk.Examples.Events.Pull;
 
 /// <summary>
 /// Persists the consumption position — the <c>after</c> cursor from the last

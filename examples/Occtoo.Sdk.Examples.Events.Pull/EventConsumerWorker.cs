@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 using Occtoo.Events;
 using Occtoo.Sources;
 
-namespace Occtoo.Sdk.Examples.EventConsumer;
+namespace Occtoo.Sdk.Examples.Events.Pull;
 
 /// <summary>
 /// Follows a source's entry events by polling in pages — the shape of a real

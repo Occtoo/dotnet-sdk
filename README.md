@@ -119,14 +119,15 @@ default, any distributed provider by configuration), refresh-before-expiry,
 single-flight under concurrency, and recovery from a revoked token are handled
 for you. Full guides: [docs/authentication.md](docs/authentication.md) ·
 [docs/sources.md](docs/sources.md) · [docs/events.md](docs/events.md).
-Runnable samples:
-[`examples/Occtoo.Sdk.Examples.QuickStart`](examples/Occtoo.Sdk.Examples.QuickStart)
-(each auth flow, then ingest and an events pull),
-[`examples/Occtoo.Sdk.Examples.Worker`](examples/Occtoo.Sdk.Examples.Worker)
-(a hosted worker service: appsettings configuration, DI, periodic ingest), and
-[`examples/Occtoo.Sdk.Examples.EventConsumer`](examples/Occtoo.Sdk.Examples.EventConsumer)
-(a paginated event consumer that persists its cursor and resumes across
-restarts).
+
+Runnable samples under [`examples/`](examples), one project per capability:
+
+| Project | Shows |
+|---|---|
+| [`Occtoo.Sdk.Examples.Auth`](examples/Occtoo.Sdk.Examples.Auth) | Every auth flow, one file each: client credentials, API key, device login |
+| [`Occtoo.Sdk.Examples.Sources.Ingest`](examples/Occtoo.Sdk.Examples.Sources.Ingest) | A hosted worker ingesting typed entries periodically — appsettings, DI, SDK log levels |
+| [`Occtoo.Sdk.Examples.Events.Pull`](examples/Occtoo.Sdk.Examples.Events.Pull) | A paginated event consumer that persists its cursor and resumes across restarts |
+| [`Occtoo.Sdk.Examples.Events.SSE`](examples/Occtoo.Sdk.Examples.Events.SSE) | A live subscription over Server-Sent Events, filtered, with automatic reconnect |
 
 With dependency injection:
 

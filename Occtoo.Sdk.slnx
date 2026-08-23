@@ -16,9 +16,10 @@
     <Project Path="tests/Occtoo.Sdk.Tests/Occtoo.Sdk.Tests.csproj" />
   </Folder>
   <Folder Name="/examples/">
-    <Project Path="examples/Occtoo.Sdk.Examples.EventConsumer/Occtoo.Sdk.Examples.EventConsumer.csproj" />
-    <Project Path="examples/Occtoo.Sdk.Examples.QuickStart/Occtoo.Sdk.Examples.QuickStart.csproj" />
-    <Project Path="examples/Occtoo.Sdk.Examples.Worker/Occtoo.Sdk.Examples.Worker.csproj" />
+    <Project Path="examples/Occtoo.Sdk.Examples.Auth/Occtoo.Sdk.Examples.Auth.csproj" />
+    <Project Path="examples/Occtoo.Sdk.Examples.Events.Pull/Occtoo.Sdk.Examples.Events.Pull.csproj" />
+    <Project Path="examples/Occtoo.Sdk.Examples.Events.SSE/Occtoo.Sdk.Examples.Events.SSE.csproj" />
+    <Project Path="examples/Occtoo.Sdk.Examples.Sources.Ingest/Occtoo.Sdk.Examples.Sources.Ingest.csproj" />
   </Folder>
   <Folder Name="/bench/">
     <Project Path="bench/Occtoo.Sdk.Benchmarks/Occtoo.Sdk.Benchmarks.csproj" />

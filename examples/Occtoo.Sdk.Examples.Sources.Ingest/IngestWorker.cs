@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 using Occtoo;
 using Occtoo.Sources;
 
-namespace Occtoo.Sdk.Examples.Worker;
+namespace Occtoo.Sdk.Examples.Sources.Ingest;
 
 /// <summary>
 /// Ingests a small batch of typed entries on a fixed interval — the shape of a
