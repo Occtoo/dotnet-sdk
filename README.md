@@ -12,7 +12,10 @@ The official .NET client for [Occtoo](https://www.occtoo.com). One package,
 - **Sources** — typed ingest of entries into your sources.
 - **Events** — react to changes across your tenant, by pulling pages or
   subscribing to a live stream of [CloudEvents](https://cloudevents.io/), with
-  one typed record per event type.
+  one typed record per event type. Event destinations (webhooks, Azure Service
+  Bus, Azure Storage Queues) deliver the same envelope: `CloudEvent.Parse`
+  types any of them, and `OcctooWebhook.Verify` checks webhook signatures —
+  the part every receiver otherwise hand-rolls.
 
 > [!IMPORTANT]
 > **Status: pre-alpha.** Authentication, typed ingest, and events are

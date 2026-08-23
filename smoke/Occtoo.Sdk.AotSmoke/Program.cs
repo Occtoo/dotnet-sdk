@@ -131,6 +131,33 @@ var filter = EventFilter
 Check("event filter renders the grammar",
     filter == """type eq "source_entry.added" and sourceId eq "products" """.TrimEnd());
 
+// 4. Destinations: standalone parsing and webhook signature verification.
+const string webhookBody = """
+    {
+      "id": "9f4f2c74-6a3e-4a5b-9a2f-3e6f0d1c2b3c",
+      "type": "source_entry.deleted",
+      "sequence": "0000000000000099",
+      "data": { "sourceId": "products", "entryKey": "sku-9", "version": 3 }
+    }
+    """;
+Check("standalone CloudEvent.Parse", CloudEvent.Parse(webhookBody) is
+{ IsSuccess: true, Value: SourceEntryDeleted { EntryKey.Value: "sku-9" } });
+
+const string signingSecret = "whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw";
+var signedAt = DateTimeOffset.UtcNow;
+var unixSeconds = signedAt.ToUnixTimeSeconds().ToString(System.Globalization.CultureInfo.InvariantCulture);
+var signature = Convert.ToBase64String(System.Security.Cryptography.HMACSHA256.HashData(
+    Convert.FromBase64String(signingSecret["whsec_".Length..]),
+    Encoding.UTF8.GetBytes($"delivery-1.{unixSeconds}.{webhookBody}")));
+var verified = OcctooWebhook.Verify(
+    "delivery-1",
+    unixSeconds,
+    $"v1,{signature}",
+    Encoding.UTF8.GetBytes(webhookBody),
+    signingSecret);
+Check("webhook signature verified and event parsed", verified is
+{ IsSuccess: true, Value: { Id: "delivery-1", Event: SourceEntryDeleted } });
+
 Console.WriteLine(failures == 0 ? "AOT smoke: OK" : $"AOT smoke: {failures} FAILED");
 return failures == 0 ? 0 : 1;
 

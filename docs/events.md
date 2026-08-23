@@ -143,6 +143,60 @@ consumer.
 The SSE parsing is the in-box `System.Net.ServerSentEvents` — no extra
 dependency, trim- and AOT-safe.
 
+## Destinations: webhooks and queues
+
+Event destinations push the same events to infrastructure you own — a signed
+webhook, an Azure Service Bus entity, or an Azure Storage Queue. Every
+delivery carries one structured CloudEvent identical to what pull and SSE
+return, so `CloudEvent.Parse` turns any of them into the same typed records:
+
+```csharp
+// An Azure Service Bus or Storage Queue consumer:
+CloudEvent.Parse(message.Body.ToMemory())
+    .Tap(Handle)
+    .TapError(error => logger.LogWarning("Undeliverable event: {Error}", error));
+```
+
+Webhook deliveries are signed following the Standard Webhooks convention:
+`webhook-id`, `webhook-timestamp`, and `webhook-signature` headers, an
+HMAC-SHA256 over `{id}.{timestamp}.{body}` with the destination's `whsec_`
+signing secret. `OcctooWebhook.Verify` is the one call a receiving endpoint
+needs — constant-time signature check, replay-window enforcement, and typed
+parsing in one:
+
+```csharp
+app.MapPost("/webhooks/occtoo", async (HttpRequest request) =>
+{
+    using var buffer = new MemoryStream();
+    await request.Body.CopyToAsync(buffer);
+
+    return OcctooWebhook.Verify(
+            request.Headers[OcctooWebhook.IdHeader],
+            request.Headers[OcctooWebhook.TimestampHeader],
+            request.Headers[OcctooWebhook.SignatureHeader],
+            buffer.ToArray(),
+            signingSecret)   // the whsec_ value from creating the destination
+        .Tap(delivery => Handle(delivery.Event))
+        .Finally(result => result switch
+        {
+            { IsSuccess: true } => Results.NoContent(),
+            { Error: AuthenticationError } => Results.Unauthorized(),
+            _ => Results.BadRequest(),
+        });
+});
+```
+
+Two details matter in a real receiver:
+
+- **Verify the raw bytes exactly as received.** Deserializing and
+  re-serializing the body changes it, and the signature no longer matches.
+- **`WebhookDelivery.Id` is stable across retries** — the same logical
+  delivery keeps the same id, which makes it the idempotency key for at-least-
+  once processing.
+
+During signing-secret rotation the signature header may carry several
+space-separated signatures; the delivery is authentic when any matches.
+
 ## The exception to the no-throw rule
 
 `Pull` returns `Result<Page<CloudEvent>, OcctooError>` like the rest of the

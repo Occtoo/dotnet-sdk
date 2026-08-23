@@ -29,6 +29,44 @@ public abstract record CloudEvent
     {
     }
 
+    /// <summary>
+    /// Parses one CloudEvent as delivered outside the SDK's own transports —
+    /// a webhook body, an Azure Service Bus message, an Azure Storage Queue
+    /// message. Every destination delivers the same envelope the pull and SSE
+    /// APIs return, so the result is the same typed records.
+    /// </summary>
+    public static Result<CloudEvent, OcctooError> Parse(string json)
+    {
+        ArgumentNullException.ThrowIfNull(json);
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            return Internal.EventParser.Parse(document.RootElement);
+        }
+        catch (JsonException exception)
+        {
+            return new ValidationError($"The payload is not valid JSON: {exception.Message}");
+        }
+    }
+
+    /// <inheritdoc cref="Parse(string)"/>
+    public static Result<CloudEvent, OcctooError> Parse(ReadOnlyMemory<byte> utf8Json)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(utf8Json);
+            return Internal.EventParser.Parse(document.RootElement);
+        }
+        catch (JsonException exception)
+        {
+            return new ValidationError($"The payload is not valid JSON: {exception.Message}");
+        }
+    }
+
+    /// <inheritdoc cref="Parse(string)"/>
+    public static Result<CloudEvent, OcctooError> Parse(JsonElement envelope) =>
+        Internal.EventParser.Parse(envelope);
+
     /// <summary>The event's deterministic idempotency key.</summary>
     public Guid Id { get; init; }
 
