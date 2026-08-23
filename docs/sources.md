@@ -1,7 +1,7 @@
 # Sources: typed ingest
 
 `client.Sources` wraps the typed ingest endpoint,
-`POST /sources/{sourceId}` — JSON values validated against the source's property
+`POST /v1/sources/{sourceId}` — JSON values validated against the source's property
 configuration and queued for asynchronous processing.
 
 ```csharp

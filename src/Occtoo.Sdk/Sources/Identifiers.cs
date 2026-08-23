@@ -14,7 +14,7 @@ namespace Occtoo.Sources;
 
 /// <summary>
 /// The customer-facing id of a source within the authenticated tenant — the
-/// <c>{sourceId}</c> in <c>POST /sources/{sourceId}</c>. At most 256 characters.
+/// <c>{sourceId}</c> in <c>POST /v1/sources/{sourceId}</c>. At most 256 characters.
 /// </summary>
 [ValueObject<string>(toPrimitiveCasting: CastOperator.Explicit, fromPrimitiveCasting: CastOperator.None)]
 public readonly partial struct SourceId

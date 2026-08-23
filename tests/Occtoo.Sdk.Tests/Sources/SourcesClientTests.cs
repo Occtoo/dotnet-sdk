@@ -63,7 +63,7 @@ public class SourcesClientTests
 
         var request = handler.Requests.Single();
         request.Method.ShouldBe(HttpMethod.Post);
-        request.RequestUri!.ToString().ShouldBe("https://api.occtoo.com/sources/products");
+        request.RequestUri!.ToString().ShouldBe("https://api.occtoo.com/v1/sources/products");
     }
 
     [Fact]

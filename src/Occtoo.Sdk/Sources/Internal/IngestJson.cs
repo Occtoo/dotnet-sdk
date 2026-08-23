@@ -4,7 +4,7 @@ using System.Text.Json.Serialization;
 namespace Occtoo.Sources.Internal;
 
 /// <summary>
-/// The body of <c>POST /sources/{sourceId}</c>, wrapping the caller's entries.
+/// The body of <c>POST /v1/sources/{sourceId}</c>, wrapping the caller's entries.
 /// </summary>
 /// <remarks>
 /// The record and its collection serialize through the source-generated context;

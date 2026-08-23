@@ -13,7 +13,7 @@ using Occtoo.Telemetry;
 namespace Occtoo.Sources;
 
 /// <summary>
-/// The typed ingest surface — <c>POST /sources/{sourceId}</c>. Reached through
+/// The typed ingest surface — <c>POST /v1/sources/{sourceId}</c>. Reached through
 /// <see cref="OcctooClient.Sources"/>.
 /// </summary>
 /// <remarks>
@@ -89,7 +89,7 @@ public sealed class SourcesClient
 
         using var request = new HttpRequestMessage(
             HttpMethod.Post,
-            new Uri($"sources/{Uri.EscapeDataString(sourceId.Value)}", UriKind.Relative));
+            new Uri($"v1/sources/{Uri.EscapeDataString(sourceId.Value)}", UriKind.Relative));
         request.Content = JsonContent.Create(
             new IngestRequestBody(entries),
             IngestJsonContext.Default.IngestRequestBody);

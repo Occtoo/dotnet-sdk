@@ -136,7 +136,7 @@ public class OcctooAuthenticationHandlerTests
             "application/json");
 
         var response = await httpClient.PostAsync(
-            new Uri("https://api.occtoo.com/sources/products"),
+            new Uri("https://api.occtoo.com/v1/sources/products"),
             content,
             TestContext.Current.CancellationToken);
 
