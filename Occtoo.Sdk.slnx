@@ -1,0 +1,28 @@
+<Solution>
+  <Folder Name="/solution/">
+    <File Path=".editorconfig" />
+    <File Path=".gitignore" />
+    <File Path="cog.toml" />
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Packages.props" />
+    <File Path="global.json" />
+    <File Path="README.md" />
+    <File Path="renovate.json" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/Occtoo.Sdk/Occtoo.Sdk.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Occtoo.Sdk.Tests/Occtoo.Sdk.Tests.csproj" />
+  </Folder>
+  <Folder Name="/examples/">
+    <Project Path="examples/Occtoo.Sdk.Examples.QuickStart/Occtoo.Sdk.Examples.QuickStart.csproj" />
+    <Project Path="examples/Occtoo.Sdk.Examples.Worker/Occtoo.Sdk.Examples.Worker.csproj" />
+  </Folder>
+  <Folder Name="/bench/">
+    <Project Path="bench/Occtoo.Sdk.Benchmarks/Occtoo.Sdk.Benchmarks.csproj" />
+  </Folder>
+  <Folder Name="/smoke/">
+    <Project Path="smoke/Occtoo.Sdk.AotSmoke/Occtoo.Sdk.AotSmoke.csproj" />
+  </Folder>
+</Solution>

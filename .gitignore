@@ -1,0 +1,72 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+[Ll]og/
+[Ll]ogs/
+artifacts/
+*.binlog
+
+# Test output
+[Tt]est[Rr]esult*/
+coverage*.json
+coverage*.xml
+coverage*.info
+*.trx
+*.coverage
+*.coverxml
+BenchmarkDotNet.Artifacts/
+
+# NuGet
+*.nupkg
+*.snupkg
+.nuget/
+packages/
+!packages/build/
+*.nuget.props
+*.nuget.targets
+project.lock.json
+project.fragment.lock.json
+
+# Visual Studio / Rider / VS Code
+.vs/
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+_ReSharper*/
+*.DotSettings.user
+*.user
+*.suo
+*.userprefs
+*.sln.docstates
+
+# MSBuild / Roslyn
+*.cache
+*.tlog
+*.ilk
+*.pdb
+*.meta
+*.iobj
+*.ipdb
+.gradle/
+StyleCopReport.xml
+
+# Local secrets and environment overrides
+*.local.json
+appsettings.*.local.json
+.env
+.env.*
+!.env.example
+secrets.json
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+desktop.ini
+
+# Tooling
+.tool-versions
+node_modules/

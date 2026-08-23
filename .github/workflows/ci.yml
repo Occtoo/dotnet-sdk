@@ -1,0 +1,116 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
+  # Turns on deterministic builds and makes warnings errors (Directory.Build.props).
+  ContinuousIntegrationBuild: true
+
+jobs:
+  build:
+    name: build and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v6
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', 'global.json') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Restore
+        run: dotnet restore Occtoo.Sdk.slnx
+
+      - name: Verify formatting
+        run: dotnet format Occtoo.Sdk.slnx --verify-no-changes --no-restore
+
+      - name: Build
+        run: dotnet build Occtoo.Sdk.slnx --configuration Release --no-restore
+
+      - name: Test
+        run: >-
+          dotnet test Occtoo.Sdk.slnx
+          --configuration Release
+          --no-build
+          --logger "GitHubActions;summary.includePassedTests=true"
+          --logger "trx;LogFileName=test-results.trx"
+          --collect "XPlat Code Coverage"
+          --results-directory artifacts/test-results
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results
+          path: artifacts/test-results
+          if-no-files-found: ignore
+
+      - name: Pack
+        run: >-
+          dotnet pack Occtoo.Sdk.slnx
+          --configuration Release
+          --no-build
+          --output artifacts/packages
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v7
+        with:
+          name: packages
+          path: artifacts/packages/*
+
+  aot-smoke:
+    # The trim/AOT analyzers run in the build job; this proves the promise in
+    # the deployment shape itself: a native-AOT, trimmed, ICU-less publish of
+    # the SDK that then actually executes its runtime paths. Catches what
+    # analyzers cannot — a dependency update that starts using reflection, or a
+    # serialization path falling back to runtime codegen.
+    name: native AOT smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v6
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', 'global.json') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Publish native AOT
+        run: >-
+          dotnet publish smoke/Occtoo.Sdk.AotSmoke/Occtoo.Sdk.AotSmoke.csproj
+          --configuration Release
+          --output artifacts/aot-smoke
+
+      - name: Run
+        run: ./artifacts/aot-smoke/Occtoo.Sdk.AotSmoke

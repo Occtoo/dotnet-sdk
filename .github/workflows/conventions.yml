@@ -1,0 +1,45 @@
+name: conventions
+
+# Enforces Conventional Commits on both the individual commits of a pull
+# request and the pull request title (which becomes the squash-merge commit
+# message, and therefore the changelog entry).
+#
+# cocogitto-bot posts the same result as a check run with inline detail; this
+# workflow is the required status check that gates merging.
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, edited, reopened, synchronize]
+
+concurrency:
+  group: conventions-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  cog:
+    name: conventional commits
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # Also installs cog and puts it on PATH for the verify step below.
+      # The SHAs are commit hashes from the PR event — fixed hex format, safe
+      # to interpolate into args.
+      - name: Check commits in this pull request
+        uses: cocogitto/cocogitto-action@v4
+        with:
+          command: check
+          args: ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}
+
+      - name: Check pull request title
+        env:
+          # Passed through the environment, never interpolated into the shell.
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: cog verify "$PR_TITLE"

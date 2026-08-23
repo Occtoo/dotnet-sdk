@@ -1,0 +1,236 @@
+###############################
+# Core EditorConfig Options   #
+###############################
+root = true
+# All files
+[*]
+indent_style = space
+
+# XML project files
+[*.{csproj,vbproj,vcxproj,vcxproj.filters,proj,projitems,shproj}]
+indent_size = 2
+
+# XML config files
+[*.{props,targets,ruleset,config,nuspec,resx,vsixmanifest,vsct}]
+indent_size = 2
+
+# Code files
+[*.{cs,csx,vb,vbx}]
+indent_size = 4
+insert_final_newline = true
+charset = utf-8
+###############################
+# .NET Coding Conventions     #
+###############################
+[*.{cs,vb}]
+# Organize using
+dotnet_sort_system_directives_first = true
+# this. preferences
+dotnet_style_qualification_for_field = false:silent
+dotnet_style_qualification_for_property = false:silent
+dotnet_style_qualification_for_method = false:silent
+dotnet_style_qualification_for_event = false:silent
+# Language keywords vs BCL types preferences
+dotnet_style_predefined_type_for_locals_parameters_members = true:silent
+dotnet_style_predefined_type_for_member_access = true:silent
+# Parentheses preferences
+dotnet_style_parentheses_in_arithmetic_binary_operators = always_for_clarity:silent
+dotnet_style_parentheses_in_relational_binary_operators = always_for_clarity:silent
+dotnet_style_parentheses_in_other_binary_operators = always_for_clarity:silent
+dotnet_style_parentheses_in_other_operators = never_if_unnecessary:silent
+# Modifier preferences
+dotnet_style_require_accessibility_modifiers = for_non_interface_members:silent
+dotnet_style_readonly_field = true:suggestion
+# Expression-level preferences
+dotnet_style_object_initializer = true:suggestion
+dotnet_style_collection_initializer = true:suggestion
+dotnet_style_explicit_tuple_names = true:suggestion
+dotnet_style_null_propagation = true:suggestion
+dotnet_style_coalesce_expression = true:suggestion
+dotnet_style_prefer_is_null_check_over_reference_equality_method = true:silent
+dotnet_style_prefer_inferred_tuple_names = true:suggestion
+dotnet_style_prefer_inferred_anonymous_type_member_names = true:suggestion
+dotnet_style_prefer_auto_properties = true:silent
+dotnet_style_prefer_conditional_expression_over_assignment = true:silent
+dotnet_style_prefer_conditional_expression_over_return = true:silent
+###############################
+# Naming Conventions          #
+###############################
+# Style Definitions
+dotnet_naming_style.pascal_case_style.capitalization             = pascal_case
+# Use PascalCase for constant fields
+dotnet_naming_rule.constant_fields_should_be_pascal_case.severity = suggestion
+dotnet_naming_rule.constant_fields_should_be_pascal_case.symbols  = constant_fields
+dotnet_naming_rule.constant_fields_should_be_pascal_case.style    = pascal_case_style
+dotnet_naming_symbols.constant_fields.applicable_kinds            = field
+dotnet_naming_symbols.constant_fields.applicable_accessibilities  = *
+dotnet_naming_symbols.constant_fields.required_modifiers          = const
+###############################
+# C# Coding Conventions       #
+###############################
+[*.cs]
+# var preferences
+csharp_style_namespace_declarations = file_scoped:warning
+csharp_style_var_for_built_in_types = true:silent
+csharp_style_var_when_type_is_apparent = true:silent
+csharp_style_var_elsewhere = true:silent
+# Expression-bodied members
+csharp_style_expression_bodied_methods = true:silent
+csharp_style_expression_bodied_constructors = true:silent
+csharp_style_expression_bodied_operators = true:silent
+csharp_style_expression_bodied_properties = true:silent
+csharp_style_expression_bodied_indexers = true:silent
+csharp_style_expression_bodied_accessors = true:silent
+# Pattern matching preferences
+csharp_style_pattern_matching_over_is_with_cast_check = true:suggestion
+csharp_style_pattern_matching_over_as_with_null_check = true:suggestion
+# Null-checking preferences
+csharp_style_throw_expression = true:suggestion
+csharp_style_conditional_delegate_call = true:suggestion
+# Modifier preferences
+csharp_preferred_modifier_order = public,private,protected,internal,static,extern,new,virtual,abstract,sealed,override,readonly,unsafe,volatile,async:suggestion
+# Expression-level preferences
+csharp_prefer_braces = false:silent
+csharp_style_deconstructed_variable_declaration = true:suggestion
+csharp_prefer_simple_default_expression = true:suggestion
+csharp_style_inlined_variable_declaration = true:suggestion
+###############################
+# C# Formatting Rules         #
+###############################
+# New line preferences
+csharp_new_line_before_open_brace = all
+csharp_new_line_before_else = true
+csharp_new_line_before_catch = true
+csharp_new_line_before_finally = true
+csharp_new_line_before_members_in_object_initializers = true
+csharp_new_line_before_members_in_anonymous_types = true
+csharp_new_line_between_query_expression_clauses = true
+# Indentation preferences
+csharp_indent_case_contents = true
+csharp_indent_switch_labels = true
+csharp_indent_labels = flush_left
+# Space preferences
+csharp_space_after_cast = false
+csharp_space_after_keywords_in_control_flow_statements = true
+csharp_space_between_method_call_parameter_list_parentheses = false
+csharp_space_between_method_declaration_parameter_list_parentheses = false
+csharp_space_between_parentheses = false
+csharp_space_before_colon_in_inheritance_clause = true
+csharp_space_after_colon_in_inheritance_clause = true
+csharp_space_around_binary_operators = before_and_after
+csharp_space_between_method_declaration_empty_parameter_list_parentheses = false
+csharp_space_between_method_call_name_and_opening_parenthesis = false
+csharp_space_between_method_call_empty_parameter_list_parentheses = false
+# Wrapping preferences
+csharp_preserve_single_line_statements = true
+csharp_preserve_single_line_blocks = true
+
+# Resharper
+resharper_csharp_object_creation_when_type_evident = target_typed
+resharper_csharp_object_creation_when_type_not_evident = target_typed
+resharper_trailing_comma_in_multiline_lists = false
+resharper_csharp_trailing_comma_in_singleline_lists = false
+resharper_virtual_member_call_in_constructor_highlighting = hint
+resharper_unused_parameter_local_highlighting=hint
+resharper_unused_parameter_global_highlighting=error
+
+# dotnet compiler rules. These severities are intentional. We will fix respective warnings 1 by 1 to reduce the blast radius of changes
+dotnet_diagnostic.CS8618.severity = suggestion
+dotnet_diagnostic.CS1998.severity = suggestion
+dotnet_diagnostic.CS1591.severity = suggestion
+dotnet_diagnostic.CS8625.severity = suggestion
+dotnet_diagnostic.CS8620.severity = suggestion
+dotnet_diagnostic.CS8602.severity = suggestion
+dotnet_diagnostic.CS8600.severity = suggestion
+dotnet_diagnostic.CS8603.severity = suggestion
+dotnet_diagnostic.CS8604.severity = suggestion
+dotnet_diagnostic.CS8609.severity = suggestion
+dotnet_diagnostic.CS8509.severity = suggestion
+dotnet_diagnostic.CS8631.severity = suggestion
+dotnet_diagnostic.CS8765.severity = suggestion
+dotnet_diagnostic.CS0618.severity = suggestion
+dotnet_diagnostic.CS8619.severity = suggestion
+dotnet_diagnostic.CS8846.severity = suggestion # switch expression doesnt handle all possible cases
+
+#roslynator
+dotnet_diagnostic.CA1018.severity = suggestion   # 10-occurrences Mark attributes with AttributeUsageAttribute
+dotnet_diagnostic.CA1050.severity = suggestion   # 36-occurrences Declare types in namespaces
+dotnet_diagnostic.CA1806.severity = suggestion   # 3-occurrences Do not ignore method results
+dotnet_diagnostic.CA1816.severity = suggestion   # 5-occurrences Dispose methods should call SuppressFinalize
+dotnet_diagnostic.CA1822.severity = suggestion   # 53-occurrences Mark members as static
+dotnet_diagnostic.CA1825.severity = suggestion   # 14-occurrences Avoid zero-length array allocations
+dotnet_diagnostic.CA1826.severity = suggestion   # 4-occurrences Do not use Enumerable methods on indexable collections
+dotnet_diagnostic.CA1829.severity = suggestion   # 1-occurrences Use Length/Count property instead of Count() when available
+dotnet_diagnostic.CA2016.severity = suggestion   # 2-occurrences Forward the 'CancellationToken' parameter to methods
+dotnet_diagnostic.CA2208.severity = suggestion   # 4-occurrences Instantiate argument exceptions correctly
+dotnet_diagnostic.CA2211.severity = suggestion   # 38-occurrences Non-constant fields should not be visible
+dotnet_diagnostic.CA2254.severity = suggestion   # 27-occurrences Template should be a static expression
+dotnet_diagnostic.CS0028.severity = suggestion   # 19-occurrences Method has the wrong signature to be an entry point
+dotnet_diagnostic.CS0114.severity = suggestion   # 1-occurrences Member hides inherited member; missing override keyword
+dotnet_diagnostic.CS0168.severity = suggestion   # 10-occurrences Variable is declared but never used
+dotnet_diagnostic.CS0169.severity = suggestion   # 5-occurrences Field is never used
+dotnet_diagnostic.CS1591.severity = suggestion   # 328-occurrences Missing XML comment for publicly visible type or member
+dotnet_diagnostic.CS1998.severity = suggestion   # 40-occurrences Async method lacks 'await' operators and will run synchronously
+dotnet_diagnostic.CS8509.severity = suggestion   # 2-occurrences The switch expression does not handle all possible values of its input type (it is not exhaustive).
+dotnet_diagnostic.CS8524.severity = suggestion   # 1-occurrences The switch expression does not handle some values of its input type (it is not exhaustive) involving an unnamed enum value.
+dotnet_diagnostic.CS8600.severity = suggestion   # 5-occurrences Converting null literal or possible null value to non-nullable type.
+dotnet_diagnostic.CS8601.severity = suggestion   # 3-occurrences Possible null reference assignment.
+dotnet_diagnostic.CS8602.severity = suggestion   # 16-occurrences Dereference of a possibly null reference.
+dotnet_diagnostic.CS8603.severity = suggestion   # 11-occurrences Possible null reference return.
+dotnet_diagnostic.CS8604.severity = suggestion   # 24-occurrences Possible null reference argument.
+dotnet_diagnostic.CS8618.severity = suggestion   # 150-occurrences Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
+dotnet_diagnostic.CS8620.severity = suggestion   # 4-occurrences Argument cannot be used for parameter due to differences in the nullability of reference types.
+dotnet_diagnostic.CS8625.severity = suggestion   # 69-occurrences Cannot convert null literal to non-nullable reference type.
+dotnet_diagnostic.CS8631.severity = suggestion   # 1-occurrences The type cannot be used as type parameter in the generic type or method. Nullability of type argument doesn't match constraint type.
+dotnet_diagnostic.CS8632.severity = suggestion   # 13-occurrences The annotation for nullable reference types should only be used in code within a '#nullable' annotations context.
+dotnet_diagnostic.CS8634.severity = suggestion   # 2-occurrences The type cannot be used as type parameter in the generic type or method. Nullability of type argument doesn't match 'class' constraint.
+dotnet_diagnostic.CS8714.severity = suggestion   # 7-occurrences The type cannot be used as type parameter in the generic type or method. Nullability of type argument doesn't match 'notnull' constraint.
+dotnet_diagnostic.CS8765.severity = suggestion   # 2-occurrences Nullability of type of parameter doesn't match overridden member (possibly because of nullability attributes).
+dotnet_diagnostic.RCS1001.severity = suggestion  # 22-occurrences Add braces (when expression spans over multiple lines).
+dotnet_diagnostic.RCS1003.severity = suggestion  # 1-occurrences Add braces to if-else (when expression spans over multiple lines).
+dotnet_diagnostic.RCS1015.severity = suggestion  # 15-occurrences Use nameof operator.
+dotnet_diagnostic.RCS1021.severity = suggestion  # 13-occurrences Convert lambda expression body to expression body.
+dotnet_diagnostic.RCS1032.severity = suggestion  # 1-occurrences Remove redundant parentheses.
+dotnet_diagnostic.RCS1033.severity = suggestion  # 2-occurrences Remove redundant boolean literal.
+dotnet_diagnostic.RCS1036.severity = suggestion  # 88-occurrences Remove unnecessary blank line.
+dotnet_diagnostic.RCS1037.severity = suggestion  # 744-occurrences Remove trailing white-space.
+dotnet_diagnostic.RCS1038.severity = suggestion  # 1-occurrences Remove empty statement.
+dotnet_diagnostic.RCS1049.severity = suggestion  # 7-occurrences Simplify boolean comparison.
+dotnet_diagnostic.RCS1075.severity = suggestion  # 4-occurrences Avoid empty catch clause that catches System.Exception.
+dotnet_diagnostic.RCS1077.severity = suggestion  # 22-occurrences Optimize LINQ method call.
+dotnet_diagnostic.RCS1080.severity = suggestion  # 66-occurrences Use 'Count/Length' property instead of 'Any' method.
+dotnet_diagnostic.RCS1085.severity = suggestion  # 2-occurrences Use auto-implemented property.
+dotnet_diagnostic.RCS1093.severity = suggestion  # 1-occurrences Remove file with no code.
+dotnet_diagnostic.RCS1097.severity = suggestion  # 1-occurrences Remove redundant 'ToString' call.
+dotnet_diagnostic.RCS1102.severity = suggestion  # 21-occurrences Make class static.
+dotnet_diagnostic.RCS1104.severity = suggestion  # 1-occurrences Simplify conditional expression.
+dotnet_diagnostic.RCS1110.severity = suggestion  # 14-occurrences Declare type inside namespace.
+dotnet_diagnostic.RCS1112.severity = suggestion  # 2-occurrences Combine 'Enumerable.Where' method chain.
+dotnet_diagnostic.RCS1118.severity = suggestion  # 35-occurrences Mark local variable as const.
+dotnet_diagnostic.RCS1123.severity = suggestion  # 2-occurrences Add parentheses when necessary.
+dotnet_diagnostic.RCS1128.severity = suggestion  # 8-occurrences Use coalesce expression.
+dotnet_diagnostic.RCS1132.severity = suggestion  # 2-occurrences Remove redundant overriding member.
+dotnet_diagnostic.RCS1139.severity = suggestion  # 8-occurrences Add summary element to documentation comment.
+dotnet_diagnostic.RCS1146.severity = suggestion  # 10-occurrences Use conditional access.
+dotnet_diagnostic.RCS1160.severity = suggestion  # 3-occurrences Abstract type should not have public constructors.
+dotnet_diagnostic.RCS1163.severity = suggestion  # 79-occurrences Unused parameter.
+dotnet_diagnostic.RCS1164.severity = suggestion  # 4-occurrences Unused type parameter.
+dotnet_diagnostic.RCS1169.severity = suggestion  # 18-occurrences Make field read-only.
+dotnet_diagnostic.RCS1170.severity = suggestion  # 4-occurrences Use read-only auto-implemented property.
+dotnet_diagnostic.RCS1187.severity = suggestion  # 2-occurrences Use constant instead of field.
+dotnet_diagnostic.RCS1194.severity = suggestion  # 14-occurrences Implement exception constructors.
+dotnet_diagnostic.RCS1196.severity = suggestion  # 1-occurrences Call extension method as instance method.
+dotnet_diagnostic.RCS1197.severity = suggestion  # 3-occurrences Optimize StringBuilder.Append/AppendLine call.
+dotnet_diagnostic.RCS1202.severity = suggestion  # 2-occurrences Avoid NullReferenceException.
+dotnet_diagnostic.RCS1203.severity = suggestion  # 10-occurrences Use AttributeUsageAttribute.
+dotnet_diagnostic.RCS1212.severity = suggestion  # 1-occurrences Remove redundant assignment.
+dotnet_diagnostic.RCS1213.severity = suggestion  # 24-occurrences Remove unused member declaration.
+dotnet_diagnostic.RCS1214.severity = suggestion  # 22-occurrences Unnecessary interpolated string.
+dotnet_diagnostic.RCS1225.severity = suggestion  # 11-occurrences Make class sealed.
+dotnet_diagnostic.RCS1229.severity = suggestion  # 1-occurrences Use async/await when necessary.
+dotnet_diagnostic.RCS1232.severity = suggestion  # 3-occurrences Order elements in documentation comment.
+dotnet_diagnostic.RCS1235.severity = suggestion  # 2-occurrences Optimize method call.
+dotnet_diagnostic.RCS1246.severity = suggestion  # 17-occurrences Use element access.
+dotnet_diagnostic.RCS1251.severity = suggestion  # 2-occurrences Remove unnecessary braces from record declaration.
+dotnet_diagnostic.xUnit1004.severity = suggestion # 1-occurrences Test methods should not be skipped
+dotnet_diagnostic.RCS1155.severity = suggestion # 1-occurrences Test methods should not be skipped

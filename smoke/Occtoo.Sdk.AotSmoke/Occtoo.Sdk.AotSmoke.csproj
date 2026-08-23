@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- The deployment shape the SDK promises to survive: native AOT with the
+         trimmer on, and no ICU (the setting minimal container images use).
+         AOT only takes effect on `dotnet publish`; a plain build of this
+         project is an ordinary compile. -->
+    <PublishAot>true</PublishAot>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Occtoo.Sdk/Occtoo.Sdk.csproj" />
+  </ItemGroup>
+
+</Project>

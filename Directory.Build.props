@@ -1,0 +1,35 @@
+<Project>
+
+  <!--
+    Properties shared by every project in the repository.
+    Packaging metadata lives in src/Directory.Build.props; test and example
+    settings live in the corresponding folder-level files.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AccelerateBuildsInVisualStudio>true</AccelerateBuildsInVisualStudio>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!-- Bumped by `cog bump`; the release workflow overrides it with the tag. -->
+    <VersionPrefix>0.1.1</VersionPrefix>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <!-- Warnings are advisory locally so a work-in-progress build still runs;
+         CI treats them as errors so nothing lands with them. -->
+    <TreatWarningsAsErrors Condition="'$(ContinuousIntegrationBuild)' == 'true'">true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!-- NU1902/NU1903: package vulnerability warnings. NU1510: net10 package pruning. -->
+    <NoWarn>$(NoWarn);NU1902;NU1903;NU1510</NoWarn>
+  </PropertyGroup>
+
+</Project>

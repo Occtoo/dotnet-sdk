@@ -1,0 +1,16 @@
+<Project>
+
+  <Import Project="$(MSBuildThisFileDirectory)../Directory.Build.props" />
+
+  <!-- Examples are compiled by CI so they never go stale, but never shipped. -->
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <OutputType>Exe</OutputType>
+    <!-- CA1848/CA1873: LoggerMessage delegates and guarded argument evaluation
+         are the right call in a hot service, but in examples plain logger
+         calls read better — and reading is what examples are for. -->
+    <NoWarn>$(NoWarn);CA1848;CA1873</NoWarn>
+  </PropertyGroup>
+
+</Project>

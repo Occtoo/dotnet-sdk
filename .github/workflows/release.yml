@@ -1,0 +1,207 @@
+name: release
+
+# The one way to ship. Run from the Actions tab when main is ready.
+#
+#   1. `cog bump` derives the next semantic version from the conventional
+#      commits since the last tag, updates CHANGELOG.md and
+#      Directory.Build.props, commits (with [skip ci] — CI already validated
+#      these sources on main), and pushes the `vX.Y.Z` tag.
+#   2. A GitHub Release is created for that tag with cocogitto's changelog as
+#      the notes — as the record of the release, not as a trigger.
+#   3. The publish job builds the tag, packs, attaches the packages to the
+#      release, pushes to NuGet (when enabled), and syncs the release into
+#      Linear.
+#
+# `dry-run: true` prints the version and changelog cocogitto would produce and
+# stops — nothing is tagged, released, or published.
+
+on:
+  workflow_dispatch:
+    inputs:
+      increment:
+        description: How to pick the next version
+        type: choice
+        default: auto
+        options: [auto, patch, minor, major]
+      dry-run:
+        description: Show the version and changelog without tagging
+        type: boolean
+        default: false
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  ContinuousIntegrationBuild: true
+
+jobs:
+  bump:
+    name: bump version
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write # push the bump commit, the tag and the release
+    outputs:
+      tag: ${{ steps.bump.outputs.tag }}
+      version: ${{ steps.bump.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          # cog pushes the bump commit and tag to the protected main branch.
+          # The push authenticates with the repo's write deploy key, which is
+          # on the ruleset's bypass list ("Deploy keys") — no PAT, no expiry.
+          # checkout rewrites the remote to SSH when ssh-key is set, so the
+          # post-bump `git push` hooks use it automatically.
+          ssh-key: ${{ secrets.BUMP_SSH_KEY }}
+          persist-credentials: true
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Preview the next version
+        if: inputs.dry-run
+        uses: cocogitto/cocogitto-action@v4
+        with:
+          git-user: github-actions[bot]
+          git-user-email: github-actions[bot]@users.noreply.github.com
+          command: bump
+          # `increment` is a fixed choice list, safe to interpolate.
+          args: --dry-run --${{ inputs.increment }}
+
+      - name: Bump and tag
+        if: ${{ !inputs.dry-run }}
+        uses: cocogitto/cocogitto-action@v4
+        with:
+          git-user: github-actions[bot]
+          git-user-email: github-actions[bot]@users.noreply.github.com
+          command: bump
+          # --skip-ci stamps the version commit so its push does not trigger
+          # another CI run — CI already validated these sources on main.
+          args: --${{ inputs.increment }} --skip-ci
+
+      - name: Resolve the created tag
+        if: ${{ !inputs.dry-run }}
+        id: bump
+        run: |
+          set -euo pipefail
+          tag=$(git describe --tags --abbrev=0)
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Create the GitHub Release
+        if: ${{ !inputs.dry-run }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.bump.outputs.tag }}
+        run: |
+          set -euo pipefail
+          cog changelog --at "$TAG" > release-notes.md
+          gh release create "$TAG" \
+            --title "$TAG" \
+            --notes-file release-notes.md \
+            --verify-tag
+
+  publish:
+    name: pack and publish
+    needs: bump
+    if: ${{ !inputs.dry-run }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    permissions:
+      contents: write # attach packages to the release
+      id-token: write # mint the OIDC token Trusted Publishing exchanges
+    env:
+      LINEAR_ACCESS_KEY: ${{ secrets.LINEAR_ACCESS_KEY }}
+      TAG: ${{ needs.bump.outputs.tag }}
+      VERSION: ${{ needs.bump.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.bump.outputs.tag }}
+          # Full history: the Linear release action scans the commits since the
+          # previous release to attach referenced issues.
+          fetch-depth: 0
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore Occtoo.Sdk.slnx
+
+      - name: Build
+        run: dotnet build Occtoo.Sdk.slnx --configuration Release --no-restore -p:Version="$VERSION"
+
+      - name: Test
+        run: dotnet test Occtoo.Sdk.slnx --configuration Release --no-build --logger "GitHubActions;summary.includePassedTests=false"
+
+      - name: Pack
+        run: >-
+          dotnet pack Occtoo.Sdk.slnx
+          --configuration Release
+          --no-build
+          -p:Version="$VERSION"
+          --output artifacts/packages
+
+      - name: Attach packages to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$TAG" artifacts/packages/* --clobber
+
+      # Trusted Publishing: exchange this run's OIDC identity for a NuGet API
+      # key that lives only for this job. The nuget.org account named by the
+      # NUGET_USER variable must have a Trusted Publishing policy matching this
+      # repository, workflow file, and environment.
+      - name: Log in to NuGet (Trusted Publishing)
+        if: vars.NUGET_PUBLISH == 'true'
+        id: nuget-login
+        uses: NuGet/login@v1
+        with:
+          user: ${{ vars.NUGET_USER }}
+
+      - name: Push to NuGet
+        if: vars.NUGET_PUBLISH == 'true'
+        env:
+          NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
+        run: >-
+          dotnet nuget push "artifacts/packages/*.nupkg"
+          --source https://api.nuget.org/v3/index.json
+          --api-key "$NUGET_API_KEY"
+          --skip-duplicate
+
+      - name: Note that publishing is disabled
+        if: vars.NUGET_PUBLISH != 'true'
+        run: |
+          echo "### NuGet publishing is disabled" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Packages were built and attached to the release but not pushed." >> "$GITHUB_STEP_SUMMARY"
+          echo "To enable: create a Trusted Publishing policy on nuget.org for this repository and workflow, then set the \`NUGET_USER\` and \`NUGET_PUBLISH\` repository variables." >> "$GITHUB_STEP_SUMMARY"
+
+      # Linear's official release action: creates/updates the release in the
+      # pipeline the access key belongs to, attaches issues referenced by the
+      # commits since the previous release, and files the changelog as the
+      # release notes. Best-effort: a Linear outage must not fail a release
+      # that already shipped.
+      - name: Sync release to Linear
+        if: env.LINEAR_ACCESS_KEY != ''
+        continue-on-error: true
+        uses: linear/linear-release-action@v0
+        with:
+          access_key: ${{ secrets.LINEAR_ACCESS_KEY }}
+          command: sync
+          version: ${{ needs.bump.outputs.tag }}
+          name: Occtoo.Sdk ${{ needs.bump.outputs.version }}
+          links: |
+            GitHub Release=https://github.com/${{ github.repository }}/releases/tag/${{ needs.bump.outputs.tag }}

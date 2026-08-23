@@ -1,0 +1,14 @@
+<Project>
+
+  <Import Project="$(MSBuildThisFileDirectory)../Directory.Build.props" />
+
+  <!-- Deployment-shape verification: small executables that CI publishes the
+       way real consumers do (native AOT, trimmed, invariant globalization) and
+       then runs. Never shipped. -->
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+</Project>

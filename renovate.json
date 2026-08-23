@@ -1,0 +1,81 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":dependencyDashboard",
+    ":semanticCommits",
+    "helpers:pinGitHubActionDigests"
+  ],
+  "timezone": "Europe/Stockholm",
+  "schedule": ["before 6am on monday"],
+  "prConcurrentLimit": 5,
+  "labels": ["dependencies"],
+  "commitMessageTopic": "{{depName}}",
+  "packageRules": [
+    {
+      "description": "Central Package Management is the only place versions are declared.",
+      "matchManagers": ["nuget"],
+      "semanticCommitType": "chore",
+      "semanticCommitScope": "deps"
+    },
+    {
+      "description": "Group the test stack so xunit, the runner and the test SDK move together.",
+      "matchManagers": ["nuget"],
+      "matchPackageNames": [
+        "coverlet.collector",
+        "GitHubActionsTestLogger",
+        "Microsoft.NET.Test.Sdk",
+        "NSubstitute",
+        "Shouldly",
+        "xunit.v3",
+        "xunit.runner.visualstudio"
+      ],
+      "groupName": "test dependencies"
+    },
+    {
+      "description": "Group GitHub Actions bumps into one PR.",
+      "matchManagers": ["github-actions"],
+      "groupName": "github actions",
+      "semanticCommitType": "ci",
+      "semanticCommitScope": "deps"
+    },
+    {
+      "description": "The SDK pin in global.json is a deliberate choice; open a PR but never automerge.",
+      "matchManagers": ["dotnet-sdk"],
+      "semanticCommitType": "chore",
+      "semanticCommitScope": "dotnet",
+      "automerge": false
+    },
+    {
+      "description": "Patch and minor updates of dev-only dependencies can merge themselves once CI is green.",
+      "matchManagers": ["nuget"],
+      "matchFileNames": ["Directory.Packages.props"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "matchPackageNames": [
+        "coverlet.collector",
+        "GitHubActionsTestLogger",
+        "Microsoft.NET.Test.Sdk",
+        "NSubstitute",
+        "Shouldly",
+        "xunit.v3",
+        "xunit.runner.visualstudio"
+      ],
+      "automerge": true,
+      "automergeType": "pr"
+    },
+    {
+      "description": "Never bump a shipped dependency's major version silently.",
+      "matchManagers": ["nuget"],
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true
+    }
+  ],
+  "vulnerabilityAlerts": {
+    "labels": ["security"],
+    "schedule": ["at any time"],
+    "automerge": false
+  },
+  "lockFileMaintenance": {
+    "enabled": false
+  }
+}

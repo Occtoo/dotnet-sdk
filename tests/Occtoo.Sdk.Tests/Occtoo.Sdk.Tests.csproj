@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Occtoo.Sdk/Occtoo.Sdk.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The OpenTelemetry SDK and in-memory exporter, to prove the documented
+         wiring — AddSource(OcctooTelemetry.ActivitySourceName) — actually
+         delivers the SDK's spans to an exporter. -->
+    <PackageReference Include="OpenTelemetry" />
+    <PackageReference Include="OpenTelemetry.Exporter.InMemory" />
+  </ItemGroup>
+
+</Project>

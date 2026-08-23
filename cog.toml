@@ -1,0 +1,48 @@
+# Cocogitto configuration — https://docs.cocogitto.io
+#
+# Cocogitto is the single source of truth for commit conventions in this
+# repository. It is used in three places:
+#
+#   1. cocogitto-bot checks every commit and the title of every pull request.
+#   2. `.github/workflows/conventions.yml` runs the same check in CI.
+#   3. `cog bump --auto` derives the next semantic version, writes CHANGELOG.md
+#      and creates the release tag (see docs/releasing.md).
+#
+# Install locally with `cargo install cocogitto` or `brew install cocogitto`,
+# then run `cog install-hook --all` to check messages before they are committed.
+
+tag_prefix = "v"
+branch_whitelist = ["main"]
+
+# PRs are squash-merged, so merge commits should never appear. Ignore them
+# rather than failing the history check if one slips in via the UI.
+ignore_merge_commits = true
+ignore_fixup_commits = true
+
+# Only the conventional types listed below are accepted. Scopes are free-form:
+# use the area a change touches, e.g. `feat(ingest):`, `fix(events):`,
+# `chore(deps):`, `ci(release):`.
+
+# A bump must not be able to tag a broken tree, and Directory.Build.props must
+# agree with the tag so a local `dotnet pack` produces the same version.
+pre_bump_hooks = [
+  "dotnet build Occtoo.Sdk.slnx -c Release",
+  "dotnet test Occtoo.Sdk.slnx -c Release --no-build",
+  "perl -pi -e 's|<VersionPrefix>.*</VersionPrefix>|<VersionPrefix>{{version}}</VersionPrefix>|' Directory.Build.props",
+]
+
+post_bump_hooks = [
+  "git push",
+  "git push origin v{{version}}",
+]
+
+[changelog]
+path = "CHANGELOG.md"
+template = "remote"
+remote = "github.com"
+owner = "Occtoo"
+repository = "dotnet-sdk"
+
+[commit_types]
+# Types beyond the Conventional Commits defaults.
+deps = { changelog_title = "Dependencies" }

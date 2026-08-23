@@ -1,0 +1,13 @@
+<Project>
+
+  <Import Project="$(MSBuildThisFileDirectory)../Directory.Build.props" />
+
+  <!-- Benchmarks: compiled by CI so they cannot go stale, run by hand with
+       `dotnet run` from the benchmark project directory. Never shipped. -->
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+</Project>

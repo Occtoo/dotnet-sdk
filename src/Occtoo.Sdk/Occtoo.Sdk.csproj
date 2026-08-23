@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>Occtoo.Sdk</PackageId>
+    <Description>Client library for the Occtoo Ingest and Events APIs.</Description>
+    <RootNamespace>Occtoo</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Result/Maybe types used across the public API surface. -->
+    <PackageReference Include="CSharpFunctionalExtensions" />
+    <!-- IHttpClientFactory + DI registration. Brings DependencyInjection.Abstractions
+         and Logging.Abstractions, both of which any host already has. -->
+    <PackageReference Include="Microsoft.Extensions.Http" />
+    <!-- Polly-based transient-failure handling; honors Retry-After natively. -->
+    <PackageReference Include="Microsoft.Extensions.Http.Resilience" />
+    <!-- Source-generated value objects (SourceId, EntryId, ...). -->
+    <PackageReference Include="Vogen" />
+    <!-- Token cache: in-memory by default, distributed via any FusionCache provider. -->
+    <PackageReference Include="ZiggyCreatures.FusionCache" />
+  </ItemGroup>
+
+</Project>

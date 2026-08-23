@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" />
+    <ProjectReference Include="../../src/Occtoo.Sdk/Occtoo.Sdk.csproj" />
+  </ItemGroup>
+
+</Project>
