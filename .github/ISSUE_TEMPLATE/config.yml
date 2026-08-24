@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Occtoo platform or tenant issue
+    url: https://www.occtoo.com/contact
+    about: >-
+      Data not appearing, tenant configuration, access grants, destination
+      setup — anything where the SDK behaved but the platform did not do what
+      you expected belongs with Occtoo support.
+  - name: API reference
+    url: https://docs.occtoo.com
+    about: The Occtoo API documentation the SDK is built against.
+  - name: Report a security vulnerability
+    url: https://github.com/Occtoo/dotnet-sdk/security/advisories/new
+    about: Report privately — never in a public issue. See SECURITY.md.

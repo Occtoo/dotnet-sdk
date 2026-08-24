@@ -1,0 +1,28 @@
+name: Feature request
+description: Something the SDK should do, or an API surface it should grow.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem you are solving
+      description: >-
+        What you are trying to do and where the SDK gets in the way — the
+        problem, before any solution. "I need to X, and today that requires Y."
+    validations:
+      required: true
+
+  - type: textarea
+    id: api-shape
+    attributes:
+      label: Proposed API shape
+      description: >-
+        Optional, but welcome — how would the call site look? This SDK cares a
+        lot about its surface, so a sketch moves the discussion fastest.
+      render: csharp
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Workarounds you tried, or other shapes you rejected and why.

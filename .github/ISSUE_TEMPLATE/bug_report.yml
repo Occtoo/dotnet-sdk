@@ -1,0 +1,83 @@
+name: Bug report
+description: Something in the SDK misbehaves — wrong result, wrong error, unexpected exception.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Thanks for the report. One quick routing check: if your data is not
+        showing up in Occtoo but the SDK returned a success receipt, that is
+        usually a platform question for Occtoo support, not an SDK bug —
+        ingest processing is asynchronous.
+
+  - type: input
+    id: sdk-version
+    attributes:
+      label: SDK version
+      description: The `Occtoo.Sdk` package version.
+      placeholder: "0.2.0"
+    validations:
+      required: true
+
+  - type: input
+    id: dotnet-version
+    attributes:
+      label: .NET version
+      placeholder: ".NET 10.0.2"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: deployment-shape
+    attributes:
+      label: Deployment shape
+      options:
+        - Regular (JIT)
+        - Trimmed
+        - Native AOT
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What the SDK did.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+
+  - type: textarea
+    id: error
+    attributes:
+      label: The OcctooError or exception
+      description: >-
+        The error's type and full message. Every API error message carries a
+        `requestId`/`traceId` — include it, it is what diagnostics work from.
+        Redact secrets, tokens, and tenant data.
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction
+      description: The smallest snippet that shows the problem. Placeholders instead of real credentials.
+      render: csharp
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: SDK logs
+      description: >-
+        Setting `"Occtoo": "Debug"` in your logging configuration makes the
+        SDK narrate its decisions — token acquisition, retries, reconnects.
+        Paste the relevant lines if you have them.
+      render: text

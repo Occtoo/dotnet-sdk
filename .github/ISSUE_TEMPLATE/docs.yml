@@ -1,0 +1,19 @@
+name: Documentation issue
+description: Something in the README, docs/, or XML docs is wrong, unclear, or missing.
+labels: [documentation]
+body:
+  - type: input
+    id: location
+    attributes:
+      label: Where
+      description: The file, page, or API member.
+      placeholder: docs/events.md, or the XML docs on EventsClient.Stream
+    validations:
+      required: true
+
+  - type: textarea
+    id: issue
+    attributes:
+      label: What is wrong or missing
+    validations:
+      required: true
