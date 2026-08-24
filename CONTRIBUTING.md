@@ -31,11 +31,17 @@ cog install-hook --all
 
 And the secret-scanning pre-commit hook, so a staged secret blocks the commit
 instead of reaching the remote (rules and test-fixture allowlists live in
-[`.gitleaks.toml`](.gitleaks.toml); CI runs the same scan either way):
+[`.gitleaks.toml`](.gitleaks.toml)):
 
 ```bash
 ln -sf ../../.githooks/pre-commit .git/hooks/pre-commit
 ```
+
+Both hooks degrade gracefully rather than get in your way: without the
+symlink nothing runs locally, and with the symlink but no `gitleaks` binary
+the hook prints a note and lets the commit through. Skipping the local setup
+only costs you earlier feedback, not the protection — the `secret-scan` CI
+job runs the same scan over every push and fails the build on a finding.
 
 ## Making a change
 
