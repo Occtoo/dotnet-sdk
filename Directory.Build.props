@@ -16,7 +16,7 @@
 
   <PropertyGroup>
     <!-- Bumped by `cog bump`; the release workflow overrides it with the tag. -->
-    <VersionPrefix>0.1.1</VersionPrefix>
+    <VersionPrefix>0.2.0</VersionPrefix>
   </PropertyGroup>
 
   <PropertyGroup>
