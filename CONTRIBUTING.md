@@ -9,6 +9,9 @@ Thanks for helping build the Occtoo .NET SDK.
 - [cocogitto](https://docs.cocogitto.io) (`brew install cocogitto` or
   `cargo install cocogitto`) — optional locally, but it lets you catch a bad
   commit message before CI does
+- [gitleaks](https://github.com/gitleaks/gitleaks) (`brew install gitleaks`) —
+  optional locally, but it lets the pre-commit hook catch a leaked secret
+  before CI does
 
 ## Getting started
 
@@ -24,6 +27,14 @@ message locally:
 
 ```bash
 cog install-hook --all
+```
+
+And the secret-scanning pre-commit hook, so a staged secret blocks the commit
+instead of reaching the remote (rules and test-fixture allowlists live in
+[`.gitleaks.toml`](.gitleaks.toml); CI runs the same scan either way):
+
+```bash
+ln -sf ../../.githooks/pre-commit .git/hooks/pre-commit
 ```
 
 ## Making a change

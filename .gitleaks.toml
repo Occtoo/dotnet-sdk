@@ -1,0 +1,22 @@
+# Secret scanning (gitleaks) — run locally by .githooks/pre-commit and
+# enforced by the ci.yml secret-scan job.
+
+[extend]
+useDefault = true
+
+# Occtoo-specific shapes the default rules would miss.
+
+[[rules]]
+id = "occtoo-webhook-signing-secret"
+description = "Occtoo webhook signing secret"
+regex = '''whsec_[A-Za-z0-9+/=]{16,}'''
+keywords = ["whsec_"]
+
+[allowlist]
+description = "Documented fakes used by tests, the AOT smoke, and docs"
+regexes = [
+  # The fake signing secret in OcctooWebhookTests / AotSmoke, and the fake
+  # rotation secret ("other-secret-other-secret", base64).
+  '''whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw''',
+  '''whsec_b3RoZXItc2VjcmV0LW90aGVyLXNlY3JldA==''',
+]

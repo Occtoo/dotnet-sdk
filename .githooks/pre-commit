@@ -1,0 +1,12 @@
+#!/bin/sh
+# Blocks a commit that stages a secret. Fast local feedback only — the
+# ci.yml secret-scan job is the enforcing layer, so skipping this hook
+# (--no-verify, or gitleaks not installed) never skips the check for real.
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+    echo "pre-commit: gitleaks is not installed; skipping the local secret scan (CI still enforces it)." >&2
+    echo "pre-commit: install it with 'brew install gitleaks'." >&2
+    exit 0
+fi
+
+exec gitleaks git --pre-commit --staged --no-banner --redact

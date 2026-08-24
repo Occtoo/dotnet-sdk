@@ -82,6 +82,31 @@ jobs:
           name: packages
           path: artifacts/packages/*
 
+  secret-scan:
+    # The enforcing layer behind .githooks/pre-commit: the local hook is
+    # advisory (skippable, opt-in), this is not. Scans the full pushed
+    # history, with rules and allowlists from .gitleaks.toml. The gitleaks
+    # binary is used directly — the official action requires a license for
+    # organization repositories; the binary does not.
+    name: secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Install gitleaks
+        env:
+          GITLEAKS_VERSION: 8.30.1
+        run: >-
+          curl -sSfL
+          "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          | tar -xz -C /usr/local/bin gitleaks
+
+      - name: Scan
+        run: gitleaks git --no-banner --redact
+
   aot-smoke:
     # The trim/AOT analyzers run in the build job; this proves the promise in
     # the deployment shape itself: a native-AOT, trimmed, ICU-less publish of
