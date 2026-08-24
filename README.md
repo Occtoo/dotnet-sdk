@@ -1,6 +1,12 @@
 # Occtoo .NET SDK
 
-[![ci](https://img.shields.io/github/actions/workflow/status/Occtoo/dotnet-sdk/ci.yml?branch=main&label=ci)](https://github.com/Occtoo/dotnet-sdk/actions/workflows/ci.yml)
+<!-- While the repo is private, only GitHub's own badge endpoint can render
+     the CI status (shields.io queries the API anonymously and cannot see a
+     private repo). When the repo goes public, switch back to the shields.io
+     badge — nuget.org's README image allowlist accepts shields but not this
+     endpoint:
+     https://img.shields.io/github/actions/workflow/status/Occtoo/dotnet-sdk/ci.yml?branch=main&label=ci -->
+[![ci](https://github.com/Occtoo/dotnet-sdk/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Occtoo/dotnet-sdk/actions/workflows/ci.yml)
 [![NuGet](https://img.shields.io/nuget/v/Occtoo.Sdk.svg)](https://www.nuget.org/packages/Occtoo.Sdk)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
