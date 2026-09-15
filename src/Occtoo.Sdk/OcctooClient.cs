@@ -5,6 +5,7 @@ using Occtoo.Events;
 using Occtoo.Http;
 using Occtoo.Http.Internal;
 using Occtoo.Logging;
+using Occtoo.ManagedTags;
 using Occtoo.Sources;
 
 namespace Occtoo;
@@ -92,6 +93,7 @@ public sealed class OcctooClient : IDisposable
         Sources = CreateSources();
         Events = CreateEvents();
         Applications = CreateApplications();
+        ManagedTags = CreateManagedTags();
     }
 
     /// <summary>
@@ -124,6 +126,7 @@ public sealed class OcctooClient : IDisposable
         Sources = CreateSources();
         Events = CreateEvents();
         Applications = CreateApplications();
+        ManagedTags = CreateManagedTags();
     }
 
     private SourcesClient CreateSources() => new(
@@ -139,6 +142,11 @@ public sealed class OcctooClient : IDisposable
     private ApplicationsClient CreateApplications() => new(
         _httpClient,
         Options.LoggerFactory.CreateLogger(OcctooLogCategories.Applications),
+        Options.Timeout);
+
+    private ManagedTagsClient CreateManagedTags() => new(
+        _httpClient,
+        Options.LoggerFactory.CreateLogger(OcctooLogCategories.ManagedTags),
         Options.Timeout);
 
     private static void AdoptCredentialLogger(OcctooClientOptions options)
@@ -174,6 +182,11 @@ public sealed class OcctooClient : IDisposable
     /// applications and their grants.
     /// </summary>
     public ApplicationsClient Applications { get; }
+
+    /// <summary>
+    /// The Managed tags feature — the tenant's managed tags and their values.
+    /// </summary>
+    public ManagedTagsClient ManagedTags { get; }
 
     /// <summary>
     /// Establishes the credential without calling an API, so a misconfigured

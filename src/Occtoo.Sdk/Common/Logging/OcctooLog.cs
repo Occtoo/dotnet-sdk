@@ -24,6 +24,9 @@ public static class OcctooLogCategories
 
     /// <summary>The Applications feature — application and grant management.</summary>
     public const string Applications = "Occtoo.Applications";
+
+    /// <summary>The Managed tags feature — managed tags and their values.</summary>
+    public const string ManagedTags = "Occtoo.ManagedTags";
 }
 
 /// <summary>
@@ -131,4 +134,14 @@ internal static partial class OcctooLog
     [LoggerMessage(EventId = 501, Level = LogLevel.Information,
         Message = "Application {ApplicationId} deleted and its credentials revoked")]
     internal static partial void ApplicationDeleted(ILogger logger, Guid applicationId);
+
+    // ── Managed tags (6xx) ─────────────────────────────────────────────────
+
+    [LoggerMessage(EventId = 600, Level = LogLevel.Information,
+        Message = "Managed tag '{Name}' created with id {ManagedTagId}")]
+    internal static partial void ManagedTagCreated(ILogger logger, Guid managedTagId, string name);
+
+    [LoggerMessage(EventId = 601, Level = LogLevel.Information,
+        Message = "Managed tag {ManagedTagId} deleted with its values")]
+    internal static partial void ManagedTagDeleted(ILogger logger, Guid managedTagId);
 }
