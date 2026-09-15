@@ -27,15 +27,15 @@ internal sealed class FileCheckpointStore(string path)
     /// <paramref name="filter"/> no longer matches the one the cursor was
     /// earned under.
     /// </summary>
-    public Maybe<EventCursor> Load(string filter)
+    public Maybe<PageCursor> Load(string filter)
     {
         if (!File.Exists(path))
-            return Maybe<EventCursor>.None;
+            return Maybe<PageCursor>.None;
 
         var checkpoint = JsonSerializer.Deserialize<Checkpoint>(File.ReadAllText(path));
         return checkpoint is { Cursor.Length: > 0 } && checkpoint.Filter == filter
-            ? Maybe.From(EventCursor.From(checkpoint.Cursor))
-            : Maybe<EventCursor>.None;
+            ? Maybe.From(PageCursor.From(checkpoint.Cursor))
+            : Maybe<PageCursor>.None;
     }
 
     /// <summary>
@@ -43,6 +43,6 @@ internal sealed class FileCheckpointStore(string path)
     /// every event on the page has been handled — the cursor points past the
     /// page, so saving earlier loses events on a crash.
     /// </summary>
-    public void Save(EventCursor cursor, string filter) =>
+    public void Save(PageCursor cursor, string filter) =>
         File.WriteAllText(path, JsonSerializer.Serialize(new Checkpoint(cursor.Value, filter)));
 }

@@ -1,4 +1,5 @@
 using CSharpFunctionalExtensions;
+using Occtoo.Applications;
 using Occtoo.Authentication;
 using Occtoo.Events;
 using Occtoo.Http;
@@ -90,6 +91,7 @@ public sealed class OcctooClient : IDisposable
         _ownsHttpClient = true;
         Sources = CreateSources();
         Events = CreateEvents();
+        Applications = CreateApplications();
     }
 
     /// <summary>
@@ -121,6 +123,7 @@ public sealed class OcctooClient : IDisposable
         _ownsHttpClient = false;
         Sources = CreateSources();
         Events = CreateEvents();
+        Applications = CreateApplications();
     }
 
     private SourcesClient CreateSources() => new(
@@ -131,6 +134,11 @@ public sealed class OcctooClient : IDisposable
     private EventsClient CreateEvents() => new(
         _httpClient,
         Options.LoggerFactory.CreateLogger(OcctooLogCategories.Events),
+        Options.Timeout);
+
+    private ApplicationsClient CreateApplications() => new(
+        _httpClient,
+        Options.LoggerFactory.CreateLogger(OcctooLogCategories.Applications),
         Options.Timeout);
 
     private static void AdoptCredentialLogger(OcctooClientOptions options)
@@ -160,6 +168,12 @@ public sealed class OcctooClient : IDisposable
     /// stream.
     /// </summary>
     public EventsClient Events { get; }
+
+    /// <summary>
+    /// The Applications feature — the tenant's machine-to-machine
+    /// applications and their grants.
+    /// </summary>
+    public ApplicationsClient Applications { get; }
 
     /// <summary>
     /// Establishes the credential without calling an API, so a misconfigured

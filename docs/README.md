@@ -6,7 +6,8 @@ Occtoo lives at [docs.occtoo.com](https://docs.occtoo.com).
 | Document | Contents |
 |---|---|
 | [authentication.md](authentication.md) | Every way to authenticate, which to choose, and what the SDK handles for you |
-| [sources.md](sources.md) | Typed ingest: the entry model, value objects, and the receipt |
+| [applications.md](applications.md) | Managing the tenant's applications and their grants — the identities behind client credentials |
+| [sources.md](sources.md) | Typed ingest: the entry model, value objects, and the receipt | plus source and property management
 | [events.md](events.md) | Typed events: pattern matching, the filter builder, cursors, and the SSE stream |
 | [errors.md](errors.md) | The `Result`/`OcctooError` model and how to branch on it |
 | [observability.md](observability.md) | Logging categories and levels, and OpenTelemetry tracing |

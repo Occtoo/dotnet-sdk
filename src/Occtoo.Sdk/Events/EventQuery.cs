@@ -18,7 +18,7 @@ public sealed record EventQuery
     /// a raw <see cref="EventSequence"/> for recovery. Absent, reading starts
     /// at the earliest retained event.
     /// </summary>
-    public Maybe<EventCursor> After { get; init; } = Maybe<EventCursor>.None;
+    public Maybe<PageCursor> After { get; init; } = Maybe<PageCursor>.None;
 
     /// <summary>
     /// Maximum events per page, between 1 and 1000. Defaults to 100.
@@ -47,7 +47,7 @@ public sealed record EventStreamOptions
     /// The position to resume strictly after. Absent, the stream starts at the
     /// current tail and delivers only events that occur after subscribing.
     /// </summary>
-    public Maybe<EventCursor> After { get; init; } = Maybe<EventCursor>.None;
+    public Maybe<PageCursor> After { get; init; } = Maybe<PageCursor>.None;
 
     /// <summary>
     /// The first delay before reconnecting after the connection drops; doubles
