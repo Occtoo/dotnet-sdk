@@ -102,38 +102,6 @@ public class ApplicationsClientTests
     }
 
     [Fact]
-    public async Task ListAll_follows_cursors_until_the_last_page()
-    {
-        using var handler = new StubHandler()
-            .Respond(HttpStatusCode.OK, $$"""{ "items": [{{ApplicationBody}}], "after": "c1", "totalCount": null }""")
-            .Respond(HttpStatusCode.OK, $$"""{ "items": [{{ApplicationBody}}], "after": null, "totalCount": null }""");
-        using var client = Client(handler);
-
-        var names = new List<string>();
-        await foreach (var application in client.Applications.ListAll(cancellationToken: TestContext.Current.CancellationToken))
-            names.Add(application.Name);
-
-        names.Count.ShouldBe(2);
-        handler.Requests[1].RequestUri!.Query.ShouldContain("after=c1");
-    }
-
-    [Fact]
-    public async Task ListAll_throws_the_typed_exception_when_a_page_fails()
-    {
-        using var handler = new StubHandler().Respond(HttpStatusCode.Forbidden, """{ "title": "no scope" }""");
-        using var client = Client(handler);
-
-        var exception = await Should.ThrowAsync<OcctooListException>(async () =>
-        {
-            await foreach (var _ in client.Applications.ListAll(cancellationToken: TestContext.Current.CancellationToken))
-            {
-            }
-        });
-
-        exception.Error.ShouldBeOfType<ForbiddenError>();
-    }
-
-    [Fact]
     public async Task Create_posts_the_settings_and_returns_the_one_time_secret()
     {
         using var handler = new StubHandler().Respond(HttpStatusCode.Created, $$"""

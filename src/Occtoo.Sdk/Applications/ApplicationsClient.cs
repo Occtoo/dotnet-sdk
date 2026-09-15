@@ -56,19 +56,6 @@ public sealed class ApplicationsClient
             .Map(page => ForwardPages.ToPage(page.Items, page.After, page.TotalCount, dto => dto.ToModel()));
     }
 
-    /// <summary>
-    /// Reads every matching application, fetching pages lazily.
-    /// </summary>
-    /// <exception cref="OcctooListException">A page could not be read.</exception>
-    public IAsyncEnumerable<Application> ListAll(
-        ApplicationListQuery? query = null,
-        CancellationToken cancellationToken = default)
-    {
-        query ??= new ApplicationListQuery();
-        return ForwardPages.ReadAll(
-            (after, ct) => List(query with { Page = query.Page with { After = after } }, ct),
-            cancellationToken);
-    }
 
     /// <summary>Reads one application.</summary>
     public Task<Result<Application, OcctooError>> Get(

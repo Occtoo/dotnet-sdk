@@ -1,4 +1,3 @@
-using System.Runtime.CompilerServices;
 using CSharpFunctionalExtensions;
 
 namespace Occtoo.Http.Internal;
@@ -20,31 +19,4 @@ internal static class ForwardPages
             [.. items.Select(map)],
             after is { Length: > 0 } ? Maybe.From(PageCursor.From(after)) : Maybe<PageCursor>.None,
             totalCount.HasValue ? Maybe.From(totalCount.Value) : Maybe<long>.None);
-
-    /// <summary>
-    /// Folds a paged read into one enumeration: fetch a page, yield its items,
-    /// follow <c>After</c> until it is absent. Failures throw
-    /// <see cref="OcctooListException"/> — an enumerable has no failure track.
-    /// </summary>
-    internal static async IAsyncEnumerable<T> ReadAll<T>(
-        Func<Maybe<PageCursor>, CancellationToken, Task<Result<ForwardPage<T>, OcctooError>>> fetch,
-        [EnumeratorCancellation] CancellationToken cancellationToken)
-    {
-        var after = Maybe<PageCursor>.None;
-
-        while (true)
-        {
-            var page = await fetch(after, cancellationToken).ConfigureAwait(false);
-            if (page.IsFailure)
-                throw new OcctooListException(page.Error);
-
-            foreach (var item in page.Value.Items)
-                yield return item;
-
-            if (page.Value.After.HasNoValue)
-                yield break;
-
-            after = page.Value.After;
-        }
-    }
 }

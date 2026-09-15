@@ -155,17 +155,6 @@ public sealed class SourcesClient
             .Map(page => ForwardPages.ToPage(page.Items, page.After, page.TotalCount, dto => dto.ToModel()));
     }
 
-    /// <summary>Reads every matching source, fetching pages lazily.</summary>
-    /// <exception cref="OcctooListException">A page could not be read.</exception>
-    public IAsyncEnumerable<Source> ListAll(
-        SourceListQuery? query = null,
-        CancellationToken cancellationToken = default)
-    {
-        query ??= new SourceListQuery();
-        return ForwardPages.ReadAll(
-            (after, ct) => List(query with { Page = query.Page with { After = after } }, ct),
-            cancellationToken);
-    }
 
     /// <summary>Reads one source's metadata.</summary>
     public Task<Result<Source, OcctooError>> Get(
@@ -242,14 +231,6 @@ public sealed class SourcesClient
             .Map(result => ForwardPages.ToPage(result.Items, result.After, result.TotalCount, dto => dto.ToModel()));
     }
 
-    /// <summary>Reads every property of a source, fetching pages lazily.</summary>
-    /// <exception cref="OcctooListException">A page could not be read.</exception>
-    public IAsyncEnumerable<SourceProperty> ListAllProperties(
-        SourceId sourceId,
-        CancellationToken cancellationToken = default) =>
-        ForwardPages.ReadAll(
-            (after, ct) => ListProperties(sourceId, new PageRequest { After = after }, ct),
-            cancellationToken);
 
     /// <summary>Reads one property's metadata and workflow state.</summary>
     public Task<Result<SourceProperty, OcctooError>> GetProperty(

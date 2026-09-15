@@ -120,9 +120,8 @@ a delimiter, and a type change may reindex asynchronously, during which the
 property reports `SourcePropertyState.Updating` (`Deleting` after a delete is
 accepted).
 
-`List`, `ListProperties` and their `ListAll*` counterparts page forward the
-same way the applications surface does — see
-[applications.md](applications.md#listing) for cursors and
-`OcctooListException`. Source lists filter by name substring, `SourceType`,
+`List` and `ListProperties` page forward the same way the applications
+surface does — see [applications.md](applications.md#listing) for cursors
+and the paging loop. Source lists filter by name substring, `SourceType`,
 `SourceStatus` and inclusive created/updated windows; soft-deleted sources are
 never listed.

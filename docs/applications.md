@@ -69,6 +69,23 @@ match), inclusive created/updated windows, creating/updating actor — and a
 an `After` cursor that is absent on the last page. Keep the same filters when
 following a cursor; it identifies a position in the *filtered* list.
 
-`ListAll` folds the paging into one `await foreach`. Like the events
-enumerables it throws — `OcctooListException`, carrying the typed error — when
-a page cannot be read, because an `IAsyncEnumerable` has no failure track.
+The SDK does not auto-paginate: how far to read, and what to do when a page
+fails midway, is the caller's call. Draining a list is a short loop:
+
+```csharp
+var query = new ApplicationListQuery();
+while (true)
+{
+    var page = await client.Applications.List(query);
+    if (page.IsFailure)
+        break; // or retry, or surface — every page is its own Result
+
+    foreach (var application in page.Value.Items)
+        Handle(application);
+
+    if (page.Value.After.HasNoValue)
+        break;
+
+    query = query with { Page = query.Page with { After = page.Value.After } };
+}
+```
