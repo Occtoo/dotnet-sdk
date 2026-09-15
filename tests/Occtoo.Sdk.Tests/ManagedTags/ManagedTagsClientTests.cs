@@ -163,8 +163,13 @@ public class ManagedTagsClientTests
 
         handler.Requests[0].RequestUri!.AbsoluteUri
             .ShouldBe("https://api.occtoo.com/v1/managed-tags/6f1c2d3e-4a5b-4c6d-8e7f-9a0b1c2d3e4f/values");
-        handler.Requests[0].Body.ShouldBe(
-            """{"key":"blue","value":{"localizedValue":{"en":"Blue","sv":"Blå"}},"order":1,"parentKey":"cool"}""");
+        using var localizedBody = JsonDocument.Parse(handler.Requests[0].Body!);
+        var localizedRoot = localizedBody.RootElement;
+        localizedRoot.GetProperty("key").GetString().ShouldBe("blue");
+        localizedRoot.GetProperty("value").TryGetProperty("singleValue", out _).ShouldBeFalse();
+        localizedRoot.GetProperty("value").GetProperty("localizedValue").GetProperty("sv").GetString().ShouldBe("Blå");
+        localizedRoot.GetProperty("order").GetDouble().ShouldBe(1);
+        localizedRoot.GetProperty("parentKey").GetString().ShouldBe("cool");
         handler.Requests[1].Body.ShouldBe("""{"key":"s","value":{"singleValue":"Small"},"order":0}""");
     }
 
