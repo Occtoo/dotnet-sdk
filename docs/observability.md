@@ -11,7 +11,8 @@ The SDK logs under the `Occtoo` category prefix —
 `Occtoo.Http` (the revoked-token retry), `Occtoo.Sources` (batches sent,
 accepted with their correlation id, or rejected), `Occtoo.Events` (pages
 pulled, stream connections and reconnects, skipped events), `Occtoo.Applications`
-(applications created and deleted). With dependency
+(applications created and deleted), `Occtoo.ManagedTags` (tags created and
+deleted). With dependency
 injection the
 host's logging is picked up automatically; without it, set
 `OcctooClientOptions.LoggerFactory`.

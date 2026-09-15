@@ -75,6 +75,12 @@ public static class OcctooScopes
     /// </summary>
     public const string WriteApplications = "write:applications";
 
+    /// <summary>Read cards, card definitions, and managed tags.</summary>
+    public const string ReadCards = "read:cards";
+
+    /// <summary>Change cards, card definitions, and managed tags.</summary>
+    public const string WriteCards = "write:cards";
+
     /// <summary>Every Events API transport.</summary>
     public const string ReadEvents = "read:events";
 
