@@ -29,7 +29,7 @@ internal sealed record StoredPropertyDto
 
     public JsonElement Value { get; init; }
 
-    public SourcePropertyType? Type { get; init; }
+    public string? Type { get; init; }
 
     public string? Delimiter { get; init; }
 
@@ -39,15 +39,15 @@ internal sealed record StoredPropertyDto
 
     internal StoredProperty ToModel() => new(
         PropertyId.From(Id),
-        ReadValue(Value, Type),
-        Type.HasValue ? Maybe.From(Type.Value) : Maybe<SourcePropertyType>.None,
+        ReadValue(Value, PropertyTypes.Parse(Type).GetValueOrDefault()),
+        PropertyTypes.Parse(Type),
         Delimiter is { Length: > 0 } ? Maybe.From(Delimiter) : Maybe<string>.None,
         LastUpdated,
         Language is { Length: > 0 } && LanguageCode.TryFrom(Language, out var language)
             ? Maybe.From(language)
             : Maybe<LanguageCode>.None);
 
-    private static PropertyValue ReadValue(JsonElement value, SourcePropertyType? type) => value.ValueKind switch
+    private static PropertyValue ReadValue(JsonElement value, SourcePropertyType type) => value.ValueKind switch
     {
         JsonValueKind.Null or JsonValueKind.Undefined => PropertyValue.Clear,
         JsonValueKind.True => PropertyValue.Boolean(true),
