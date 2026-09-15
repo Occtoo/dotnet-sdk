@@ -38,7 +38,7 @@ internal sealed record SourcePropertyDto
 
     public string? Description { get; init; }
 
-    public SourcePropertyType? Type { get; init; }
+    public string? Type { get; init; }
 
     public string? Delimiter { get; init; }
 
@@ -48,7 +48,7 @@ internal sealed record SourcePropertyDto
         PropertyId.From(Id),
         DisplayName,
         Description is { Length: > 0 } ? Maybe.From(Description) : Maybe<string>.None,
-        Type.HasValue ? Maybe.From(Type.Value) : Maybe<SourcePropertyType>.None,
+        PropertyTypes.Parse(Type),
         Delimiter is { Length: > 0 } ? Maybe.From(Delimiter) : Maybe<string>.None,
         State);
 }
@@ -84,3 +84,18 @@ internal sealed record ForwardPageDto<T>
 [JsonSerializable(typeof(ForwardPageDto<SourceDto>))]
 [JsonSerializable(typeof(ForwardPageDto<SourcePropertyDto>))]
 internal sealed partial class SourcesJsonContext : JsonSerializerContext;
+
+/// <summary>
+/// Reads a property type name leniently: a name this SDK does not know
+/// (a legacy or future type) reads as untyped rather than failing the
+/// whole response.
+/// </summary>
+internal static class PropertyTypes
+{
+    internal static Maybe<SourcePropertyType> Parse(string? name) =>
+        name is { Length: > 0 }
+        && Enum.TryParse<SourcePropertyType>(name, ignoreCase: true, out var type)
+        && Enum.IsDefined(type)
+            ? Maybe.From(type)
+            : Maybe<SourcePropertyType>.None;
+}

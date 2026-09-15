@@ -125,7 +125,8 @@ public class SourceManagementTests
             {
               "items": [
                 {{PropertyBody}},
-                { "id": "legacy", "displayName": "Legacy", "description": null, "type": null, "delimiter": null, "state": "Deleting" }
+                { "id": "legacy", "displayName": "Legacy", "description": null, "type": null, "delimiter": null, "state": "Deleting" },
+                { "id": "wild", "displayName": "Wild", "description": null, "type": "Wildcard", "delimiter": null, "state": "Active" }
               ],
               "after": "next",
               "totalCount": null
@@ -137,11 +138,12 @@ public class SourceManagementTests
             Products, new PageRequest { Limit = 10 }, TestContext.Current.CancellationToken);
 
         var page = result.Value;
-        page.Items.Count.ShouldBe(2);
+        page.Items.Count.ShouldBe(3);
         page.Items[0].Type.GetValueOrThrow().ShouldBe(SourcePropertyType.List);
         page.Items[0].Delimiter.GetValueOrDefault().ShouldBe(",");
         page.Items[1].Type.HasNoValue.ShouldBeTrue();
         page.Items[1].State.ShouldBe(SourcePropertyState.Deleting);
+        page.Items[2].Type.HasNoValue.ShouldBeTrue(); // a type name this SDK does not know reads as untyped
         page.After.GetValueOrThrow().Value.ShouldBe("next");
 
         handler.Requests.Single().RequestUri!.AbsoluteUri
