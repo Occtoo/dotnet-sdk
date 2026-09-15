@@ -303,8 +303,8 @@ public sealed class SourcesClient
         SourceId sourceId,
         EntryId entryId,
         CancellationToken cancellationToken = default) =>
-        _api.Send(
-                OcctooJsonApi.Request(HttpMethod.Get, new Uri(
+        OcctooTransport.Send(_httpClient, _requestTimeout,
+                OcctooTransport.Request(HttpMethod.Get, new Uri(
                     $"v1/sources/{Uri.EscapeDataString(sourceId.Value)}/entries/{Uri.EscapeDataString(entryId.Value)}",
                     UriKind.Relative)),
                 "get source entry", SourceEntriesJsonContext.Default.StoredEntryDto, cancellationToken)
@@ -332,8 +332,7 @@ public sealed class SourcesClient
             .AddEach("id", [.. entryIds.Select(id => id.Value)])
             .ToUri();
 
-        return _api
-            .Send(OcctooJsonApi.Request(HttpMethod.Get, uri), "get source entries",
+        return OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Get, uri), "get source entries",
                 SourceEntriesJsonContext.Default.StoredEntriesDto, cancellationToken)
             .Map(IReadOnlyList<StoredSourceEntry> (dto) => [.. dto.Items.Select(item => item.ToModel())]);
     }
