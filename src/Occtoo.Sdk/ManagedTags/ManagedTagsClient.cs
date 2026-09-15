@@ -29,13 +29,13 @@ public sealed class ManagedTagsClient
     // ── Tags ───────────────────────────────────────────────────────────────
 
     /// <summary>Reads one page of managed tags.</summary>
-    public Task<Result<ForwardPage<ManagedTag>, OcctooError>> List(
+    public Task<Result<Page<ManagedTag>, OcctooError>> List(
         ManagedTagListQuery? query = null,
         CancellationToken cancellationToken = default)
     {
         query ??= new ManagedTagListQuery();
-        if (ForwardPages.Validate(query.Page) is { HasValue: true } invalid)
-            return Task.FromResult(Result.Failure<ForwardPage<ManagedTag>, OcctooError>(invalid.Value));
+        if (Pages.Validate(query.Page) is { HasValue: true } invalid)
+            return Task.FromResult(Result.Failure<Page<ManagedTag>, OcctooError>(invalid.Value));
 
         var uri = new QueryString("v1/managed-tags")
             .Add("name", query.Name)
@@ -52,7 +52,7 @@ public sealed class ManagedTagsClient
         return _api
             .Send(OcctooJsonApi.Request(HttpMethod.Get, uri), "list managed tags",
                 ManagedTagsJsonContext.Default.ForwardPageDtoManagedTagDto, cancellationToken)
-            .Map(page => ForwardPages.ToPage(page.Items, page.After, page.TotalCount, dto => dto.ToModel()));
+            .Map(page => Pages.ToPage(page.Items, page.After, page.TotalCount, dto => dto.ToModel()));
     }
 
 
@@ -112,14 +112,14 @@ public sealed class ManagedTagsClient
     // ── Values ─────────────────────────────────────────────────────────────
 
     /// <summary>Reads one page of a managed tag's values.</summary>
-    public Task<Result<ForwardPage<ManagedTagValue>, OcctooError>> ListValues(
+    public Task<Result<Page<ManagedTagValue>, OcctooError>> ListValues(
         ManagedTagId managedTagId,
         ManagedTagValueListQuery? query = null,
         CancellationToken cancellationToken = default)
     {
         query ??= new ManagedTagValueListQuery();
-        if (ForwardPages.Validate(query.Page) is { HasValue: true } invalid)
-            return Task.FromResult(Result.Failure<ForwardPage<ManagedTagValue>, OcctooError>(invalid.Value));
+        if (Pages.Validate(query.Page) is { HasValue: true } invalid)
+            return Task.FromResult(Result.Failure<Page<ManagedTagValue>, OcctooError>(invalid.Value));
 
         var uri = new QueryString($"v1/managed-tags/{managedTagId.Value:D}/values")
             .Add("key", query.Key)
@@ -131,7 +131,7 @@ public sealed class ManagedTagsClient
         return _api
             .Send(OcctooJsonApi.Request(HttpMethod.Get, uri), "list managed tag values",
                 ManagedTagsJsonContext.Default.ForwardPageDtoManagedTagValueDto, cancellationToken)
-            .Map(page => ForwardPages.ToPage(page.Items, page.After, page.TotalCount, dto => dto.ToModel()));
+            .Map(page => Pages.ToPage(page.Items, page.After, page.TotalCount, dto => dto.ToModel()));
     }
 
 
