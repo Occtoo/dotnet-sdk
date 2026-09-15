@@ -65,8 +65,8 @@ exists succeeds.
 
 `List` takes an `ApplicationListQuery` — name substring, tags (all must
 match), inclusive created/updated windows, creating/updating actor — and a
-`PageRequest`. Lists are forward-only: a `ForwardPage<T>` carries `Items` and
-an `After` cursor that is absent on the last page. Keep the same filters when
+`PageRequest`. Lists are forward-only: a `Page<T>` carries `Items`, a `Next` cursor, and
+`HasMore` — false on the last page, where management lists return no cursor. Keep the same filters when
 following a cursor; it identifies a position in the *filtered* list.
 
 The SDK does not auto-paginate: how far to read, and what to do when a page
@@ -83,9 +83,9 @@ while (true)
     foreach (var application in page.Value.Items)
         Handle(application);
 
-    if (page.Value.After.HasNoValue)
+    if (!page.Value.HasMore)
         break;
 
-    query = query with { Page = query.Page with { After = page.Value.After } };
+    query = query with { Page = query.Page with { After = page.Value.Next } };
 }
 ```

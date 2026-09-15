@@ -79,7 +79,7 @@ public class EventsClientTests
             {
                 Limit = 5,
                 IncludeTotal = true,
-                After = Maybe.From(EventCursor.From("0000000000000009")),
+                After = Maybe.From(PageCursor.From("0000000000000009")),
                 Filter = Maybe.From(EventFilter.OfType<SourceEntryAdded>(e => e.WithSource("products"))),
             },
             TestContext.Current.CancellationToken);
@@ -295,7 +295,7 @@ public class EventsClientTests
 
         var options = FastReconnect with
         {
-            After = Maybe.From(EventCursor.From("0000000000000009")),
+            After = Maybe.From(PageCursor.From("0000000000000009")),
             Filter = Maybe.From(EventFilter.OfType<SourceEvent>()),
         };
 

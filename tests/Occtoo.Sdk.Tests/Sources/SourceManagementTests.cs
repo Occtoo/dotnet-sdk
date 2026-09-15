@@ -54,7 +54,8 @@ public class SourceManagementTests
         source.Id.ShouldBe(Products);
         source.Description.HasNoValue.ShouldBeTrue();
         source.Status.ShouldBe(SourceStatus.Active);
-        page.After.HasNoValue.ShouldBeTrue();
+        page.Next.HasNoValue.ShouldBeTrue();
+        page.HasMore.ShouldBeFalse();
 
         handler.Requests.Single().RequestUri!.AbsoluteUri.ShouldBe(
             "https://api.occtoo.com/v1/sources?name=prod&type=Generic&status=Active"
@@ -144,7 +145,8 @@ public class SourceManagementTests
         page.Items[1].Type.HasNoValue.ShouldBeTrue();
         page.Items[1].State.ShouldBe(SourcePropertyState.Deleting);
         page.Items[2].Type.HasNoValue.ShouldBeTrue(); // a type name this SDK does not know reads as untyped
-        page.After.GetValueOrThrow().Value.ShouldBe("next");
+        page.Next.GetValueOrThrow().Value.ShouldBe("next");
+        page.HasMore.ShouldBeTrue();
 
         handler.Requests.Single().RequestUri!.AbsoluteUri
             .ShouldBe("https://api.occtoo.com/v1/sources/products/properties?limit=10");

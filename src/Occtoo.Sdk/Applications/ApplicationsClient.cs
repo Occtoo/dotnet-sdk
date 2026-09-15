@@ -29,13 +29,13 @@ public sealed class ApplicationsClient
     }
 
     /// <summary>Reads one page of applications.</summary>
-    public Task<Result<ForwardPage<Application>, OcctooError>> List(
+    public Task<Result<Page<Application>, OcctooError>> List(
         ApplicationListQuery? query = null,
         CancellationToken cancellationToken = default)
     {
         query ??= new ApplicationListQuery();
-        if (ForwardPages.Validate(query.Page) is { HasValue: true } invalid)
-            return Task.FromResult(Result.Failure<ForwardPage<Application>, OcctooError>(invalid.Value));
+        if (Pages.Validate(query.Page) is { HasValue: true } invalid)
+            return Task.FromResult(Result.Failure<Page<Application>, OcctooError>(invalid.Value));
 
         var uri = new QueryString("v1/applications")
             .Add("name", query.Name)
@@ -53,7 +53,7 @@ public sealed class ApplicationsClient
         return _api
             .Send(OcctooJsonApi.Request(HttpMethod.Get, uri), "list applications",
                 ApplicationsJsonContext.Default.ForwardPageDtoApplicationDto, cancellationToken)
-            .Map(page => ForwardPages.ToPage(page.Items, page.After, page.TotalCount, dto => dto.ToModel()));
+            .Map(page => Pages.ToPage(page.Items, page.After, page.TotalCount, dto => dto.ToModel()));
     }
 
 

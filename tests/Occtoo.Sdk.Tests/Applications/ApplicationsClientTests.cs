@@ -76,8 +76,8 @@ public class ApplicationsClientTests
         result.IsSuccess.ShouldBeTrue();
         var page = result.Value;
         page.Items.ShouldHaveSingleItem().Name.ShouldBe("Catalog reader");
-        page.After.GetValueOrThrow().Value.ShouldBe("cursor-1");
-        page.TotalCount.HasNoValue.ShouldBeTrue();
+        page.Next.GetValueOrThrow().Value.ShouldBe("cursor-1");
+        page.Total.HasNoValue.ShouldBeTrue();
 
         handler.Requests.Single().RequestUri!.AbsoluteUri.ShouldBe(
             "https://api.occtoo.com/v1/applications?name=catalog&tags=partner&tags=production"

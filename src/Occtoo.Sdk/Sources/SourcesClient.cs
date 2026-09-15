@@ -129,13 +129,13 @@ public sealed class SourcesClient
     // credential also needs a grant for the source (or `sources` for all).
 
     /// <summary>Reads one page of the tenant's sources. Soft-deleted sources are never listed.</summary>
-    public Task<Result<ForwardPage<Source>, OcctooError>> List(
+    public Task<Result<Page<Source>, OcctooError>> List(
         SourceListQuery? query = null,
         CancellationToken cancellationToken = default)
     {
         query ??= new SourceListQuery();
-        if (ForwardPages.Validate(query.Page) is { HasValue: true } invalid)
-            return Task.FromResult(Result.Failure<ForwardPage<Source>, OcctooError>(invalid.Value));
+        if (Pages.Validate(query.Page) is { HasValue: true } invalid)
+            return Task.FromResult(Result.Failure<Page<Source>, OcctooError>(invalid.Value));
 
         var uri = new QueryString("v1/sources")
             .Add("name", query.Name)
@@ -152,7 +152,7 @@ public sealed class SourcesClient
         return _api
             .Send(OcctooJsonApi.Request(HttpMethod.Get, uri), "list sources",
                 SourcesJsonContext.Default.ForwardPageDtoSourceDto, cancellationToken)
-            .Map(page => ForwardPages.ToPage(page.Items, page.After, page.TotalCount, dto => dto.ToModel()));
+            .Map(page => Pages.ToPage(page.Items, page.After, page.TotalCount, dto => dto.ToModel()));
     }
 
 
@@ -211,14 +211,14 @@ public sealed class SourcesClient
         _api.Send(OcctooJsonApi.Request(HttpMethod.Delete, SourceUri(sourceId)), "delete source", cancellationToken);
 
     /// <summary>Reads one page of a source's properties.</summary>
-    public Task<Result<ForwardPage<SourceProperty>, OcctooError>> ListProperties(
+    public Task<Result<Page<SourceProperty>, OcctooError>> ListProperties(
         SourceId sourceId,
         PageRequest? page = null,
         CancellationToken cancellationToken = default)
     {
         page ??= new PageRequest();
-        if (ForwardPages.Validate(page) is { HasValue: true } invalid)
-            return Task.FromResult(Result.Failure<ForwardPage<SourceProperty>, OcctooError>(invalid.Value));
+        if (Pages.Validate(page) is { HasValue: true } invalid)
+            return Task.FromResult(Result.Failure<Page<SourceProperty>, OcctooError>(invalid.Value));
 
         var uri = new QueryString($"v1/sources/{Uri.EscapeDataString(sourceId.Value)}/properties")
             .Add("after", page.After)
@@ -228,7 +228,7 @@ public sealed class SourcesClient
         return _api
             .Send(OcctooJsonApi.Request(HttpMethod.Get, uri), "list source properties",
                 SourcesJsonContext.Default.ForwardPageDtoSourcePropertyDto, cancellationToken)
-            .Map(result => ForwardPages.ToPage(result.Items, result.After, result.TotalCount, dto => dto.ToModel()));
+            .Map(result => Pages.ToPage(result.Items, result.After, result.TotalCount, dto => dto.ToModel()));
     }
 
 

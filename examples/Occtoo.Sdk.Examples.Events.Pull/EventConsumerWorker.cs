@@ -65,9 +65,9 @@ internal sealed class EventConsumerWorker(
     /// after each processed page, and returns the position to resume from on
     /// the next tick.
     /// </summary>
-    private async Task<Maybe<EventCursor>> DrainOnce(
+    private async Task<Maybe<PageCursor>> DrainOnce(
         EventFilter filter,
-        Maybe<EventCursor> cursor,
+        Maybe<PageCursor> cursor,
         FileCheckpointStore store,
         CancellationToken stoppingToken)
     {

@@ -361,8 +361,8 @@ public sealed class EventsClient
             var next = root.TryGetProperty("after", out var after)
                        && after.ValueKind == JsonValueKind.String
                        && after.GetString() is { Length: > 0 } cursor
-                ? Maybe.From(EventCursor.From(cursor))
-                : Maybe<EventCursor>.None;
+                ? Maybe.From(PageCursor.From(cursor))
+                : Maybe<PageCursor>.None;
 
             var total = root.TryGetProperty("total", out var count) && count.ValueKind == JsonValueKind.Number
                 ? Maybe.From(count.GetInt64())
@@ -391,8 +391,8 @@ public sealed class EventsClient
             var after = root.TryGetProperty("after", out var cursor)
                         && cursor.ValueKind == JsonValueKind.String
                         && cursor.GetString() is { Length: > 0 } value
-                ? Maybe.From(EventCursor.From(value))
-                : Maybe<EventCursor>.None;
+                ? Maybe.From(PageCursor.From(value))
+                : Maybe<PageCursor>.None;
 
             var total = root.TryGetProperty("total", out var count) && count.ValueKind == JsonValueKind.Number
                 ? count.GetInt64()
