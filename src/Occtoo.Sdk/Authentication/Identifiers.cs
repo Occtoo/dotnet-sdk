@@ -63,6 +63,18 @@ public static class OcctooScopes
     /// <summary>Ingest data into sources the application is granted.</summary>
     public const string WriteSources = "write:sources";
 
+    /// <summary>Read source and property metadata, and source entries.</summary>
+    public const string ReadSources = "read:sources";
+
+    /// <summary>Read the tenant's applications and the access catalog.</summary>
+    public const string ReadApplications = "read:applications";
+
+    /// <summary>
+    /// Create, change, and delete applications — an administrative
+    /// capability that mints identities and changes their grants.
+    /// </summary>
+    public const string WriteApplications = "write:applications";
+
     /// <summary>Every Events API transport.</summary>
     public const string ReadEvents = "read:events";
 

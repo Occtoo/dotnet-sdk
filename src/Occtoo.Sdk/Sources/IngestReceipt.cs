@@ -33,6 +33,12 @@ public enum SourcePropertyType
 
     /// <summary>A finite decimal number.</summary>
     Decimal,
+
+    /// <summary>
+    /// A legacy untyped property; values are raw strings. Not accepted for
+    /// new properties.
+    /// </summary>
+    Wildcard,
 }
 
 /// <summary>

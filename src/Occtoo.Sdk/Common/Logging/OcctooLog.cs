@@ -21,6 +21,9 @@ public static class OcctooLogCategories
 
     /// <summary>The Events feature — pulling and streaming.</summary>
     public const string Events = "Occtoo.Events";
+
+    /// <summary>The Applications feature — application and grant management.</summary>
+    public const string Applications = "Occtoo.Applications";
 }
 
 /// <summary>
@@ -117,4 +120,15 @@ internal static partial class OcctooLog
     [LoggerMessage(EventId = 403, Level = LogLevel.Warning,
         Message = "Skipped an event that could not be parsed: {Reason}")]
     internal static partial void EventSkipped(ILogger logger, string reason);
+
+    // ── Applications (5xx) ─────────────────────────────────────────────────
+    // Identity changes are the audit-worthy state changes; reads stay quiet.
+
+    [LoggerMessage(EventId = 500, Level = LogLevel.Information,
+        Message = "Application '{Name}' created with id {ApplicationId}")]
+    internal static partial void ApplicationCreated(ILogger logger, Guid applicationId, string name);
+
+    [LoggerMessage(EventId = 501, Level = LogLevel.Information,
+        Message = "Application {ApplicationId} deleted and its credentials revoked")]
+    internal static partial void ApplicationDeleted(ILogger logger, Guid applicationId);
 }

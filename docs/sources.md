@@ -98,3 +98,31 @@ Occtoo recommends at most 1000 entries per request
 larger batches — the limit is a recommendation, not a contract — but splitting
 keeps ingestion performing well. Every entry is an upsert; typed ingest has no
 delete flag.
+
+## Managing sources and properties
+
+The same client manages source metadata — `/v1/sources` and
+`/v1/sources/{sourceId}/properties`. Reads need `read:sources`, writes
+`write:sources`; an application credential also needs a grant for the source
+(`source:{id}`), or `sources` for all of them, which creating a source
+requires.
+
+```csharp
+await client.Sources.Create(new CreateSource("products", "Products"))
+    .Bind(_ => client.Sources.UpsertProperty("products", "tags",
+        new UpsertSourceProperty("Tags") { Type = SourcePropertyType.List, Delimiter = "," }));
+```
+
+`Update` changes only the fields you set (an empty `Description` clears it),
+and `Delete` *accepts* a soft deletion — the cleanup runs afterwards. Property
+writes follow the same rule: absent fields keep their values, list types need
+a delimiter, and a type change may reindex asynchronously, during which the
+property reports `SourcePropertyState.Updating` (`Deleting` after a delete is
+accepted).
+
+`List`, `ListProperties` and their `ListAll*` counterparts page forward the
+same way the applications surface does — see
+[applications.md](applications.md#listing) for cursors and
+`OcctooListException`. Source lists filter by name substring, `SourceType`,
+`SourceStatus` and inclusive created/updated windows; soft-deleted sources are
+never listed.
