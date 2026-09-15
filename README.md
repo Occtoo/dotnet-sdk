@@ -19,6 +19,8 @@ The official .NET client for [Occtoo](https://www.occtoo.com). One package,
   sources and their properties.
 - **Applications** — the tenant's machine-to-machine applications and their
   grants, with the access catalog as the vocabulary.
+- **Managed tags** — controlled vocabularies and their values, plain or
+  localized, with parent links for hierarchies.
 - **Events** — react to changes across your tenant, by pulling pages or
   subscribing to a live stream of [CloudEvents](https://cloudevents.io/), with
   one typed record per event type. Event destinations (webhooks, Azure Service
@@ -131,7 +133,7 @@ default, any distributed provider by configuration), refresh-before-expiry,
 single-flight under concurrency, and recovery from a revoked token are handled
 for you. Full guides: [docs/authentication.md](docs/authentication.md) ·
 [docs/sources.md](docs/sources.md) · [docs/applications.md](docs/applications.md) ·
-[docs/events.md](docs/events.md).
+[docs/managed-tags.md](docs/managed-tags.md) · [docs/events.md](docs/events.md).
 
 Runnable samples under [`examples/`](examples), one project per capability:
 
@@ -207,6 +209,15 @@ Requires the `write:sources` scope. The legacy string-based import
 | `GET` `POST` | `/v1/applications` | List and create applications (a fluent builder spells the grants); creation returns the one-time client secret |
 | `GET` `PUT` `DELETE` | `/v1/applications/{applicationId}` | Read, replace (etag-guarded), and delete an application |
 | `GET` | `/v1/applications/access-catalog` | The scopes, resources, and destination APIs an application can be granted |
+
+### Managed tags
+
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` `POST` | `/v1/managed-tags` | List and create managed tags |
+| `GET` `PUT` `DELETE` | `/v1/managed-tags/{managedTagId}` | Read, replace, and delete a managed tag |
+| `GET` `POST` | `/v1/managed-tags/{managedTagId}/values` | List and create values |
+| `GET` `PUT` `DELETE` | `/v1/managed-tags/{managedTagId}/values/{key}` | Read, replace, and delete a value |
 
 ### Events
 
