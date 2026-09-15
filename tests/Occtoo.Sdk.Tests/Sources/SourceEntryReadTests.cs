@@ -21,7 +21,7 @@ public class SourceEntryReadTests
             { "id": "inStock", "value": true, "type": "Boolean", "delimiter": null, "lastUpdated": "2026-09-15T10:02:00Z", "language": null },
             { "id": "publishedAt", "value": "2026-01-01T00:00:00Z", "type": "Timestamp", "delimiter": null, "lastUpdated": "2026-09-15T10:02:00Z", "language": null },
             { "id": "cleared", "value": null, "type": "Text", "delimiter": null, "lastUpdated": "2026-09-15T10:03:00Z", "language": null },
-            { "id": "legacy", "value": "123", "type": null, "delimiter": null, "lastUpdated": "2026-09-15T10:03:00Z", "language": null }
+            { "id": "legacy", "value": "123", "type": "Wildcard", "delimiter": null, "lastUpdated": "2026-09-15T10:03:00Z", "language": null }
           ],
           "lastUpdated": "2026-09-15T10:03:00Z"
         }
