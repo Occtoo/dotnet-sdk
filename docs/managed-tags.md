@@ -49,5 +49,4 @@ pointing at it.
 Tag lists filter by name substring, `Type`, `ParentId`, and inclusive
 created/updated windows; value lists by key substring (case-sensitive) and
 exact `ParentKey`. Both page forward like every management surface — see
-[applications.md](applications.md#listing) for cursors and
-`OcctooListException`.
+[applications.md](applications.md#listing) for cursors and the paging loop.

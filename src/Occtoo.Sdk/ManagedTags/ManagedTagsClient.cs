@@ -55,17 +55,6 @@ public sealed class ManagedTagsClient
             .Map(page => ForwardPages.ToPage(page.Items, page.After, page.TotalCount, dto => dto.ToModel()));
     }
 
-    /// <summary>Reads every matching managed tag, fetching pages lazily.</summary>
-    /// <exception cref="OcctooListException">A page could not be read.</exception>
-    public IAsyncEnumerable<ManagedTag> ListAll(
-        ManagedTagListQuery? query = null,
-        CancellationToken cancellationToken = default)
-    {
-        query ??= new ManagedTagListQuery();
-        return ForwardPages.ReadAll(
-            (after, ct) => List(query with { Page = query.Page with { After = after } }, ct),
-            cancellationToken);
-    }
 
     /// <summary>Reads one managed tag.</summary>
     public Task<Result<ManagedTag, OcctooError>> Get(
@@ -145,18 +134,6 @@ public sealed class ManagedTagsClient
             .Map(page => ForwardPages.ToPage(page.Items, page.After, page.TotalCount, dto => dto.ToModel()));
     }
 
-    /// <summary>Reads every matching value of a managed tag, fetching pages lazily.</summary>
-    /// <exception cref="OcctooListException">A page could not be read.</exception>
-    public IAsyncEnumerable<ManagedTagValue> ListAllValues(
-        ManagedTagId managedTagId,
-        ManagedTagValueListQuery? query = null,
-        CancellationToken cancellationToken = default)
-    {
-        query ??= new ManagedTagValueListQuery();
-        return ForwardPages.ReadAll(
-            (after, ct) => ListValues(managedTagId, query with { Page = query.Page with { After = after } }, ct),
-            cancellationToken);
-    }
 
     /// <summary>Reads one value.</summary>
     public Task<Result<ManagedTagValue, OcctooError>> GetValue(

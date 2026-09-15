@@ -189,27 +189,6 @@ public class ManagedTagsClientTests
         handler.Requests[1].Method.ShouldBe(HttpMethod.Delete);
     }
 
-    [Fact]
-    public async Task ListAllValues_follows_cursors_with_the_same_filters()
-    {
-        using var handler = new StubHandler()
-            .Respond(HttpStatusCode.OK, $$"""{ "items": [{{ValueBody}}], "after": "k1", "totalCount": null }""")
-            .Respond(HttpStatusCode.OK, $$"""{ "items": [], "after": null, "totalCount": null }""");
-        using var client = Client(handler);
-
-        var keys = new List<string>();
-        await foreach (var value in client.ManagedTags.ListAllValues(
-            Colors, new ManagedTagValueListQuery { ParentKey = ManagedTagValueKey.From("cool") },
-            TestContext.Current.CancellationToken))
-        {
-            keys.Add(value.Key.Value);
-        }
-
-        keys.ShouldBe(["blue"]);
-        handler.Requests[1].RequestUri!.Query.ShouldContain("parentKey=cool");
-        handler.Requests[1].RequestUri!.Query.ShouldContain("after=k1");
-    }
-
     [Theory]
     [InlineData("")]
     [InlineData(".")]
