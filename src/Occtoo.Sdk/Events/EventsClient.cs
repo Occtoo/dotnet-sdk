@@ -70,7 +70,7 @@ public sealed class EventsClient
         using var request = new HttpRequestMessage(HttpMethod.Get, PullUri(query));
 
         var outcome = await OcctooTransport
-            .Send(_httpClient, request, _requestTimeout, cancellationToken)
+            .Send(_httpClient, _requestTimeout, request, cancellationToken)
             .Bind(async Task<Result<Page<CloudEvent>, OcctooError>> (response) =>
             {
                 using (response)
@@ -111,7 +111,7 @@ public sealed class EventsClient
         using var request = new HttpRequestMessage(HttpMethod.Get, uri);
 
         var outcome = await OcctooTransport
-            .Send(_httpClient, request, _requestTimeout, cancellationToken)
+            .Send(_httpClient, _requestTimeout, request, cancellationToken)
             .Bind(async Task<Result<EventStreamMetadata, OcctooError>> (response) =>
             {
                 using (response)
@@ -285,7 +285,7 @@ public sealed class EventsClient
         // The per-request timeout bounds only connection establishment: the
         // stream itself is long-lived by design.
         var sent = await OcctooTransport
-            .Send(_httpClient, request, _requestTimeout, cancellationToken, HttpCompletionOption.ResponseHeadersRead)
+            .Send(_httpClient, _requestTimeout, request, cancellationToken, HttpCompletionOption.ResponseHeadersRead)
             .ConfigureAwait(false);
 
         request.Dispose();

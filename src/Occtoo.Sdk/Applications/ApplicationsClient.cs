@@ -19,13 +19,15 @@ namespace Occtoo.Applications;
 /// </remarks>
 public sealed class ApplicationsClient
 {
-    private readonly OcctooJsonApi _api;
+    private readonly HttpClient _httpClient;
     private readonly ILogger _logger;
+    private readonly TimeSpan _requestTimeout;
 
     internal ApplicationsClient(HttpClient httpClient, ILogger logger, TimeSpan requestTimeout)
     {
-        _api = new OcctooJsonApi(httpClient, requestTimeout);
+        _httpClient = httpClient;
         _logger = logger;
+        _requestTimeout = requestTimeout;
     }
 
     /// <summary>Reads one page of applications.</summary>
@@ -50,8 +52,7 @@ public sealed class ApplicationsClient
             .Add("limit", query.Page.Limit)
             .ToUri();
 
-        return _api
-            .Send(OcctooJsonApi.Request(HttpMethod.Get, uri), "list applications",
+        return OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Get, uri), "list applications",
                 ApplicationsJsonContext.Default.ForwardPageDtoApplicationDto, cancellationToken)
             .Map(page => Pages.ToPage(page.Items, page.After, page.TotalCount, dto => dto.ToModel()));
     }
@@ -61,8 +62,8 @@ public sealed class ApplicationsClient
     public Task<Result<Application, OcctooError>> Get(
         TenantApplicationId applicationId,
         CancellationToken cancellationToken = default) =>
-        _api.Send(
-                OcctooJsonApi.Request(HttpMethod.Get, Uri(applicationId)),
+        OcctooTransport.Send(_httpClient, _requestTimeout,
+                OcctooTransport.Request(HttpMethod.Get, Uri(applicationId)),
                 "get application", ApplicationsJsonContext.Default.ApplicationDto, cancellationToken)
             .Map(dto => dto.ToModel());
 
@@ -85,9 +86,8 @@ public sealed class ApplicationsClient
             application.ResourceSelectors,
             application.ApiSelectors);
 
-        return _api
-            .Send(
-                OcctooJsonApi.Request(HttpMethod.Post, new Uri("v1/applications", UriKind.Relative), body,
+        return OcctooTransport.Send(_httpClient, _requestTimeout,
+                OcctooTransport.Request(HttpMethod.Post, new Uri("v1/applications", UriKind.Relative), body,
                     ApplicationsJsonContext.Default.CreateApplicationDto),
                 "create application", ApplicationsJsonContext.Default.ApplicationCredentialsDto, cancellationToken)
             .Map(dto => dto.ToModel())
@@ -115,9 +115,8 @@ public sealed class ApplicationsClient
             application.ResourceSelectors,
             application.ApiSelectors);
 
-        return _api
-            .Send(
-                OcctooJsonApi.Request(HttpMethod.Put, Uri(applicationId), body, ApplicationsJsonContext.Default.UpdateApplicationDto),
+        return OcctooTransport.Send(_httpClient, _requestTimeout,
+                OcctooTransport.Request(HttpMethod.Put, Uri(applicationId), body, ApplicationsJsonContext.Default.UpdateApplicationDto),
                 "update application", ApplicationsJsonContext.Default.ApplicationDto, cancellationToken)
             .Map(dto => dto.ToModel());
     }
@@ -129,7 +128,7 @@ public sealed class ApplicationsClient
     public Task<UnitResult<OcctooError>> Delete(
         TenantApplicationId applicationId,
         CancellationToken cancellationToken = default) =>
-        _api.Send(OcctooJsonApi.Request(HttpMethod.Delete, Uri(applicationId)), "delete application", cancellationToken)
+        OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Delete, Uri(applicationId)), "delete application", cancellationToken)
             .Tap(() => OcctooLog.ApplicationDeleted(_logger, applicationId.Value));
 
     /// <summary>
@@ -139,8 +138,8 @@ public sealed class ApplicationsClient
     /// </summary>
     public Task<Result<IReadOnlyList<AccessNode>, OcctooError>> GetAccessCatalog(
         CancellationToken cancellationToken = default) =>
-        _api.Send(
-                OcctooJsonApi.Request(HttpMethod.Get, new Uri("v1/applications/access-catalog", UriKind.Relative)),
+        OcctooTransport.Send(_httpClient, _requestTimeout,
+                OcctooTransport.Request(HttpMethod.Get, new Uri("v1/applications/access-catalog", UriKind.Relative)),
                 "get application access catalog", ApplicationsJsonContext.Default.AccessNodeDtoArray, cancellationToken)
             .Map(IReadOnlyList<AccessNode> (nodes) => [.. nodes.Select(node => node.ToModel())]);
 

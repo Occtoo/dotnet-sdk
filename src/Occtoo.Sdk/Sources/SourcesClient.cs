@@ -33,14 +33,12 @@ public sealed class SourcesClient
     private readonly HttpClient _httpClient;
     private readonly ILogger _logger;
     private readonly TimeSpan _requestTimeout;
-    private readonly OcctooJsonApi _api;
 
     internal SourcesClient(HttpClient httpClient, ILogger logger, TimeSpan requestTimeout)
     {
         _httpClient = httpClient;
         _logger = logger;
         _requestTimeout = requestTimeout;
-        _api = new OcctooJsonApi(httpClient, requestTimeout);
     }
 
     /// <summary>
@@ -97,7 +95,7 @@ public sealed class SourcesClient
             IngestJsonContext.Default.IngestRequestBody);
 
         var outcome = await OcctooTransport
-            .Send(_httpClient, request, _requestTimeout, cancellationToken)
+            .Send(_httpClient, _requestTimeout, request, cancellationToken)
             .Bind(async Task<Result<IngestReceipt, OcctooError>> (response) =>
             {
                 using (response)
@@ -149,8 +147,7 @@ public sealed class SourcesClient
             .Add("limit", query.Page.Limit)
             .ToUri();
 
-        return _api
-            .Send(OcctooJsonApi.Request(HttpMethod.Get, uri), "list sources",
+        return OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Get, uri), "list sources",
                 SourcesJsonContext.Default.ForwardPageDtoSourceDto, cancellationToken)
             .Map(page => Pages.ToPage(page.Items, page.After, page.TotalCount, dto => dto.ToModel()));
     }
@@ -160,7 +157,7 @@ public sealed class SourcesClient
     public Task<Result<Source, OcctooError>> Get(
         SourceId sourceId,
         CancellationToken cancellationToken = default) =>
-        _api.Send(OcctooJsonApi.Request(HttpMethod.Get, SourceUri(sourceId)),
+        OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Get, SourceUri(sourceId)),
                 "get source", SourcesJsonContext.Default.SourceDto, cancellationToken)
             .Map(dto => dto.ToModel());
 
@@ -176,9 +173,8 @@ public sealed class SourcesClient
             return Task.FromResult(Result.Failure<Source, OcctooError>(new ValidationError("A source is required.")));
 
         var body = new CreateSourceDto(source.Id.Value, source.Name, source.Description.GetValueOrDefault());
-        return _api
-            .Send(
-                OcctooJsonApi.Request(HttpMethod.Post, new Uri("v1/sources", UriKind.Relative), body,
+        return OcctooTransport.Send(_httpClient, _requestTimeout,
+                OcctooTransport.Request(HttpMethod.Post, new Uri("v1/sources", UriKind.Relative), body,
                     SourcesJsonContext.Default.CreateSourceDto),
                 "create source", SourcesJsonContext.Default.SourceDto, cancellationToken)
             .Map(dto => dto.ToModel());
@@ -194,9 +190,8 @@ public sealed class SourcesClient
             return Task.FromResult(Result.Failure<Source, OcctooError>(new ValidationError("Changes are required.")));
 
         var body = new UpdateSourceDto(changes.Name.GetValueOrDefault(), changes.Description.GetValueOrDefault());
-        return _api
-            .Send(
-                OcctooJsonApi.Request(HttpMethod.Patch, SourceUri(sourceId), body, SourcesJsonContext.Default.UpdateSourceDto),
+        return OcctooTransport.Send(_httpClient, _requestTimeout,
+                OcctooTransport.Request(HttpMethod.Patch, SourceUri(sourceId), body, SourcesJsonContext.Default.UpdateSourceDto),
                 "update source", SourcesJsonContext.Default.SourceDto, cancellationToken)
             .Map(dto => dto.ToModel());
     }
@@ -208,7 +203,7 @@ public sealed class SourcesClient
     public Task<UnitResult<OcctooError>> Delete(
         SourceId sourceId,
         CancellationToken cancellationToken = default) =>
-        _api.Send(OcctooJsonApi.Request(HttpMethod.Delete, SourceUri(sourceId)), "delete source", cancellationToken);
+        OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Delete, SourceUri(sourceId)), "delete source", cancellationToken);
 
     /// <summary>Reads one page of a source's properties.</summary>
     public Task<Result<Page<SourceProperty>, OcctooError>> ListProperties(
@@ -225,8 +220,7 @@ public sealed class SourcesClient
             .Add("limit", page.Limit)
             .ToUri();
 
-        return _api
-            .Send(OcctooJsonApi.Request(HttpMethod.Get, uri), "list source properties",
+        return OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Get, uri), "list source properties",
                 SourcesJsonContext.Default.ForwardPageDtoSourcePropertyDto, cancellationToken)
             .Map(result => Pages.ToPage(result.Items, result.After, result.TotalCount, dto => dto.ToModel()));
     }
@@ -237,7 +231,7 @@ public sealed class SourcesClient
         SourceId sourceId,
         PropertyId propertyId,
         CancellationToken cancellationToken = default) =>
-        _api.Send(OcctooJsonApi.Request(HttpMethod.Get, PropertyUri(sourceId, propertyId)),
+        OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Get, PropertyUri(sourceId, propertyId)),
                 "get source property", SourcesJsonContext.Default.SourcePropertyDto, cancellationToken)
             .Map(dto => dto.ToModel());
 
@@ -257,9 +251,8 @@ public sealed class SourcesClient
             property.Delimiter.GetValueOrDefault(),
             property.Description.GetValueOrDefault());
 
-        return _api
-            .Send(
-                OcctooJsonApi.Request(HttpMethod.Put, PropertyUri(sourceId, propertyId), body,
+        return OcctooTransport.Send(_httpClient, _requestTimeout,
+                OcctooTransport.Request(HttpMethod.Put, PropertyUri(sourceId, propertyId), body,
                     SourcesJsonContext.Default.UpsertSourcePropertyDto),
                 "upsert source property", SourcesJsonContext.Default.SourcePropertyDto, cancellationToken)
             .Map(dto => dto.ToModel());
@@ -274,7 +267,7 @@ public sealed class SourcesClient
         SourceId sourceId,
         PropertyId propertyId,
         CancellationToken cancellationToken = default) =>
-        _api.Send(OcctooJsonApi.Request(HttpMethod.Delete, PropertyUri(sourceId, propertyId)),
+        OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Delete, PropertyUri(sourceId, propertyId)),
             "delete source property", cancellationToken);
 
     private static Uri SourceUri(SourceId sourceId) =>
