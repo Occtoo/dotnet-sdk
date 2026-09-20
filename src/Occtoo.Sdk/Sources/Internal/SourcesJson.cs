@@ -49,7 +49,7 @@ internal sealed record SourcePropertyDto
         DisplayName,
         Description is { Length: > 0 } ? Maybe.From(Description) : Maybe<string>.None,
         PropertyTypes.Parse(Type),
-        Delimiter is { Length: > 0 } ? Maybe.From(Delimiter) : Maybe<string>.None,
+        Sources.Delimiter.Read(Delimiter),
         State);
 }
 

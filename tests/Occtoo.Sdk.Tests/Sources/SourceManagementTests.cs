@@ -141,7 +141,7 @@ public class SourceManagementTests
         var page = result.Value;
         page.Items.Count.ShouldBe(3);
         page.Items[0].Type.GetValueOrThrow().ShouldBe(SourcePropertyType.List);
-        page.Items[0].Delimiter.GetValueOrDefault().ShouldBe(",");
+        page.Items[0].Delimiter.GetValueOrThrow().Value.ShouldBe(",");
         page.Items[1].Type.HasNoValue.ShouldBeTrue();
         page.Items[1].State.ShouldBe(SourcePropertyState.Deleting);
         page.Items[2].Type.HasNoValue.ShouldBeTrue(); // a type name this SDK does not know reads as untyped
@@ -161,7 +161,7 @@ public class SourceManagementTests
         var result = await client.Sources.UpsertProperty(
             Products,
             PropertyId.From("tags"),
-            new UpsertSourceProperty("Tags") { Type = SourcePropertyType.List, Delimiter = "," },
+            new UpsertSourceProperty("Tags") { Type = SourcePropertyType.List, Delimiter = Delimiter.From(",") },
             TestContext.Current.CancellationToken);
 
         result.Value.Id.Value.ShouldBe("tags");

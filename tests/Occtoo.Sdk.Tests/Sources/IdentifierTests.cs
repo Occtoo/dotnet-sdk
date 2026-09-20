@@ -89,4 +89,27 @@ public class IdentifierTests
     {
         Should.Throw<ValueObjectValidationException>(() => LanguageCode.From(input));
     }
+
+    [Theory]
+    [InlineData(",")]
+    [InlineData(";")]
+    [InlineData(":")]
+    [InlineData("|")]
+    [InlineData("/")]
+    public void Delimiter_accepts_the_five_separators(string input)
+    {
+        Delimiter delimiter = input;
+        delimiter.Value.ShouldBe(input);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData(" ")]
+    [InlineData("-")]
+    [InlineData(",,")]
+    [InlineData("tab\t")]
+    public void Delimiter_rejects_anything_else(string input)
+    {
+        Should.Throw<ValueObjectValidationException>(() => Delimiter.From(input));
+    }
 }

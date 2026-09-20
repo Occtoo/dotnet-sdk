@@ -59,7 +59,7 @@ public class SourcesClientTests
         receipt.NewProperties.ShouldHaveSingleItem();
         receipt.NewProperties[0].Id.Value.ShouldBe("tags");
         receipt.NewProperties[0].Type.ShouldBe(SourcePropertyType.List);
-        receipt.NewProperties[0].Delimiter.GetValueOrDefault().ShouldBe(",");
+        receipt.NewProperties[0].Delimiter.GetValueOrThrow().Value.ShouldBe(",");
 
         var request = handler.Requests.Single();
         request.Method.ShouldBe(HttpMethod.Post);

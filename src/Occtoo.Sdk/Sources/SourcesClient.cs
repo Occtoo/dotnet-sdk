@@ -248,7 +248,7 @@ public sealed class SourcesClient
         var body = new UpsertSourcePropertyDto(
             property.DisplayName,
             property.Type.HasValue ? property.Type.Value : null,
-            property.Delimiter.GetValueOrDefault(),
+            property.Delimiter.HasValue ? property.Delimiter.Value.Value : null,
             property.Description.GetValueOrDefault());
 
         return OcctooTransport.Send(_httpClient, _requestTimeout,
@@ -320,7 +320,7 @@ public sealed class SourcesClient
                     Enum.TryParse<SourcePropertyType>(found.Type, ignoreCase: true, out var type)
                         ? type
                         : SourcePropertyType.Text,
-                    found.Delimiter is { Length: > 0 } delimiter ? delimiter : Maybe<string>.None)),
+                    Delimiter.Read(found.Delimiter))),
             ]);
     }
 }

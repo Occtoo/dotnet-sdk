@@ -42,7 +42,7 @@ public enum SourcePropertyType
 /// <param name="Id">The property id, canonicalized to lowercase.</param>
 /// <param name="Type">The inferred type.</param>
 /// <param name="Delimiter">The configured delimiter, for inferred list properties.</param>
-public sealed record InferredProperty(PropertyId Id, SourcePropertyType Type, Maybe<string> Delimiter);
+public sealed record InferredProperty(PropertyId Id, SourcePropertyType Type, Maybe<Delimiter> Delimiter);
 
 /// <summary>
 /// Occtoo's acknowledgement of an accepted ingest batch.

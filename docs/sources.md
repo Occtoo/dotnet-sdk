@@ -110,13 +110,13 @@ requires.
 ```csharp
 await client.Sources.Create(new CreateSource("products", "Products"))
     .Bind(_ => client.Sources.UpsertProperty("products", "tags",
-        new UpsertSourceProperty("Tags") { Type = SourcePropertyType.List, Delimiter = "," }));
+        new UpsertSourceProperty("Tags") { Type = SourcePropertyType.List, Delimiter = Delimiter.From(",") }));
 ```
 
 `Update` changes only the fields you set (an empty `Description` clears it),
 and `Delete` *accepts* a soft deletion — the cleanup runs afterwards. Property
 writes follow the same rule: absent fields keep their values, list types need
-a delimiter, and a type change may reindex asynchronously, during which the
+a `Delimiter` (one of `,` `;` `:` `|` `/`, checked at construction), and a type change may reindex asynchronously, during which the
 property reports `SourcePropertyState.Updating` (`Deleting` after a delete is
 accepted).
 

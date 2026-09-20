@@ -53,7 +53,7 @@ public sealed record SourceProperty(
     string DisplayName,
     Maybe<string> Description,
     Maybe<SourcePropertyType> Type,
-    Maybe<string> Delimiter,
+    Maybe<Delimiter> Delimiter,
     SourcePropertyState State);
 
 /// <summary>A new generic source.</summary>
@@ -89,7 +89,7 @@ public sealed record UpsertSourceProperty(string DisplayName)
     public Maybe<SourcePropertyType> Type { get; init; } = Maybe<SourcePropertyType>.None;
 
     /// <summary>The list delimiter, for list types.</summary>
-    public Maybe<string> Delimiter { get; init; } = Maybe<string>.None;
+    public Maybe<Delimiter> Delimiter { get; init; } = Maybe<Delimiter>.None;
 
     /// <summary>A free-text description; empty clears it.</summary>
     public Maybe<string> Description { get; init; } = Maybe<string>.None;
