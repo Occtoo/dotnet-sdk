@@ -23,6 +23,6 @@ public sealed record StoredProperty(
     PropertyId Id,
     PropertyValue Value,
     Maybe<SourcePropertyType> Type,
-    Maybe<string> Delimiter,
+    Maybe<Delimiter> Delimiter,
     DateTimeOffset LastUpdated,
     Maybe<LanguageCode> Language);

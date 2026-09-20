@@ -54,7 +54,7 @@ public class SourceEntryReadTests
         byId["name"].Select(p => p.Language.GetValueOrThrow().Value).ShouldBe(["en", "sv"]);
         byId["name"].First().Value.ShouldBe(PropertyValue.Text("Blue chair"));
         byId["tags"].Single().Value.ShouldBeOfType<PropertyValue.ListValue>().Items.ShouldBe(["summer", "sale"]);
-        byId["tags"].Single().Delimiter.GetValueOrDefault().ShouldBe(",");
+        byId["tags"].Single().Delimiter.GetValueOrThrow().Value.ShouldBe(",");
         byId["instock"].Single().Value.ShouldBe(PropertyValue.Boolean(true));
         byId["publishedat"].Single().Value.ShouldBe(PropertyValue.Timestamp(DateTimeOffset.Parse("2026-01-01T00:00:00Z", null)));
         byId["cleared"].Single().Value.ShouldBe(PropertyValue.Clear);

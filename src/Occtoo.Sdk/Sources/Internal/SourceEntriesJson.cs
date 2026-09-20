@@ -41,7 +41,7 @@ internal sealed record StoredPropertyDto
         PropertyId.From(Id),
         ReadValue(Value, PropertyTypes.Parse(Type).GetValueOrDefault()),
         PropertyTypes.Parse(Type),
-        Delimiter is { Length: > 0 } ? Maybe.From(Delimiter) : Maybe<string>.None,
+        Sources.Delimiter.Read(Delimiter),
         LastUpdated,
         Language is { Length: > 0 } && LanguageCode.TryFrom(Language, out var language)
             ? Maybe.From(language)
