@@ -111,4 +111,15 @@ public class SourceEntryReadTests
         var missing = await client.Sources.GetEntry(Products, EntryId.From("gone"), TestContext.Current.CancellationToken);
         missing.Error.ShouldBeOfType<NotFoundError>();
     }
+
+    [Fact]
+    public async Task An_incomplete_entry_is_an_unexpected_error_not_an_exception()
+    {
+        using var handler = new StubHandler().Respond(HttpStatusCode.OK, "{}");
+        using var client = Client(handler);
+
+        var result = await client.Sources.GetEntry(Products, EntryId.From("chair-1"), TestContext.Current.CancellationToken);
+
+        result.Error.ShouldBeOfType<UnexpectedError>();
+    }
 }

@@ -308,7 +308,7 @@ public sealed class SourcesClient
                     $"v1/sources/{Uri.EscapeDataString(sourceId.Value)}/entries/{Uri.EscapeDataString(entryId.Value)}",
                     UriKind.Relative)),
                 "get source entry", SourceEntriesJsonContext.Default.StoredEntryDto, cancellationToken)
-            .Map(dto => dto.ToModel());
+            .MapResponse(dto => dto.ToModel());
 
     /// <summary>
     /// Reads up to <see cref="MaxEntriesPerRead"/> stored entries by id in one
@@ -334,7 +334,7 @@ public sealed class SourcesClient
 
         return OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Get, uri), "get source entries",
                 SourceEntriesJsonContext.Default.StoredEntriesDto, cancellationToken)
-            .Map(IReadOnlyList<StoredSourceEntry> (dto) => [.. dto.Items.Select(item => item.ToModel())]);
+            .MapResponse(IReadOnlyList<StoredSourceEntry> (dto) => [.. dto.Items.Select(item => item.ToModel())]);
     }
 
     private static Uri SourceUri(SourceId sourceId) =>
