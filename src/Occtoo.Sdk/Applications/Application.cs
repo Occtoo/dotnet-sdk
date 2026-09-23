@@ -29,7 +29,14 @@ public sealed record Application(
     IReadOnlyList<string> Audiences,
     uint Etag,
     DateTimeOffset CreatedAt,
-    DateTimeOffset LastModifiedAt);
+    DateTimeOffset LastModifiedAt)
+{
+    /// <summary>
+    /// Starts changing this application: a builder pre-filled with its current
+    /// settings and grants, finished with <c>BuildUpdate(Etag)</c>.
+    /// </summary>
+    public ApplicationBuilder Edit() => new(this);
+}
 
 /// <summary>
 /// A freshly created application and its client secret. The secret is
@@ -57,6 +64,9 @@ public sealed record AccessNode(
 /// </summary>
 public sealed record CreateApplication(string Name)
 {
+    /// <summary>Starts building a new application fluently.</summary>
+    public static ApplicationBuilder Named(string name) => new(name);
+
     /// <summary>A free-text description.</summary>
     public Maybe<string> Description { get; init; } = Maybe<string>.None;
 

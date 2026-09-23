@@ -5,12 +5,10 @@ the identities behind `OcctooCredential.ClientCredentials` — and what each is
 allowed to do: `/v1/applications` and `/v1/applications/access-catalog`.
 
 ```csharp
-var created = await client.Applications.Create(new CreateApplication("Catalog reader")
-{
-    Description = "Reads the product source configuration",
-    ScopeKeys = [OcctooScopes.ReadSources],
-    ResourceSelectors = ["source:products"],
-});
+var created = await client.Applications.Create(CreateApplication.Named("Catalog reader")
+    .WithDescription("Reads the product source configuration")
+    .WithScopes(OcctooScopes.ReadSources)
+    .WithSources("products"));
 
 created.Tap(credentials =>
 {
@@ -31,6 +29,12 @@ identity (`ClientId`, `Audiences`), the grants (`ScopeKeys`,
 responses never include the secret; only `Create` returns
 `ApplicationCredentials` with the `ClientSecret`.
 
+The builder (`CreateApplication.Named`, or `application.Edit()` for changes)
+spells the grants for you — `WithScopes`, `WithSources` / `WithAllSources`,
+`WithDestinations` / `WithAllDestinations`, `WithApiVersions` — so no one
+composes `source:{id}` or `api-version:{id}` selectors by hand. It does not
+validate them; the API checks every grant against the tenant's catalog.
+
 The valid grants come from the access catalog — a tree of `AccessNode`s
 (scopes, resources, destination APIs) — rather than from documentation, so
 what a tenant can grant is always what the API accepts:
@@ -48,14 +52,8 @@ collections — a collection you leave empty *becomes* empty. It requires the
 
 ```csharp
 await client.Applications.Get(id)
-    .Bind(current => client.Applications.Update(id, new UpdateApplication(current.Name, current.Etag)
-    {
-        Description = current.Description,
-        Tags = current.Tags,
-        ScopeKeys = [.. current.ScopeKeys, OcctooScopes.ReadEvents],
-        ResourceSelectors = current.ResourceSelectors,
-        ApiSelectors = current.ApiSelectors,
-    }));
+    .Bind(current => client.Applications.Update(id,
+        current.Edit().WithScopes(OcctooScopes.ReadEvents).BuildUpdate(current.Etag)));
 ```
 
 `Delete` revokes the credentials; deleting an application that no longer
