@@ -49,7 +49,7 @@ public class ApplicationBuilderTests
             ["commerce"], ["read:sources"], ["source:products"], [], [], Etag: 7,
             DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch);
 
-        var update = current.Edit().WithSources("assets").BuildUpdate(current.Etag);
+        UpdateApplication update = current.Edit().WithSources("assets");
 
         update.Name.ShouldBe("Reader");
         update.Etag.ShouldBe(7u);
@@ -68,5 +68,29 @@ public class ApplicationBuilderTests
         Should.Throw<ValueObjectValidationException>(() => builder.WithTags(""));
         Should.Throw<ValueObjectValidationException>(() => builder.WithScopes("read:sources write:sources"));
         Should.Throw<ValueObjectValidationException>(() => builder.WithSources(""));
+    }
+
+    [Fact]
+    public void Edit_can_revoke_grants_and_clear_metadata()
+    {
+        var current = new Application(
+            TenantApplicationId.From(Guid.NewGuid()), "Reader", "Old", ClientId.From("client-abc"),
+            ["commerce", "legacy"], ["read:sources", "read:events"], ["sources", "source:products"],
+            ["destinations", "destination:webshop"], [], Etag: 4, DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch);
+
+        var update = current.Edit()
+            .WithoutDescription()
+            .WithoutTags("legacy")
+            .WithoutScopes(OcctooScopes.ReadEvents)
+            .WithoutAllSources()
+            .WithoutDestinations("webshop")
+            .Build();
+
+        update.Etag.ShouldBe(4u);
+        update.Description.HasNoValue.ShouldBeTrue();
+        update.Tags.ShouldBe(["commerce"]);
+        update.ScopeKeys.ShouldBe(["read:sources"]);
+        update.ResourceSelectors.ShouldBe(["source:products"]);
+        update.ApiSelectors.ShouldBe(["destinations"]);
     }
 }

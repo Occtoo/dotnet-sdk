@@ -1,5 +1,6 @@
 using System.Net;
 using Microsoft.Extensions.DependencyInjection;
+using Occtoo.Applications;
 using Occtoo.Authentication;
 using Occtoo.DependencyInjection;
 using Occtoo.Sources;
@@ -136,5 +137,55 @@ public class ResilienceTests
         };
 
         Should.Throw<InvalidOperationException>(() => new OcctooClient(options));
+    }
+
+    [Fact]
+    public async Task A_write_is_not_replayed_after_an_ambiguous_failure()
+    {
+        // A 502 may hide a committed create; replaying it would turn success into
+        // a conflict and lose the one-time secret.
+        using var handler = new StubHandler()
+            .Respond(HttpStatusCode.BadGateway, "{}")
+            .Respond(HttpStatusCode.Created, "{}");
+        using var client = Client(handler, FastRetries);
+
+        var result = await client.Applications.Create(
+            CreateApplication.WithName("Catalog reader"), TestContext.Current.CancellationToken);
+
+        result.Error.ShouldBeOfType<ServerError>();
+        handler.RequestCount.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task A_throttled_write_is_resent_because_it_was_never_processed()
+    {
+        using var handler = new StubHandler()
+            .Respond(_ =>
+            {
+                var response = new HttpResponseMessage(HttpStatusCode.TooManyRequests);
+                response.Headers.RetryAfter = new(TimeSpan.Zero);
+                return response;
+            })
+            .Respond(_ => new HttpResponseMessage(HttpStatusCode.Accepted));
+        using var client = Client(handler, FastRetries);
+
+        var result = await client.Sources.Delete(SourceId.From("products"), TestContext.Current.CancellationToken);
+
+        result.IsSuccess.ShouldBeTrue();
+        handler.RequestCount.ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task A_read_is_retried_after_a_server_error()
+    {
+        using var handler = new StubHandler()
+            .Respond(HttpStatusCode.BadGateway, "{}")
+            .Respond(HttpStatusCode.OK, """{ "items": [], "after": null, "totalCount": null }""");
+        using var client = Client(handler, FastRetries);
+
+        var result = await client.Sources.List(cancellationToken: TestContext.Current.CancellationToken);
+
+        result.IsSuccess.ShouldBeTrue();
+        handler.RequestCount.ShouldBe(2);
     }
 }

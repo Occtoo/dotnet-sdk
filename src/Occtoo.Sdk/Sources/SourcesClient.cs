@@ -94,6 +94,9 @@ public sealed class SourcesClient
             new IngestRequestBody(entries),
             IngestJsonContext.Default.IngestRequestBody);
 
+        // Entries are upserts: resending an already-accepted batch is harmless.
+        request.Options.Set(OcctooResilience.Replayable, true);
+
         var outcome = await OcctooTransport
             .Send(_httpClient, _requestTimeout, request, cancellationToken)
             .Bind(async Task<Result<IngestReceipt, OcctooError>> (response) =>
@@ -143,13 +146,12 @@ public sealed class SourcesClient
             .Add("createdTo", query.CreatedTo)
             .Add("updatedFrom", query.UpdatedFrom)
             .Add("updatedTo", query.UpdatedTo)
-            .Add("after", query.Page.After)
-            .Add("limit", query.Page.Limit)
+            .Add(query.Page)
             .ToUri();
 
         return OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Get, uri), "list sources",
                 SourcesJsonContext.Default.ForwardPageDtoSourceDto, cancellationToken)
-            .Map(page => Pages.ToPage(page.Items, page.After, page.TotalCount, dto => dto.ToModel()));
+            .MapResponse(page => Pages.ToPage(page.Items, page.After, page.TotalCount, dto => dto.ToModel()));
     }
 
 
@@ -159,7 +161,7 @@ public sealed class SourcesClient
         CancellationToken cancellationToken = default) =>
         OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Get, SourceUri(sourceId)),
                 "get source", SourcesJsonContext.Default.SourceDto, cancellationToken)
-            .Map(dto => dto.ToModel());
+            .MapResponse(dto => dto.ToModel());
 
     /// <summary>
     /// Creates a generic source. Requires a grant for all sources
@@ -177,7 +179,7 @@ public sealed class SourcesClient
                 OcctooTransport.Request(HttpMethod.Post, new Uri("v1/sources", UriKind.Relative), body,
                     SourcesJsonContext.Default.CreateSourceDto),
                 "create source", SourcesJsonContext.Default.SourceDto, cancellationToken)
-            .Map(dto => dto.ToModel());
+            .MapResponse(dto => dto.ToModel());
     }
 
     /// <summary>Changes a source's name and/or description.</summary>
@@ -193,7 +195,7 @@ public sealed class SourcesClient
         return OcctooTransport.Send(_httpClient, _requestTimeout,
                 OcctooTransport.Request(HttpMethod.Patch, SourceUri(sourceId), body, SourcesJsonContext.Default.UpdateSourceDto),
                 "update source", SourcesJsonContext.Default.SourceDto, cancellationToken)
-            .Map(dto => dto.ToModel());
+            .MapResponse(dto => dto.ToModel());
     }
 
     /// <summary>
@@ -216,13 +218,12 @@ public sealed class SourcesClient
             return Task.FromResult(Result.Failure<Page<SourceProperty>, OcctooError>(invalid.Value));
 
         var uri = new QueryString($"v1/sources/{Uri.EscapeDataString(sourceId.Value)}/properties")
-            .Add("after", page.After)
-            .Add("limit", page.Limit)
+            .Add(page)
             .ToUri();
 
         return OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Get, uri), "list source properties",
                 SourcesJsonContext.Default.ForwardPageDtoSourcePropertyDto, cancellationToken)
-            .Map(result => Pages.ToPage(result.Items, result.After, result.TotalCount, dto => dto.ToModel()));
+            .MapResponse(result => Pages.ToPage(result.Items, result.After, result.TotalCount, dto => dto.ToModel()));
     }
 
 
@@ -233,7 +234,7 @@ public sealed class SourcesClient
         CancellationToken cancellationToken = default) =>
         OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Get, PropertyUri(sourceId, propertyId)),
                 "get source property", SourcesJsonContext.Default.SourcePropertyDto, cancellationToken)
-            .Map(dto => dto.ToModel());
+            .MapResponse(dto => dto.ToModel());
 
     /// <summary>Creates or updates a property's metadata.</summary>
     public Task<Result<SourceProperty, OcctooError>> UpsertProperty(
@@ -245,6 +246,16 @@ public sealed class SourcesClient
         if (property is null)
             return Task.FromResult(Result.Failure<SourceProperty, OcctooError>(new ValidationError("A property is required.")));
 
+        // The same rule the API applies, checked before the round trip.
+        var isList = property.Type.HasValue && property.Type.Value is SourcePropertyType.List or SourcePropertyType.LocalizedList;
+        if (isList && property.Delimiter.HasNoValue)
+            return Task.FromResult(Result.Failure<SourceProperty, OcctooError>(
+                new ValidationError("List and LocalizedList properties require a Delimiter.")));
+
+        if (property.Type.HasValue && !isList && property.Delimiter.HasValue)
+            return Task.FromResult(Result.Failure<SourceProperty, OcctooError>(
+                new ValidationError("Only List and LocalizedList properties take a Delimiter.")));
+
         var body = new UpsertSourcePropertyDto(
             property.DisplayName,
             property.Type.HasValue ? property.Type.Value : null,
@@ -255,7 +266,7 @@ public sealed class SourcesClient
                 OcctooTransport.Request(HttpMethod.Put, PropertyUri(sourceId, propertyId), body,
                     SourcesJsonContext.Default.UpsertSourcePropertyDto),
                 "upsert source property", SourcesJsonContext.Default.SourcePropertyDto, cancellationToken)
-            .Map(dto => dto.ToModel());
+            .MapResponse(dto => dto.ToModel());
     }
 
     /// <summary>

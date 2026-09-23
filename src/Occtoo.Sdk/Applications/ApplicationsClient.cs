@@ -48,13 +48,12 @@ public sealed class ApplicationsClient
             .Add("updatedTo", query.UpdatedTo)
             .Add("createdBy", query.CreatedBy)
             .Add("updatedBy", query.UpdatedBy)
-            .Add("after", query.Page.After)
-            .Add("limit", query.Page.Limit)
+            .Add(query.Page)
             .ToUri();
 
         return OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Get, uri), "list applications",
                 ApplicationsJsonContext.Default.ForwardPageDtoApplicationDto, cancellationToken)
-            .Map(page => Pages.ToPage(page.Items, page.After, page.TotalCount, dto => dto.ToModel()));
+            .MapResponse(page => Pages.ToPage(page.Items, page.After, page.TotalCount, dto => dto.ToModel()));
     }
 
 
@@ -65,7 +64,7 @@ public sealed class ApplicationsClient
         OcctooTransport.Send(_httpClient, _requestTimeout,
                 OcctooTransport.Request(HttpMethod.Get, Uri(applicationId)),
                 "get application", ApplicationsJsonContext.Default.ApplicationDto, cancellationToken)
-            .Map(dto => dto.ToModel());
+            .MapResponse(dto => dto.ToModel());
 
     /// <summary>
     /// Creates an application. The returned client secret is shown exactly
@@ -90,7 +89,7 @@ public sealed class ApplicationsClient
                 OcctooTransport.Request(HttpMethod.Post, new Uri("v1/applications", UriKind.Relative), body,
                     ApplicationsJsonContext.Default.CreateApplicationDto),
                 "create application", ApplicationsJsonContext.Default.ApplicationCredentialsDto, cancellationToken)
-            .Map(dto => dto.ToModel())
+            .MapResponse(dto => dto.ToModel())
             .Tap(created => OcctooLog.ApplicationCreated(_logger, created.Application.Id.Value, created.Application.Name));
     }
 
@@ -118,7 +117,7 @@ public sealed class ApplicationsClient
         return OcctooTransport.Send(_httpClient, _requestTimeout,
                 OcctooTransport.Request(HttpMethod.Put, Uri(applicationId), body, ApplicationsJsonContext.Default.UpdateApplicationDto),
                 "update application", ApplicationsJsonContext.Default.ApplicationDto, cancellationToken)
-            .Map(dto => dto.ToModel());
+            .MapResponse(dto => dto.ToModel());
     }
 
     /// <summary>
@@ -141,7 +140,7 @@ public sealed class ApplicationsClient
         OcctooTransport.Send(_httpClient, _requestTimeout,
                 OcctooTransport.Request(HttpMethod.Get, new Uri("v1/applications/access-catalog", UriKind.Relative)),
                 "get application access catalog", ApplicationsJsonContext.Default.AccessNodeDtoArray, cancellationToken)
-            .Map(IReadOnlyList<AccessNode> (nodes) => [.. nodes.Select(node => node.ToModel())]);
+            .MapResponse(IReadOnlyList<AccessNode> (nodes) => [.. nodes.Select(node => node.ToModel())]);
 
     private static Uri Uri(TenantApplicationId applicationId) =>
         new($"v1/applications/{applicationId.Value:D}", UriKind.Relative);

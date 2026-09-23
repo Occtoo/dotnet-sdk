@@ -31,8 +31,8 @@ responses never include the secret; only `Create` returns
 
 ## Building grants
 
-`CreateApplication.WithName(...)` (or `application.Edit()` for changes) returns an
-`ApplicationBuilder` that spells every grant the way the API expects, so no
+`CreateApplication.WithName(...)` — or `application.Edit()` for changes —
+returns a builder that spells every grant the way the API expects, so no
 one composes selectors by hand:
 
 | Builder method | Grants |
@@ -44,6 +44,12 @@ one composes selectors by hand:
 | `WithAllDestinations()` | Every protected destination API, current and future |
 | `WithApiVersions(apiVersionId, …)` | Specific destination API versions |
 
+Every grant method has a `Without*` counterpart (`WithoutScopes`,
+`WithoutSources`, `WithoutAllSources`, …) that revokes it, as do
+`WithoutTags` and `WithoutDescription`. The builders are the only way to make
+a `CreateApplication` or `UpdateApplication`, so nothing reaches the API
+unvalidated.
+
 API versions are granted by id — the id alone identifies a version, whichever
 destination it belongs to; the access catalog lists them. The builder drops
 duplicates and checks the shape of each input at the call site — every
@@ -53,10 +59,9 @@ method takes a value object (`ApplicationName`, `ApplicationDescription`,
 grant *exists* is the API's call: it checks every grant against the tenant's
 catalog and answers an unknown one with a `ValidationError`.
 
-`Edit()` starts from the application's current settings and grants, so an
-update built from it keeps everything you do not touch. It can only add
-grants; to remove one, start from `CreateApplication.WithName(...)` with only
-the grants to keep and finish with `.BuildUpdate(current.Etag)`.
+`Edit()` starts from the application's current settings, grants and etag, so
+an update built from it keeps everything you do not touch and fails with a
+`ConflictError` if the application changed since you read it.
 
 The valid grants come from the access catalog — a tree of `AccessNode`s
 (scopes, resources, destination APIs) — rather than from documentation, so
@@ -69,14 +74,14 @@ var catalog = await client.Applications.GetAccessCatalog();
 ## Updating with etags
 
 `Update` replaces every setting: name, description, tags, and all three grant
-collections — a collection you leave empty *becomes* empty. It requires the
-`Etag` from the latest read, and a stale one is rejected with a
-`ConflictError`, so a concurrent change can never be silently overwritten:
+collections. Building the replacement with `Edit()` carries the etag of the
+read it started from, and a stale one is rejected with a `ConflictError`, so
+a concurrent change can never be silently overwritten:
 
 ```csharp
 await client.Applications.Get(id)
     .Bind(current => client.Applications.Update(id,
-        current.Edit().WithScopes(OcctooScopes.ReadEvents).BuildUpdate(current.Etag)));
+        current.Edit().WithScopes(OcctooScopes.ReadEvents)));
 ```
 
 `Delete` revokes the credentials; deleting an application that no longer
@@ -89,6 +94,8 @@ match), inclusive created/updated windows, creating/updating actor — and a
 `PageRequest`. Lists are forward-only: a `Page<T>` carries `Items`, a `Next` cursor, and
 `HasMore` — false on the last page, where management lists return no cursor. Keep the same filters when
 following a cursor; it identifies a position in the *filtered* list.
+`Total` stays absent unless `PageRequest.IncludeTotal` asks for it — counting
+costs the API a scan.
 
 The SDK does not auto-paginate: how far to read, and what to do when a page
 fails midway, is the caller's call. Draining a list is a short loop:

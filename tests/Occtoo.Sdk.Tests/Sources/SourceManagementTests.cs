@@ -16,6 +16,7 @@ public class SourceManagementTests
           "name": "Products",
           "description": null,
           "status": "Active",
+          "type": "Media",
           "createdAt": "2026-09-01T10:00:00Z",
           "updatedAt": "2026-09-02T11:30:00Z"
         }
@@ -54,6 +55,7 @@ public class SourceManagementTests
         source.Id.ShouldBe(Products);
         source.Description.HasNoValue.ShouldBeTrue();
         source.Status.ShouldBe(SourceStatus.Active);
+        source.Type.ShouldBe(SourceType.Media);
         page.Next.HasNoValue.ShouldBeTrue();
         page.HasMore.ShouldBeFalse();
 
@@ -196,5 +198,48 @@ public class SourceManagementTests
         var result = await client.Sources.Get(Products, TestContext.Current.CancellationToken);
 
         result.Error.ShouldBeOfType<NotFoundError>().Message.ShouldContain("no such source");
+    }
+
+    [Fact]
+    public async Task Totals_are_requested_only_when_asked_for()
+    {
+        using var handler = new StubHandler()
+            .Respond(HttpStatusCode.OK, """{ "items": [], "after": null, "totalCount": 42 }""");
+        using var client = Client(handler);
+
+        var result = await client.Sources.ListProperties(
+            Products, new PageRequest { IncludeTotal = true }, TestContext.Current.CancellationToken);
+
+        result.Value.Total.GetValueOrThrow().ShouldBe(42);
+        handler.Requests.Single().RequestUri!.Query.ShouldBe("?limit=50&includeTotalCount=true");
+    }
+
+    [Fact]
+    public async Task A_list_type_without_a_delimiter_and_a_scalar_with_one_fail_before_the_request()
+    {
+        using var handler = new StubHandler();
+        using var client = Client(handler);
+
+        var missing = await client.Sources.UpsertProperty(Products, PropertyId.From("tags"),
+            new UpsertSourceProperty("Tags") { Type = SourcePropertyType.LocalizedList }, TestContext.Current.CancellationToken);
+        missing.Error.ShouldBeOfType<ValidationError>();
+
+        var stray = await client.Sources.UpsertProperty(Products, PropertyId.From("price"),
+            new UpsertSourceProperty("Price") { Type = SourcePropertyType.Decimal, Delimiter = Delimiter.From(",") },
+            TestContext.Current.CancellationToken);
+        stray.Error.ShouldBeOfType<ValidationError>();
+
+        handler.RequestCount.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task An_incomplete_source_is_an_unexpected_error_not_an_exception()
+    {
+        using var handler = new StubHandler().Respond(HttpStatusCode.OK, "{}");
+        using var client = Client(handler);
+
+        var result = await client.Sources.Get(Products, TestContext.Current.CancellationToken);
+
+        result.Error.ShouldBeOfType<UnexpectedError>();
     }
 }

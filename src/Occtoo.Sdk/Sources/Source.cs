@@ -41,6 +41,7 @@ public sealed record Source(
     string Name,
     Maybe<string> Description,
     SourceStatus Status,
+    SourceType Type,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt);
 

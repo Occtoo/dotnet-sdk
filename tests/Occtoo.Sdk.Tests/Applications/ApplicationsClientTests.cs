@@ -109,12 +109,10 @@ public class ApplicationsClientTests
             """);
         using var client = Client(handler);
 
-        var result = await client.Applications.Create(new CreateApplication("Catalog reader")
-        {
-            Description = "Reads the product source configuration",
-            ScopeKeys = ["read:sources"],
-            ResourceSelectors = ["source:products"],
-        }, TestContext.Current.CancellationToken);
+        var result = await client.Applications.Create(CreateApplication.WithName("Catalog reader")
+            .WithDescription("Reads the product source configuration")
+            .WithScopes("read:sources")
+            .WithSources("products"), TestContext.Current.CancellationToken);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.ClientSecret.Value.ShouldBe("s3cret");
@@ -136,7 +134,9 @@ public class ApplicationsClientTests
             .Respond(HttpStatusCode.Conflict, """{ "title": "stale etag" }""");
         using var client = Client(handler);
 
-        var replacement = new UpdateApplication("Catalog reader", Etag: 3) { ScopeKeys = ["read:sources"] };
+        UpdateApplication replacement = new Application(
+            Id, "Catalog reader", Maybe<string>.None, ClientId.From("client-abc"), [], [], [], [], [], Etag: 3,
+            DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch).Edit().WithScopes("read:sources");
 
         var updated = await client.Applications.Update(Id, replacement, TestContext.Current.CancellationToken);
         updated.IsSuccess.ShouldBeTrue();
@@ -185,5 +185,16 @@ public class ApplicationsClientTests
         scope.Children.ShouldHaveSingleItem().ResourceId.GetValueOrDefault().ShouldBe("products");
         handler.Requests.Single().RequestUri!.AbsoluteUri
             .ShouldBe("https://api.occtoo.com/v1/applications/access-catalog");
+    }
+
+    [Fact]
+    public async Task An_incomplete_response_is_an_unexpected_error_not_an_exception()
+    {
+        using var handler = new StubHandler().Respond(HttpStatusCode.OK, "{}");
+        using var client = Client(handler);
+
+        var result = await client.Applications.Get(Id, TestContext.Current.CancellationToken);
+
+        result.Error.ShouldBeOfType<UnexpectedError>().Message.ShouldContain("incomplete response");
     }
 }

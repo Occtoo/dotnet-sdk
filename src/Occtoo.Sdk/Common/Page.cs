@@ -50,4 +50,10 @@ public sealed record PageRequest
 
     /// <summary>Maximum items per page, 1–200. Defaults to 50.</summary>
     public int Limit { get; init; } = 50;
+
+    /// <summary>
+    /// Whether to compute the exact number of matching items — returned in
+    /// <see cref="Page{T}.Total"/>. Off by default; counting costs a scan.
+    /// </summary>
+    public bool IncludeTotal { get; init; }
 }

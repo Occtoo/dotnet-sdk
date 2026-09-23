@@ -117,6 +117,29 @@ internal static class OcctooTransport
         }
     }
 
+    /// <summary>
+    /// Maps a parsed response onto the public model. A body that parsed but
+    /// lacks required values fails the model's own validation; that is an
+    /// <see cref="UnexpectedError"/>, not an exception.
+    /// </summary>
+    internal static async Task<Result<TModel, OcctooError>> MapResponse<T, TModel>(
+        this Task<Result<T, OcctooError>> sent,
+        Func<T, TModel> map)
+    {
+        var result = await sent.ConfigureAwait(false);
+        if (result.IsFailure)
+            return result.Error;
+
+        try
+        {
+            return map(result.Value);
+        }
+        catch (Vogen.ValueObjectValidationException exception)
+        {
+            return new UnexpectedError($"Occtoo returned an incomplete response: {exception.Message}");
+        }
+    }
+
     internal static HttpRequestMessage Request(HttpMethod method, Uri uri) => new(method, uri);
 
     internal static HttpRequestMessage Request<TBody>(HttpMethod method, Uri uri, TBody body, JsonTypeInfo<TBody> bodyType) =>

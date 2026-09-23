@@ -7,23 +7,28 @@ namespace Occtoo.Applications;
 /// <summary>
 /// Assembles an application's settings and grants without knowing how Occtoo
 /// spells them — scope keys, <c>source:{id}</c> resource selectors,
-/// <c>destination:{id}</c> and <c>api-version:{id}</c> API selectors. Start
-/// with <see cref="CreateApplication.WithName"/> for a new application, or
-/// <see cref="Application.Edit"/> to change an existing one. Grants are not
-/// validated client-side: the API checks them against the tenant's access
-/// catalog.
+/// <c>destination:{id}</c> and <c>api-version:{id}</c> API selectors. Every
+/// input is a value object validated at the call site; whether a grant exists
+/// is checked by the API against the tenant's access catalog.
 /// </summary>
 /// <example>
 /// <code>
 /// var application = CreateApplication.WithName("Catalog reader")
 ///     .WithScopes(OcctooScopes.ReadSources)
 ///     .WithSources("products", "assets")
-///     .WithDestinations("webshop")
+///     .WithDestinations("webshop");
+///
+/// var update = current.Edit()
+///     .WithoutSources("assets")
 ///     .WithApiVersions("2b1d7f3a-5c2e-4b8f-9a6d-1e0c4f7a8b9c");
 /// </code>
 /// </example>
-public sealed class ApplicationBuilder
+public abstract class ApplicationBuilder<TBuilder>
+    where TBuilder : ApplicationBuilder<TBuilder>
 {
+    private const string AllSources = "sources";
+    private const string AllDestinations = "destinations";
+
     private readonly List<string> _tags;
     private readonly List<string> _scopes;
     private readonly List<string> _resources;
@@ -31,103 +36,97 @@ public sealed class ApplicationBuilder
     private string _name;
     private Maybe<string> _description;
 
-    internal ApplicationBuilder(ApplicationName name)
-        : this(name.Value, Maybe<string>.None, [], [], [], [])
+    private protected ApplicationBuilder(ApplicationName name)
     {
+        _name = name.Value;
+        _tags = [];
+        _scopes = [];
+        _resources = [];
+        _apis = [];
     }
 
-    internal ApplicationBuilder(Application application)
-        : this(application.Name, application.Description, application.Tags, application.ScopeKeys,
-            application.ResourceSelectors, application.ApiSelectors)
+    private protected ApplicationBuilder(Application application)
     {
-    }
-
-    private ApplicationBuilder(
-        string name,
-        Maybe<string> description,
-        IReadOnlyList<string> tags,
-        IReadOnlyList<string> scopes,
-        IReadOnlyList<string> resources,
-        IReadOnlyList<string> apis)
-    {
-        _name = name;
-        _description = description;
-        _tags = [.. tags];
-        _scopes = [.. scopes];
-        _resources = [.. resources];
-        _apis = [.. apis];
+        _name = application.Name;
+        _description = application.Description;
+        _tags = [.. application.Tags];
+        _scopes = [.. application.ScopeKeys];
+        _resources = [.. application.ResourceSelectors];
+        _apis = [.. application.ApiSelectors];
     }
 
     /// <summary>Renames the application.</summary>
-    public ApplicationBuilder WithName(ApplicationName name)
+    public TBuilder WithName(ApplicationName name)
     {
         _name = name.Value;
-        return this;
+        return Self;
     }
 
     /// <summary>Sets the free-text description.</summary>
-    public ApplicationBuilder WithDescription(ApplicationDescription description)
+    public TBuilder WithDescription(ApplicationDescription description)
     {
         _description = description.Value;
-        return this;
+        return Self;
+    }
+
+    /// <summary>Clears the description.</summary>
+    public TBuilder WithoutDescription()
+    {
+        _description = Maybe<string>.None;
+        return Self;
     }
 
     /// <summary>Adds labels for grouping and filtering.</summary>
-    public ApplicationBuilder WithTags(params IReadOnlyList<ApplicationTag> tags) =>
-        Add(_tags, [.. tags.Select(tag => tag.Value)]);
+    public TBuilder WithTags(params IReadOnlyList<ApplicationTag> tags) => Add(_tags, [.. tags.Select(tag => tag.Value)]);
+
+    /// <summary>Removes labels.</summary>
+    public TBuilder WithoutTags(params IReadOnlyList<ApplicationTag> tags) => Remove(_tags, [.. tags.Select(tag => tag.Value)]);
 
     /// <summary>Grants capabilities — use the <see cref="Authentication.OcctooScopes"/> constants.</summary>
-    public ApplicationBuilder WithScopes(params IReadOnlyList<ApplicationScope> scopes) =>
-        Add(_scopes, [.. scopes.Select(scope => scope.Value)]);
+    public TBuilder WithScopes(params IReadOnlyList<ApplicationScope> scopes) => Add(_scopes, [.. scopes.Select(scope => scope.Value)]);
+
+    /// <summary>Revokes capabilities.</summary>
+    public TBuilder WithoutScopes(params IReadOnlyList<ApplicationScope> scopes) => Remove(_scopes, [.. scopes.Select(scope => scope.Value)]);
 
     /// <summary>Grants access to specific sources.</summary>
-    public ApplicationBuilder WithSources(params IReadOnlyList<SourceId> sources) =>
-        Add(_resources, [.. sources.Select(source => $"source:{source.Value}")]);
+    public TBuilder WithSources(params IReadOnlyList<SourceId> sources) => Add(_resources, Selectors(sources));
+
+    /// <summary>Revokes access to specific sources.</summary>
+    public TBuilder WithoutSources(params IReadOnlyList<SourceId> sources) => Remove(_resources, Selectors(sources));
 
     /// <summary>Grants access to every current and future source.</summary>
-    public ApplicationBuilder WithAllSources() => Add(_resources, ["sources"]);
+    public TBuilder WithAllSources() => Add(_resources, [AllSources]);
+
+    /// <summary>Revokes the all-sources grant; specific source grants stay.</summary>
+    public TBuilder WithoutAllSources() => Remove(_resources, [AllSources]);
 
     /// <summary>Grants every current and future API version of specific destinations.</summary>
-    public ApplicationBuilder WithDestinations(params IReadOnlyList<DestinationId> destinations) =>
-        Add(_apis, [.. destinations.Select(destination => $"destination:{destination.Value}")]);
+    public TBuilder WithDestinations(params IReadOnlyList<DestinationId> destinations) => Add(_apis, Selectors(destinations));
+
+    /// <summary>Revokes destination grants.</summary>
+    public TBuilder WithoutDestinations(params IReadOnlyList<DestinationId> destinations) => Remove(_apis, Selectors(destinations));
 
     /// <summary>Grants every protected destination API, current and future.</summary>
-    public ApplicationBuilder WithAllDestinations() => Add(_apis, ["destinations"]);
+    public TBuilder WithAllDestinations() => Add(_apis, [AllDestinations]);
+
+    /// <summary>Revokes the all-destinations grant; specific grants stay.</summary>
+    public TBuilder WithoutAllDestinations() => Remove(_apis, [AllDestinations]);
 
     /// <summary>
     /// Grants specific destination API versions, by id — the version id alone
     /// identifies it, whichever destination it belongs to.
     /// </summary>
-    public ApplicationBuilder WithApiVersions(params IReadOnlyList<ApiVersionId> versions) =>
-        Add(_apis, [.. versions.Select(version => $"api-version:{ApiVersionKey(version)}")]);
+    public TBuilder WithApiVersions(params IReadOnlyList<ApiVersionId> versions) => Add(_apis, Selectors(versions));
 
-    /// <summary>The settings for <see cref="ApplicationsClient.Create"/>.</summary>
-    public CreateApplication Build() => new(_name)
-    {
-        Description = _description,
-        Tags = [.. _tags],
-        ScopeKeys = [.. _scopes],
-        ResourceSelectors = [.. _resources],
-        ApiSelectors = [.. _apis],
-    };
+    /// <summary>Revokes API version grants.</summary>
+    public TBuilder WithoutApiVersions(params IReadOnlyList<ApiVersionId> versions) => Remove(_apis, Selectors(versions));
 
-    /// <summary>
-    /// The full replacement for <see cref="ApplicationsClient.Update"/>, guarded
-    /// by the etag of the read it is based on.
-    /// </summary>
-    public UpdateApplication BuildUpdate(uint etag) => new(_name, etag)
-    {
-        Description = _description,
-        Tags = [.. _tags],
-        ScopeKeys = [.. _scopes],
-        ResourceSelectors = [.. _resources],
-        ApiSelectors = [.. _apis],
-    };
+    private protected ApplicationSettings Settings() =>
+        new(_name, _description, [.. _tags], [.. _scopes], [.. _resources], [.. _apis]);
 
-    /// <summary>Finishes a new application implicitly.</summary>
-    public static implicit operator CreateApplication(ApplicationBuilder builder) => builder.Build();
+    private TBuilder Self => (TBuilder)this;
 
-    private ApplicationBuilder Add(List<string> target, IReadOnlyList<string> values)
+    private TBuilder Add(List<string> target, IReadOnlyList<string> values)
     {
         foreach (var value in values)
         {
@@ -135,10 +134,55 @@ public sealed class ApplicationBuilder
                 target.Add(value);
         }
 
-        return this;
+        return Self;
     }
 
+    private TBuilder Remove(List<string> target, IReadOnlyList<string> values)
+    {
+        target.RemoveAll(value => values.Contains(value, StringComparer.Ordinal));
+        return Self;
+    }
+
+    private static IReadOnlyList<string> Selectors(IReadOnlyList<SourceId> sources) =>
+        [.. sources.Select(source => $"source:{source.Value}")];
+
+    private static IReadOnlyList<string> Selectors(IReadOnlyList<DestinationId> destinations) =>
+        [.. destinations.Select(destination => $"destination:{destination.Value}")];
+
     // The API spells version ids as 32 hex digits; anything else is passed through for the API to judge.
-    private static string ApiVersionKey(ApiVersionId version) =>
-        Guid.TryParse(version.Value, out var id) ? id.ToString("N") : version.Value;
+    private static IReadOnlyList<string> Selectors(IReadOnlyList<ApiVersionId> versions) =>
+        [.. versions.Select(version => $"api-version:{(Guid.TryParse(version.Value, out var id) ? id.ToString("N") : version.Value)}")];
+}
+
+/// <summary>Builds a <see cref="CreateApplication"/>; converts implicitly.</summary>
+public sealed class CreateApplicationBuilder : ApplicationBuilder<CreateApplicationBuilder>
+{
+    internal CreateApplicationBuilder(ApplicationName name)
+        : base(name)
+    {
+    }
+
+    /// <summary>The settings for <see cref="ApplicationsClient.Create"/>.</summary>
+    public CreateApplication Build() => new(Settings());
+
+    /// <summary>Finishes the application implicitly.</summary>
+    public static implicit operator CreateApplication(CreateApplicationBuilder builder) => builder.Build();
+}
+
+/// <summary>
+/// Builds an <see cref="UpdateApplication"/> from an application's current
+/// settings and etag; converts implicitly.
+/// </summary>
+public sealed class UpdateApplicationBuilder : ApplicationBuilder<UpdateApplicationBuilder>
+{
+    private readonly uint _etag;
+
+    internal UpdateApplicationBuilder(Application application)
+        : base(application) => _etag = application.Etag;
+
+    /// <summary>The replacement for <see cref="ApplicationsClient.Update"/>.</summary>
+    public UpdateApplication Build() => new(Settings(), _etag);
+
+    /// <summary>Finishes the update implicitly.</summary>
+    public static implicit operator UpdateApplication(UpdateApplicationBuilder builder) => builder.Build();
 }

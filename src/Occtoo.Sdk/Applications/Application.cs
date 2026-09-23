@@ -33,9 +33,9 @@ public sealed record Application(
 {
     /// <summary>
     /// Starts changing this application: a builder pre-filled with its current
-    /// settings and grants, finished with <c>BuildUpdate(Etag)</c>.
+    /// settings and grants, carrying its etag into the update.
     /// </summary>
-    public ApplicationBuilder Edit() => new(this);
+    public UpdateApplicationBuilder Edit() => new(this);
 }
 
 /// <summary>
@@ -59,53 +59,82 @@ public sealed record AccessNode(
     IReadOnlyList<AccessNode> Children);
 
 /// <summary>
-/// A new application. Use <see cref="ApplicationsClient.GetAccessCatalog"/>
-/// to discover valid scope keys, resource selectors, and API selectors.
+/// A new application, assembled by <see cref="WithName"/>'s builder — the
+/// only way to create one, so every input has been validated.
 /// </summary>
-public sealed record CreateApplication(string Name)
+public sealed record CreateApplication
 {
-    /// <summary>Starts building a new application fluently.</summary>
-    public static ApplicationBuilder WithName(ApplicationName name) => new(name);
+    internal CreateApplication(ApplicationSettings settings) => Settings = settings;
+
+    /// <summary>Starts building a new application.</summary>
+    public static CreateApplicationBuilder WithName(ApplicationName name) => new(name);
+
+    internal ApplicationSettings Settings { get; }
+
+    /// <summary>The application's name.</summary>
+    public string Name => Settings.Name;
 
     /// <summary>A free-text description.</summary>
-    public Maybe<string> Description { get; init; } = Maybe<string>.None;
+    public Maybe<string> Description => Settings.Description;
 
     /// <summary>Labels for grouping and filtering.</summary>
-    public IReadOnlyList<string> Tags { get; init; } = [];
+    public IReadOnlyList<string> Tags => Settings.Tags;
 
-    /// <summary>The scopes to grant — <c>read:sources</c>, <c>write:sources</c>, …</summary>
-    public IReadOnlyList<string> ScopeKeys { get; init; } = [];
+    /// <summary>The scope keys to grant.</summary>
+    public IReadOnlyList<string> ScopeKeys => Settings.ScopeKeys;
 
-    /// <summary>The resources to grant — <c>source:products</c>, or <c>sources</c> for all.</summary>
-    public IReadOnlyList<string> ResourceSelectors { get; init; } = [];
+    /// <summary>The resource selectors to grant.</summary>
+    public IReadOnlyList<string> ResourceSelectors => Settings.ResourceSelectors;
 
-    /// <summary>The destination APIs to grant.</summary>
-    public IReadOnlyList<string> ApiSelectors { get; init; } = [];
+    /// <summary>The destination API selectors to grant.</summary>
+    public IReadOnlyList<string> ApiSelectors => Settings.ApiSelectors;
 }
 
 /// <summary>
-/// Replaces every setting of an application. <c>Etag</c> must be the one
-/// from the latest read — a stale value is rejected with a
-/// <see cref="ConflictError"/>. Collections left empty become empty.
+/// The full replacement of an application's settings, assembled by
+/// <see cref="Application.Edit"/>. Carries the etag of the read it started
+/// from; a concurrent change in between is rejected with a
+/// <see cref="ConflictError"/>.
 /// </summary>
-public sealed record UpdateApplication(string Name, uint Etag)
+public sealed record UpdateApplication
 {
+    internal UpdateApplication(ApplicationSettings settings, uint etag)
+    {
+        Settings = settings;
+        Etag = etag;
+    }
+
+    internal ApplicationSettings Settings { get; }
+
+    /// <summary>The etag of the read this update is based on.</summary>
+    public uint Etag { get; }
+
+    /// <inheritdoc cref="CreateApplication.Name"/>
+    public string Name => Settings.Name;
+
     /// <inheritdoc cref="CreateApplication.Description"/>
-    public Maybe<string> Description { get; init; } = Maybe<string>.None;
+    public Maybe<string> Description => Settings.Description;
 
     /// <inheritdoc cref="CreateApplication.Tags"/>
-    public IReadOnlyList<string> Tags { get; init; } = [];
+    public IReadOnlyList<string> Tags => Settings.Tags;
 
     /// <inheritdoc cref="CreateApplication.ScopeKeys"/>
-    public IReadOnlyList<string> ScopeKeys { get; init; } = [];
+    public IReadOnlyList<string> ScopeKeys => Settings.ScopeKeys;
 
     /// <inheritdoc cref="CreateApplication.ResourceSelectors"/>
-    public IReadOnlyList<string> ResourceSelectors { get; init; } = [];
+    public IReadOnlyList<string> ResourceSelectors => Settings.ResourceSelectors;
 
     /// <inheritdoc cref="CreateApplication.ApiSelectors"/>
-    public IReadOnlyList<string> ApiSelectors { get; init; } = [];
+    public IReadOnlyList<string> ApiSelectors => Settings.ApiSelectors;
 }
 
+internal sealed record ApplicationSettings(
+    string Name,
+    Maybe<string> Description,
+    IReadOnlyList<string> Tags,
+    IReadOnlyList<string> ScopeKeys,
+    IReadOnlyList<string> ResourceSelectors,
+    IReadOnlyList<string> ApiSelectors);
 /// <summary>
 /// Narrows and pages an application listing. Filters combine with AND;
 /// timestamp bounds are inclusive. Keep the same filters when following

@@ -17,6 +17,8 @@ internal sealed record SourceDto
 
     public SourceStatus Status { get; init; }
 
+    public SourceType Type { get; init; }
+
     public DateTimeOffset CreatedAt { get; init; }
 
     public DateTimeOffset UpdatedAt { get; init; }
@@ -26,6 +28,7 @@ internal sealed record SourceDto
         Name,
         Description is { Length: > 0 } ? Maybe.From(Description) : Maybe<string>.None,
         Status,
+        Type,
         CreatedAt,
         UpdatedAt);
 }

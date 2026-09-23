@@ -27,6 +27,13 @@ internal sealed class QueryString(string path)
 
     internal QueryString Add(string name, int value) => Add(name, value.ToString(CultureInfo.InvariantCulture));
 
+    internal QueryString Add(PageRequest page)
+    {
+        Add("after", page.After);
+        Add("limit", page.Limit);
+        return page.IncludeTotal ? Add("includeTotalCount", "true") : this;
+    }
+
     internal QueryString Add(string name, Maybe<Guid> value) =>
         value.HasValue ? Add(name, value.Value.ToString("D")) : this;
 
