@@ -55,7 +55,6 @@ public sealed class ManagedTagsClient
             .MapResponse(page => Pages.ToPage(page.Items, page.After, page.TotalCount, dto => dto.ToModel()));
     }
 
-
     /// <summary>Reads one managed tag.</summary>
     public Task<Result<ManagedTag, OcctooError>> Get(
         ManagedTagId managedTagId,
@@ -129,7 +128,6 @@ public sealed class ManagedTagsClient
                 ManagedTagsJsonContext.Default.ForwardPageDtoManagedTagValueDto, cancellationToken)
             .MapResponse(page => Pages.ToPage(page.Items, page.After, page.TotalCount, dto => dto.ToModel()));
     }
-
 
     /// <summary>Reads one value.</summary>
     public Task<Result<ManagedTagValue, OcctooError>> GetValue(
