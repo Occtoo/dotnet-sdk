@@ -334,7 +334,7 @@ public sealed class SourcesClient
 
         return OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Get, uri), "get source entries",
                 SourceEntriesJsonContext.Default.StoredEntriesDto, cancellationToken)
-            .MapResponse(IReadOnlyList<StoredSourceEntry> (dto) => [.. dto.Items.Select(item => item.ToModel())]);
+            .MapResponse(IReadOnlyList<StoredSourceEntry> (dto) => [.. OcctooTransport.Elements(dto.Items, "items").Select(item => item.ToModel())]);
     }
 
     private static Uri SourceUri(SourceId sourceId) =>

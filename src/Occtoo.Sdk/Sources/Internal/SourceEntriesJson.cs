@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using CSharpFunctionalExtensions;
+using Occtoo.Http.Internal;
 
 namespace Occtoo.Sources.Internal;
 
@@ -19,7 +20,7 @@ internal sealed record StoredEntryDto
 
     internal StoredSourceEntry ToModel() => new(
         EntryId.From(Id),
-        [.. Properties.Select(property => property.ToModel())],
+        [.. OcctooTransport.Elements(Properties, "properties").Select(property => property.ToModel())],
         LastUpdated);
 }
 

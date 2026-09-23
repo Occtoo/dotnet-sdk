@@ -122,4 +122,17 @@ public class SourceEntryReadTests
 
         result.Error.ShouldBeOfType<UnexpectedError>();
     }
+
+    [Theory]
+    [InlineData("""{ "items": [null] }""")]
+    [InlineData("""{ "items": [{ "id": "chair-1", "properties": [null], "lastUpdated": "2026-09-15T10:00:00Z" }] }""")]
+    public async Task Null_elements_in_an_entry_batch_are_unexpected_errors(string body)
+    {
+        using var handler = new StubHandler().Respond(HttpStatusCode.OK, body);
+        using var client = Client(handler);
+
+        var result = await client.Sources.GetEntries(Products, [EntryId.From("chair-1")], TestContext.Current.CancellationToken);
+
+        result.Error.ShouldBeOfType<UnexpectedError>();
+    }
 }
