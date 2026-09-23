@@ -11,7 +11,7 @@ namespace Occtoo.ManagedTags.Internal;
 
 internal sealed record ManagedTagDto
 {
-    public Guid Id { get; init; }
+    public required Guid Id { get; init; }
 
     public string DisplayName { get; init; } = "";
 
@@ -40,7 +40,7 @@ internal sealed record ManagedTagDto
 
 internal sealed record ManagedTagValueDto
 {
-    public string Key { get; init; } = "";
+    public required string Key { get; init; }
 
     public JsonElement Value { get; init; }
 
@@ -98,7 +98,7 @@ internal sealed record UpdateManagedTagValueDto(ManagedTagValueContentDto Value,
 
 internal sealed record ForwardPageDto<T>
 {
-    public T[] Items { get; init; } = [];
+    public required T[] Items { get; init; }
 
     public string? After { get; init; }
 
@@ -107,6 +107,7 @@ internal sealed record ForwardPageDto<T>
 
 [JsonSourceGenerationOptions(
     JsonSerializerDefaults.Web,
+    RespectNullableAnnotations = true,
     UseStringEnumConverter = true,
     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
 [JsonSerializable(typeof(ManagedTagDto))]
