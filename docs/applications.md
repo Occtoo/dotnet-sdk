@@ -29,11 +29,30 @@ identity (`ClientId`, `Audiences`), the grants (`ScopeKeys`,
 responses never include the secret; only `Create` returns
 `ApplicationCredentials` with the `ClientSecret`.
 
-The builder (`CreateApplication.Named`, or `application.Edit()` for changes)
-spells the grants for you — `WithScopes`, `WithSources` / `WithAllSources`,
-`WithDestinations` / `WithAllDestinations`, `WithApiVersions` — so no one
-composes `source:{id}` or `api-version:{id}` selectors by hand. It does not
-validate them; the API checks every grant against the tenant's catalog.
+## Building grants
+
+`CreateApplication.Named(...)` (or `application.Edit()` for changes) returns an
+`ApplicationBuilder` that spells every grant the way the API expects, so no
+one composes selectors by hand:
+
+| Builder method | Grants |
+|---|---|
+| `WithScopes(OcctooScopes.ReadSources, …)` | Capabilities — use the `OcctooScopes` constants |
+| `WithSources("products", …)` | Specific sources |
+| `WithAllSources()` | Every current and future source |
+| `WithDestinations("webshop", …)` | Every current and future API version of specific destinations |
+| `WithAllDestinations()` | Every protected destination API, current and future |
+| `WithApiVersions(apiVersionId, …)` | Specific destination API versions |
+
+API versions are granted by id — the id alone identifies a version, whichever
+destination it belongs to; the access catalog lists them. The builder drops
+duplicates but validates nothing else: the API checks every grant against the
+tenant's catalog and answers an unknown one with a `ValidationError`.
+
+`Edit()` starts from the application's current settings and grants, so an
+update built from it keeps everything you do not touch. It can only add
+grants; to remove one, start from `CreateApplication.Named(...)` with only
+the grants to keep and finish with `.BuildUpdate(current.Etag)`.
 
 The valid grants come from the access catalog — a tree of `AccessNode`s
 (scopes, resources, destination APIs) — rather than from documentation, so

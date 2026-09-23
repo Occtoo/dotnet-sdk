@@ -203,7 +203,7 @@ Requires the `write:sources` scope. The legacy string-based import
 
 | Method | Path | Purpose |
 |---|---|---|
-| `GET` `POST` | `/v1/applications` | List and create applications; creation returns the one-time client secret |
+| `GET` `POST` | `/v1/applications` | List and create applications (a fluent builder spells the grants); creation returns the one-time client secret |
 | `GET` `PUT` `DELETE` | `/v1/applications/{applicationId}` | Read, replace (etag-guarded), and delete an application |
 | `GET` | `/v1/applications/access-catalog` | The scopes, resources, and destination APIs an application can be granted |
 
