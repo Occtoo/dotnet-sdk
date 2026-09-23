@@ -8,14 +8,14 @@ namespace Occtoo.Applications;
 /// Assembles an application's settings and grants without knowing how Occtoo
 /// spells them — scope keys, <c>source:{id}</c> resource selectors,
 /// <c>destination:{id}</c> and <c>api-version:{id}</c> API selectors. Start
-/// with <see cref="CreateApplication.Named"/> for a new application, or
+/// with <see cref="CreateApplication.WithName"/> for a new application, or
 /// <see cref="Application.Edit"/> to change an existing one. Grants are not
 /// validated client-side: the API checks them against the tenant's access
 /// catalog.
 /// </summary>
 /// <example>
 /// <code>
-/// var application = CreateApplication.Named("Catalog reader")
+/// var application = CreateApplication.WithName("Catalog reader")
 ///     .WithScopes(OcctooScopes.ReadSources)
 ///     .WithSources("products", "assets")
 ///     .WithDestinations("webshop")

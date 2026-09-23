@@ -65,7 +65,7 @@ public sealed record AccessNode(
 public sealed record CreateApplication(string Name)
 {
     /// <summary>Starts building a new application fluently.</summary>
-    public static ApplicationBuilder Named(string name) => new(name);
+    public static ApplicationBuilder WithName(string name) => new(name);
 
     /// <summary>A free-text description.</summary>
     public Maybe<string> Description { get; init; } = Maybe<string>.None;

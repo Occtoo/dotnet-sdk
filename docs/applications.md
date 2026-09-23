@@ -5,7 +5,7 @@ the identities behind `OcctooCredential.ClientCredentials` — and what each is
 allowed to do: `/v1/applications` and `/v1/applications/access-catalog`.
 
 ```csharp
-var created = await client.Applications.Create(CreateApplication.Named("Catalog reader")
+var created = await client.Applications.Create(CreateApplication.WithName("Catalog reader")
     .WithDescription("Reads the product source configuration")
     .WithScopes(OcctooScopes.ReadSources)
     .WithSources("products"));
@@ -31,7 +31,7 @@ responses never include the secret; only `Create` returns
 
 ## Building grants
 
-`CreateApplication.Named(...)` (or `application.Edit()` for changes) returns an
+`CreateApplication.WithName(...)` (or `application.Edit()` for changes) returns an
 `ApplicationBuilder` that spells every grant the way the API expects, so no
 one composes selectors by hand:
 
@@ -51,7 +51,7 @@ tenant's catalog and answers an unknown one with a `ValidationError`.
 
 `Edit()` starts from the application's current settings and grants, so an
 update built from it keeps everything you do not touch. It can only add
-grants; to remove one, start from `CreateApplication.Named(...)` with only
+grants; to remove one, start from `CreateApplication.WithName(...)` with only
 the grants to keep and finish with `.BuildUpdate(current.Etag)`.
 
 The valid grants come from the access catalog — a tree of `AccessNode`s

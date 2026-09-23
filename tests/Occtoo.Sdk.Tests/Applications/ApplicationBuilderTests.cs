@@ -10,7 +10,7 @@ public class ApplicationBuilderTests
     [Fact]
     public void Spells_every_grant_the_way_the_api_expects()
     {
-        CreateApplication application = CreateApplication.Named("Catalog reader")
+        CreateApplication application = CreateApplication.WithName("Catalog reader")
             .WithDescription("Reads products")
             .WithTags("commerce")
             .WithScopes(OcctooScopes.ReadSources, OcctooScopes.ReadEvents)
@@ -29,7 +29,7 @@ public class ApplicationBuilderTests
     [Fact]
     public void Aggregate_grants_and_duplicates()
     {
-        var application = CreateApplication.Named("Everything")
+        var application = CreateApplication.WithName("Everything")
             .WithAllSources()
             .WithAllDestinations()
             .WithScopes(OcctooScopes.WriteSources, OcctooScopes.WriteSources)
