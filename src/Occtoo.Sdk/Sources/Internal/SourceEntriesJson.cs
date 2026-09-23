@@ -11,9 +11,9 @@ namespace Occtoo.Sources.Internal;
 
 internal sealed record StoredEntryDto
 {
-    public string Id { get; init; } = "";
+    public required string Id { get; init; }
 
-    public StoredPropertyDto[] Properties { get; init; } = [];
+    public required StoredPropertyDto[] Properties { get; init; }
 
     public DateTimeOffset LastUpdated { get; init; }
 
@@ -25,7 +25,7 @@ internal sealed record StoredEntryDto
 
 internal sealed record StoredPropertyDto
 {
-    public string Id { get; init; } = "";
+    public required string Id { get; init; }
 
     public JsonElement Value { get; init; }
 
@@ -69,10 +69,10 @@ internal sealed record StoredPropertyDto
 
 internal sealed record StoredEntriesDto
 {
-    public StoredEntryDto[] Items { get; init; } = [];
+    public required StoredEntryDto[] Items { get; init; }
 }
 
-[JsonSourceGenerationOptions(JsonSerializerDefaults.Web, UseStringEnumConverter = true)]
+[JsonSourceGenerationOptions(JsonSerializerDefaults.Web, RespectNullableAnnotations = true, UseStringEnumConverter = true)]
 [JsonSerializable(typeof(StoredEntryDto))]
 [JsonSerializable(typeof(StoredEntriesDto))]
 internal sealed partial class SourceEntriesJsonContext : JsonSerializerContext;
