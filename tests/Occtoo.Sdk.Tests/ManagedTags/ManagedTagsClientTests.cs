@@ -200,4 +200,21 @@ public class ManagedTagsClientTests
     {
         Should.Throw<ValueObjectValidationException>(() => ManagedTagValueKey.From(key));
     }
+
+    [Fact]
+    public async Task Tag_lists_request_totals_when_asked_and_incomplete_tags_are_unexpected_errors()
+    {
+        using var handler = new StubHandler()
+            .Respond(HttpStatusCode.OK, """{ "items": [], "after": null, "totalCount": 3 }""")
+            .Respond(HttpStatusCode.OK, "{}");
+        using var client = Client(handler);
+
+        var page = await client.ManagedTags.List(
+            new ManagedTagListQuery { Page = new PageRequest { IncludeTotal = true } }, TestContext.Current.CancellationToken);
+        page.Value.Total.GetValueOrThrow().ShouldBe(3);
+        handler.Requests[0].RequestUri!.Query.ShouldContain("includeTotalCount=true");
+
+        var tag = await client.ManagedTags.Get(Colors, TestContext.Current.CancellationToken);
+        tag.Error.ShouldBeOfType<UnexpectedError>();
+    }
 }

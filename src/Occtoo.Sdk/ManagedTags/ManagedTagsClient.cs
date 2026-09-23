@@ -47,13 +47,12 @@ public sealed class ManagedTagsClient
             .Add("createdTo", query.CreatedTo)
             .Add("updatedFrom", query.UpdatedFrom)
             .Add("updatedTo", query.UpdatedTo)
-            .Add("after", query.Page.After)
-            .Add("limit", query.Page.Limit)
+            .Add(query.Page)
             .ToUri();
 
         return OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Get, uri), "list managed tags",
                 ManagedTagsJsonContext.Default.ForwardPageDtoManagedTagDto, cancellationToken)
-            .Map(page => Pages.ToPage(page.Items, page.After, page.TotalCount, dto => dto.ToModel()));
+            .MapResponse(page => Pages.ToPage(page.Items, page.After, page.TotalCount, dto => dto.ToModel()));
     }
 
 
@@ -63,7 +62,7 @@ public sealed class ManagedTagsClient
         CancellationToken cancellationToken = default) =>
         OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Get, TagUri(managedTagId)),
                 "get managed tag", ManagedTagsJsonContext.Default.ManagedTagDto, cancellationToken)
-            .Map(dto => dto.ToModel());
+            .MapResponse(dto => dto.ToModel());
 
     /// <summary>Creates a managed tag.</summary>
     public Task<Result<ManagedTag, OcctooError>> Create(
@@ -78,7 +77,7 @@ public sealed class ManagedTagsClient
                 OcctooTransport.Request(HttpMethod.Post, new Uri("v1/managed-tags", UriKind.Relative), body,
                     ManagedTagsJsonContext.Default.CreateManagedTagDto),
                 "create managed tag", ManagedTagsJsonContext.Default.ManagedTagDto, cancellationToken)
-            .Map(dto => dto.ToModel())
+            .MapResponse(dto => dto.ToModel())
             .Tap(created => OcctooLog.ManagedTagCreated(_logger, created.Id.Value, created.DisplayName));
     }
 
@@ -95,7 +94,7 @@ public sealed class ManagedTagsClient
         return OcctooTransport.Send(_httpClient, _requestTimeout,
                 OcctooTransport.Request(HttpMethod.Put, TagUri(managedTagId), body, ManagedTagsJsonContext.Default.UpdateManagedTagDto),
                 "update managed tag", ManagedTagsJsonContext.Default.ManagedTagDto, cancellationToken)
-            .Map(dto => dto.ToModel());
+            .MapResponse(dto => dto.ToModel());
     }
 
     /// <summary>
@@ -123,13 +122,12 @@ public sealed class ManagedTagsClient
         var uri = new QueryString($"v1/managed-tags/{managedTagId.Value:D}/values")
             .Add("key", query.Key)
             .Add("parentKey", query.ParentKey.Map(key => key.Value))
-            .Add("after", query.Page.After)
-            .Add("limit", query.Page.Limit)
+            .Add(query.Page)
             .ToUri();
 
         return OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Get, uri), "list managed tag values",
                 ManagedTagsJsonContext.Default.ForwardPageDtoManagedTagValueDto, cancellationToken)
-            .Map(page => Pages.ToPage(page.Items, page.After, page.TotalCount, dto => dto.ToModel()));
+            .MapResponse(page => Pages.ToPage(page.Items, page.After, page.TotalCount, dto => dto.ToModel()));
     }
 
 
@@ -140,7 +138,7 @@ public sealed class ManagedTagsClient
         CancellationToken cancellationToken = default) =>
         OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Get, ValueUri(managedTagId, key)),
                 "get managed tag value", ManagedTagsJsonContext.Default.ManagedTagValueDto, cancellationToken)
-            .Map(dto => dto.ToModel());
+            .MapResponse(dto => dto.ToModel());
 
     /// <summary>Creates a value. An existing key is a <see cref="ConflictError"/>.</summary>
     public Task<Result<ManagedTagValue, OcctooError>> CreateValue(
@@ -161,7 +159,7 @@ public sealed class ManagedTagsClient
                 OcctooTransport.Request(HttpMethod.Post, new Uri($"v1/managed-tags/{managedTagId.Value:D}/values", UriKind.Relative),
                     body, ManagedTagsJsonContext.Default.CreateManagedTagValueDto),
                 "create managed tag value", ManagedTagsJsonContext.Default.ManagedTagValueDto, cancellationToken)
-            .Map(dto => dto.ToModel());
+            .MapResponse(dto => dto.ToModel());
     }
 
     /// <summary>Replaces a value's content, order, and parent.</summary>
@@ -183,7 +181,7 @@ public sealed class ManagedTagsClient
                 OcctooTransport.Request(HttpMethod.Put, ValueUri(managedTagId, key), body,
                     ManagedTagsJsonContext.Default.UpdateManagedTagValueDto),
                 "update managed tag value", ManagedTagsJsonContext.Default.ManagedTagValueDto, cancellationToken)
-            .Map(dto => dto.ToModel());
+            .MapResponse(dto => dto.ToModel());
     }
 
     /// <summary>Deletes a value, clearing parent links to it within its tag.</summary>
