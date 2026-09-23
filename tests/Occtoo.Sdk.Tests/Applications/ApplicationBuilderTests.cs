@@ -93,4 +93,45 @@ public class ApplicationBuilderTests
         update.ResourceSelectors.ShouldBe(["source:products"]);
         update.ApiSelectors.ShouldBe(["destinations"]);
     }
+
+    private static Application ProductReader() => new(
+        TenantApplicationId.From(Guid.NewGuid()), "Reader", "Old", ClientId.From("client-abc"),
+        [], [OcctooScopes.ReadSources], ["source:products"], [], [], Etag: 2,
+        DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch);
+
+    [Fact]
+    public void Removing_the_last_source_is_refused_because_the_api_would_grant_every_source()
+    {
+        var editor = ProductReader().Edit().WithoutSources("products");
+
+        Should.Throw<InvalidOperationException>(() => editor.Build()).Message.ShouldContain("every source");
+    }
+
+    [Fact]
+    public void Removing_the_read_scope_is_refused_because_the_api_would_grant_write()
+    {
+        var editor = ProductReader().Edit().WithoutScopes(OcctooScopes.ReadSources);
+
+        Should.Throw<InvalidOperationException>(() => editor.Build()).Message.ShouldContain("write access");
+    }
+
+    [Fact]
+    public void Revoking_source_access_entirely_is_allowed()
+    {
+        var update = ProductReader().Edit()
+            .WithoutSources("products")
+            .WithoutScopes(OcctooScopes.ReadSources)
+            .Build();
+
+        update.ScopeKeys.ShouldBeEmpty();
+        update.ResourceSelectors.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Swapping_one_source_for_another_is_allowed()
+    {
+        var update = ProductReader().Edit().WithoutSources("products").WithSources("assets").Build();
+
+        update.ResourceSelectors.ShouldBe(["source:assets"]);
+    }
 }

@@ -46,7 +46,12 @@ one composes selectors by hand:
 
 Every grant method has a `Without*` counterpart (`WithoutScopes`,
 `WithoutSources`, `WithoutAllSources`, …) that revokes it, as do
-`WithoutTags` and `WithoutDescription`. The builders are the only way to make
+`WithoutTags` and `WithoutDescription`. Removing grants never widens access: the API reads
+source scopes with no sources selected as *every* source, and selected sources
+with no source scope as *write* access, so a removal that would land in either
+state makes `Build()` throw `InvalidOperationException` with the fix — remove
+the source scopes too to revoke source access, or say `WithAllSources()` if
+every source is what you mean. The builders are the only way to make
 a `CreateApplication` or `UpdateApplication`, so nothing reaches the API
 unvalidated.
 

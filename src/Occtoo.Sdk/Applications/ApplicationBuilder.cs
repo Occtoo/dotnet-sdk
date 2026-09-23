@@ -35,6 +35,7 @@ public abstract class ApplicationBuilder<TBuilder>
     private readonly List<string> _apis;
     private string _name;
     private Maybe<string> _description;
+    private bool _sourceAccessNarrowed;
 
     private protected ApplicationBuilder(ApplicationName name)
     {
@@ -86,19 +87,31 @@ public abstract class ApplicationBuilder<TBuilder>
     public TBuilder WithScopes(params IReadOnlyList<ApplicationScope> scopes) => Add(_scopes, [.. scopes.Select(scope => scope.Value)]);
 
     /// <summary>Revokes capabilities.</summary>
-    public TBuilder WithoutScopes(params IReadOnlyList<ApplicationScope> scopes) => Remove(_scopes, [.. scopes.Select(scope => scope.Value)]);
+    public TBuilder WithoutScopes(params IReadOnlyList<ApplicationScope> scopes)
+    {
+        _sourceAccessNarrowed |= scopes.Any(scope => IsSourceScope(scope.Value));
+        return Remove(_scopes, [.. scopes.Select(scope => scope.Value)]);
+    }
 
     /// <summary>Grants access to specific sources.</summary>
     public TBuilder WithSources(params IReadOnlyList<SourceId> sources) => Add(_resources, Selectors(sources));
 
     /// <summary>Revokes access to specific sources.</summary>
-    public TBuilder WithoutSources(params IReadOnlyList<SourceId> sources) => Remove(_resources, Selectors(sources));
+    public TBuilder WithoutSources(params IReadOnlyList<SourceId> sources)
+    {
+        _sourceAccessNarrowed = true;
+        return Remove(_resources, Selectors(sources));
+    }
 
     /// <summary>Grants access to every current and future source.</summary>
     public TBuilder WithAllSources() => Add(_resources, [AllSources]);
 
     /// <summary>Revokes the all-sources grant; specific source grants stay.</summary>
-    public TBuilder WithoutAllSources() => Remove(_resources, [AllSources]);
+    public TBuilder WithoutAllSources()
+    {
+        _sourceAccessNarrowed = true;
+        return Remove(_resources, [AllSources]);
+    }
 
     /// <summary>Grants every current and future API version of specific destinations.</summary>
     public TBuilder WithDestinations(params IReadOnlyList<DestinationId> destinations) => Add(_apis, Selectors(destinations));
@@ -121,8 +134,43 @@ public abstract class ApplicationBuilder<TBuilder>
     /// <summary>Revokes API version grants.</summary>
     public TBuilder WithoutApiVersions(params IReadOnlyList<ApiVersionId> versions) => Remove(_apis, Selectors(versions));
 
-    private protected ApplicationSettings Settings() =>
-        new(_name, _description, [.. _tags], [.. _scopes], [.. _resources], [.. _apis]);
+    /// <exception cref="InvalidOperationException">
+    /// A <c>Without*</c> call left source grants the API would read as wider
+    /// access than before.
+    /// </exception>
+    private protected ApplicationSettings Settings()
+    {
+        if (_sourceAccessNarrowed)
+            EnsureRemovalDidNotWidenSourceAccess();
+
+        return new(_name, _description, [.. _tags], [.. _scopes], [.. _resources], [.. _apis]);
+    }
+
+    // The API fills gaps in source grants generously: source scopes with no
+    // sources selected mean every source, and selected sources with no source
+    // scope mean write access. Removing grants must never land in either gap,
+    // so an ambiguous result is refused rather than guessed at.
+    private void EnsureRemovalDidNotWidenSourceAccess()
+    {
+        var hasSourceScope = _scopes.Any(IsSourceScope);
+        if (hasSourceScope && _resources.Count == 0)
+        {
+            throw new InvalidOperationException(
+                "No sources remain selected, which the API reads as access to every source. " +
+                "To revoke source access, also call WithoutScopes(OcctooScopes.ReadSources, OcctooScopes.WriteSources); " +
+                "to grant every source, call WithAllSources().");
+        }
+
+        if (!hasSourceScope && _resources.Count > 0)
+        {
+            throw new InvalidOperationException(
+                "Sources remain selected without read:sources or write:sources, which the API reads as write access. " +
+                "Add the scope you mean with WithScopes, or remove the sources.");
+        }
+    }
+
+    private static bool IsSourceScope(string scope) =>
+        scope is Authentication.OcctooScopes.ReadSources or Authentication.OcctooScopes.WriteSources;
 
     private TBuilder Self => (TBuilder)this;
 

@@ -10,7 +10,7 @@ namespace Occtoo.Applications.Internal;
 
 internal sealed record ApplicationDto
 {
-    public Guid Id { get; init; }
+    public required Guid Id { get; init; }
 
     public string Name { get; init; } = "";
 
@@ -51,9 +51,9 @@ internal sealed record ApplicationDto
 
 internal sealed record ApplicationCredentialsDto
 {
-    public ApplicationDto Application { get; init; } = new();
+    public required ApplicationDto Application { get; init; }
 
-    public string ClientSecret { get; init; } = "";
+    public required string ClientSecret { get; init; }
 
     internal ApplicationCredentials ToModel() =>
         new(Application.ToModel(), Authentication.ClientSecret.From(ClientSecret));
@@ -104,14 +104,16 @@ internal sealed record UpdateApplicationDto(
 
 internal sealed record ForwardPageDto<T>
 {
-    public T[] Items { get; init; } = [];
+    public required T[] Items { get; init; }
 
     public string? After { get; init; }
 
     public long? TotalCount { get; init; }
 }
 
-[JsonSourceGenerationOptions(JsonSerializerDefaults.Web, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
+[JsonSourceGenerationOptions(
+    JsonSerializerDefaults.Web,
+    RespectNullableAnnotations = true, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
 [JsonSerializable(typeof(ApplicationDto))]
 [JsonSerializable(typeof(ApplicationCredentialsDto))]
 [JsonSerializable(typeof(AccessNodeDto[]))]

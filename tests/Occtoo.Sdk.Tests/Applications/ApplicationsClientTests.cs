@@ -195,6 +195,6 @@ public class ApplicationsClientTests
 
         var result = await client.Applications.Get(Id, TestContext.Current.CancellationToken);
 
-        result.Error.ShouldBeOfType<UnexpectedError>().Message.ShouldContain("incomplete response");
+        result.Error.ShouldBeOfType<UnexpectedError>();
     }
 }
