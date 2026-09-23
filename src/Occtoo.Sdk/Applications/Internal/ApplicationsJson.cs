@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using CSharpFunctionalExtensions;
 using Occtoo.Authentication;
+using Occtoo.Http.Internal;
 
 namespace Occtoo.Applications.Internal;
 
@@ -39,11 +40,11 @@ internal sealed record ApplicationDto
         Name,
         Description is { Length: > 0 } ? Maybe.From(Description) : Maybe<string>.None,
         Authentication.ClientId.From(ClientId),
-        Tags,
-        ScopeKeys,
-        ResourceSelectors,
-        ApiSelectors,
-        Audiences,
+        OcctooTransport.Elements(Tags, "tags"),
+        OcctooTransport.Elements(ScopeKeys, "scopeKeys"),
+        OcctooTransport.Elements(ResourceSelectors, "resourceSelectors"),
+        OcctooTransport.Elements(ApiSelectors, "apiSelectors"),
+        OcctooTransport.Elements(Audiences, "audiences"),
         Etag,
         CreatedAt,
         LastModifiedAt);
@@ -82,7 +83,7 @@ internal sealed record AccessNodeDto
         Description is { Length: > 0 } ? Maybe.From(Description) : Maybe<string>.None,
         ResourceId is { Length: > 0 } ? Maybe.From(ResourceId) : Maybe<string>.None,
         Audience is { Length: > 0 } ? Maybe.From(Audience) : Maybe<string>.None,
-        [.. Children.Select(child => child.ToModel())]);
+        [.. OcctooTransport.Elements(Children, "children").Select(child => child.ToModel())]);
 }
 
 internal sealed record CreateApplicationDto(

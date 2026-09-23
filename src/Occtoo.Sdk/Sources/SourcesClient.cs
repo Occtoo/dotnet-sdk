@@ -154,7 +154,6 @@ public sealed class SourcesClient
             .MapResponse(page => Pages.ToPage(page.Items, page.After, page.TotalCount, dto => dto.ToModel()));
     }
 
-
     /// <summary>Reads one source's metadata.</summary>
     public Task<Result<Source, OcctooError>> Get(
         SourceId sourceId,
@@ -225,7 +224,6 @@ public sealed class SourcesClient
                 SourcesJsonContext.Default.ForwardPageDtoSourcePropertyDto, cancellationToken)
             .MapResponse(result => Pages.ToPage(result.Items, result.After, result.TotalCount, dto => dto.ToModel()));
     }
-
 
     /// <summary>Reads one property's metadata and workflow state.</summary>
     public Task<Result<SourceProperty, OcctooError>> GetProperty(

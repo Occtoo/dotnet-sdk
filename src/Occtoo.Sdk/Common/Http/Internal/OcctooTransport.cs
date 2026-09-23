@@ -134,11 +134,20 @@ internal static class OcctooTransport
         {
             return map(result.Value);
         }
-        catch (Vogen.ValueObjectValidationException exception)
+        catch (Exception exception) when (exception is Vogen.ValueObjectValidationException or MalformedResponseException)
         {
             return new UnexpectedError($"Occtoo returned an incomplete response: {exception.Message}");
         }
     }
+
+    /// <summary>
+    /// The elements of a response array, refusing a null element — JSON
+    /// nullability annotations cover properties, not the items of a collection.
+    /// </summary>
+    internal static IReadOnlyList<T> Elements<T>(IReadOnlyList<T> items, string field) =>
+        items.Any(item => item is null)
+            ? throw new MalformedResponseException($"'{field}' contains a null element.")
+            : items;
 
     internal static HttpRequestMessage Request(HttpMethod method, Uri uri) => new(method, uri);
 
@@ -170,3 +179,6 @@ internal static class OcctooTransport
     private static string Describe(string operation) =>
         char.ToUpperInvariant(operation[0]) + operation[1..];
 }
+
+/// <summary>A parsed response that breaks the API's contract; mapped to an <see cref="UnexpectedError"/>.</summary>
+internal sealed class MalformedResponseException(string message) : Exception(message);

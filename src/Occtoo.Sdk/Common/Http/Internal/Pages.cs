@@ -20,7 +20,7 @@ internal static class Pages
     {
         var next = after is { Length: > 0 } ? Maybe.From(PageCursor.From(after)) : Maybe<PageCursor>.None;
         return new(
-            [.. items.Select(map)],
+            [.. OcctooTransport.Elements(items, "items").Select(map)],
             next,
             next.HasValue,
             totalCount.HasValue ? Maybe.From(totalCount.Value) : Maybe<long>.None);

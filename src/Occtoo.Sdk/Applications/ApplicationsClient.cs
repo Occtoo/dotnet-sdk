@@ -56,7 +56,6 @@ public sealed class ApplicationsClient
             .MapResponse(page => Pages.ToPage(page.Items, page.After, page.TotalCount, dto => dto.ToModel()));
     }
 
-
     /// <summary>Reads one application.</summary>
     public Task<Result<Application, OcctooError>> Get(
         TenantApplicationId applicationId,
@@ -140,7 +139,7 @@ public sealed class ApplicationsClient
         OcctooTransport.Send(_httpClient, _requestTimeout,
                 OcctooTransport.Request(HttpMethod.Get, new Uri("v1/applications/access-catalog", UriKind.Relative)),
                 "get application access catalog", ApplicationsJsonContext.Default.AccessNodeDtoArray, cancellationToken)
-            .MapResponse(IReadOnlyList<AccessNode> (nodes) => [.. nodes.Select(node => node.ToModel())]);
+            .MapResponse(IReadOnlyList<AccessNode> (nodes) => [.. OcctooTransport.Elements(nodes, "catalog").Select(node => node.ToModel())]);
 
     private static Uri Uri(TenantApplicationId applicationId) =>
         new($"v1/applications/{applicationId.Value:D}", UriKind.Relative);
