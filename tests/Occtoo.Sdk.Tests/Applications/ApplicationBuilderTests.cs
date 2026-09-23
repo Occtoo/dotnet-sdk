@@ -1,6 +1,7 @@
 using Occtoo.Applications;
 using Occtoo.Authentication;
 using Shouldly;
+using Vogen;
 using Xunit;
 
 namespace Occtoo.Sdk.Tests.Applications;
@@ -55,5 +56,17 @@ public class ApplicationBuilderTests
         update.Tags.ShouldBe(["commerce"]);
         update.ScopeKeys.ShouldBe(["read:sources"]);
         update.ResourceSelectors.ShouldBe(["source:products", "source:assets"]);
+    }
+
+    [Fact]
+    public void Invalid_inputs_fail_at_the_call_site()
+    {
+        Should.Throw<ValueObjectValidationException>(() => CreateApplication.WithName(" "));
+        Should.Throw<ValueObjectValidationException>(() => CreateApplication.WithName(new string('a', 101)));
+        var builder = CreateApplication.WithName("Reader");
+        Should.Throw<ValueObjectValidationException>(() => builder.WithDescription(new string('a', 501)));
+        Should.Throw<ValueObjectValidationException>(() => builder.WithTags(""));
+        Should.Throw<ValueObjectValidationException>(() => builder.WithScopes("read:sources write:sources"));
+        Should.Throw<ValueObjectValidationException>(() => builder.WithSources(""));
     }
 }

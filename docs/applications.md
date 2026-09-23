@@ -46,8 +46,12 @@ one composes selectors by hand:
 
 API versions are granted by id — the id alone identifies a version, whichever
 destination it belongs to; the access catalog lists them. The builder drops
-duplicates but validates nothing else: the API checks every grant against the
-tenant's catalog and answers an unknown one with a `ValidationError`.
+duplicates and checks the shape of each input at the call site — every
+method takes a value object (`ApplicationName`, `ApplicationDescription`,
+`ApplicationTag`, `ApplicationScope`, `SourceId`, `DestinationId`,
+`ApiVersionId`), and string literals convert through its validation. Whether a
+grant *exists* is the API's call: it checks every grant against the tenant's
+catalog and answers an unknown one with a `ValidationError`.
 
 `Edit()` starts from the application's current settings and grants, so an
 update built from it keeps everything you do not touch. It can only add

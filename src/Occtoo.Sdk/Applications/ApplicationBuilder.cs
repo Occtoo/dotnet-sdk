@@ -31,8 +31,8 @@ public sealed class ApplicationBuilder
     private string _name;
     private Maybe<string> _description;
 
-    internal ApplicationBuilder(string name)
-        : this(name, Maybe<string>.None, [], [], [], [])
+    internal ApplicationBuilder(ApplicationName name)
+        : this(name.Value, Maybe<string>.None, [], [], [], [])
     {
     }
 
@@ -59,24 +59,26 @@ public sealed class ApplicationBuilder
     }
 
     /// <summary>Renames the application.</summary>
-    public ApplicationBuilder WithName(string name)
+    public ApplicationBuilder WithName(ApplicationName name)
     {
-        _name = name;
+        _name = name.Value;
         return this;
     }
 
     /// <summary>Sets the free-text description.</summary>
-    public ApplicationBuilder WithDescription(string description)
+    public ApplicationBuilder WithDescription(ApplicationDescription description)
     {
-        _description = description;
+        _description = description.Value;
         return this;
     }
 
     /// <summary>Adds labels for grouping and filtering.</summary>
-    public ApplicationBuilder WithTags(params IReadOnlyList<string> tags) => Add(_tags, tags);
+    public ApplicationBuilder WithTags(params IReadOnlyList<ApplicationTag> tags) =>
+        Add(_tags, [.. tags.Select(tag => tag.Value)]);
 
     /// <summary>Grants capabilities — use the <see cref="Authentication.OcctooScopes"/> constants.</summary>
-    public ApplicationBuilder WithScopes(params IReadOnlyList<string> scopes) => Add(_scopes, scopes);
+    public ApplicationBuilder WithScopes(params IReadOnlyList<ApplicationScope> scopes) =>
+        Add(_scopes, [.. scopes.Select(scope => scope.Value)]);
 
     /// <summary>Grants access to specific sources.</summary>
     public ApplicationBuilder WithSources(params IReadOnlyList<SourceId> sources) =>
