@@ -195,13 +195,17 @@ jobs:
       # release notes. Best-effort: a Linear outage must not fail a release
       # that already shipped.
       # The notes are the GitHub Release body — cocogitto's changelog for this
-      # version, written by the bump job.
+      # version, written by the bump job. Linear renders the BREAKING badge
+      # image as its own block, so it becomes bold text there.
       - name: Fetch the release notes
         if: env.LINEAR_ACCESS_KEY != ''
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release view "$TAG" --json body --jq .body > release-notes.md
+        run: >-
+          gh release view "$TAG" --json body --jq .body
+          | sed 's#!\[BREAKING\](https://img.shields.io/badge/BREAKING-red)#**BREAKING**#g'
+          > release-notes.md
 
       - name: Sync release to Linear
         if: env.LINEAR_ACCESS_KEY != ''
