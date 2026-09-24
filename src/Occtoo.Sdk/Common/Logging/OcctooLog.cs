@@ -24,6 +24,9 @@ public static class OcctooLogCategories
 
     /// <summary>The Applications feature — application and grant management.</summary>
     public const string Applications = "Occtoo.Applications";
+
+    /// <summary>The Managed tags feature — managed tags and their values.</summary>
+    public const string ManagedTags = "Occtoo.ManagedTags";
 }
 
 /// <summary>
@@ -135,4 +138,30 @@ internal static partial class OcctooLog
     [LoggerMessage(EventId = 502, Level = LogLevel.Information,
         Message = "Application {ApplicationId} updated; its settings and grants were replaced")]
     internal static partial void ApplicationUpdated(ILogger logger, Guid applicationId);
+
+    // ── Managed tags (6xx) ─────────────────────────────────────────────────
+
+    [LoggerMessage(EventId = 600, Level = LogLevel.Information,
+        Message = "Managed tag '{Name}' created with id {ManagedTagId}")]
+    internal static partial void ManagedTagCreated(ILogger logger, Guid managedTagId, string name);
+
+    [LoggerMessage(EventId = 601, Level = LogLevel.Information,
+        Message = "Managed tag {ManagedTagId} deleted with its values")]
+    internal static partial void ManagedTagDeleted(ILogger logger, Guid managedTagId);
+
+    [LoggerMessage(EventId = 602, Level = LogLevel.Information,
+        Message = "Managed tag {ManagedTagId} updated")]
+    internal static partial void ManagedTagUpdated(ILogger logger, Guid managedTagId);
+
+    [LoggerMessage(EventId = 610, Level = LogLevel.Information,
+        Message = "Value '{Key}' created in managed tag {ManagedTagId}")]
+    internal static partial void ManagedTagValueCreated(ILogger logger, Guid managedTagId, string key);
+
+    [LoggerMessage(EventId = 611, Level = LogLevel.Information,
+        Message = "Value '{Key}' updated in managed tag {ManagedTagId}")]
+    internal static partial void ManagedTagValueUpdated(ILogger logger, Guid managedTagId, string key);
+
+    [LoggerMessage(EventId = 612, Level = LogLevel.Information,
+        Message = "Value '{Key}' deleted from managed tag {ManagedTagId}")]
+    internal static partial void ManagedTagValueDeleted(ILogger logger, Guid managedTagId, string key);
 }
