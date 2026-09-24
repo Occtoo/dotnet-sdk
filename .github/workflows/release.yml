@@ -194,6 +194,15 @@ jobs:
       # commits since the previous release, and files the changelog as the
       # release notes. Best-effort: a Linear outage must not fail a release
       # that already shipped.
+      # The notes are the GitHub Release body — cocogitto's changelog for this
+      # version, written by the bump job.
+      - name: Fetch the release notes
+        if: env.LINEAR_ACCESS_KEY != ''
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release view "$TAG" --json body --jq .body > release-notes.md
+
       - name: Sync release to Linear
         if: env.LINEAR_ACCESS_KEY != ''
         continue-on-error: true
@@ -203,5 +212,6 @@ jobs:
           command: sync
           version: ${{ needs.bump.outputs.tag }}
           name: Occtoo.Sdk ${{ needs.bump.outputs.version }}
+          release_notes: release-notes.md
           links: |
             GitHub Release=https://github.com/${{ github.repository }}/releases/tag/${{ needs.bump.outputs.tag }}
