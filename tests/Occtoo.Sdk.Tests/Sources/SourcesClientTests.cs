@@ -59,7 +59,7 @@ public class SourcesClientTests
         receipt.NewProperties.ShouldHaveSingleItem();
         receipt.NewProperties[0].Id.Value.ShouldBe("tags");
         receipt.NewProperties[0].Type.ShouldBe(SourcePropertyType.List);
-        receipt.NewProperties[0].Delimiter.GetValueOrDefault().ShouldBe(",");
+        receipt.NewProperties[0].Delimiter.GetValueOrThrow().Value.ShouldBe(",");
 
         var request = handler.Requests.Single();
         request.Method.ShouldBe(HttpMethod.Post);
@@ -288,5 +288,24 @@ public class SourcesClientTests
 
         result.Error.ShouldBeOfType<AuthenticationError>();
         apiTransport.RequestCount.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task An_inferred_type_this_sdk_does_not_know_is_absent_not_text()
+    {
+        using var handler = new StubHandler().Respond(HttpStatusCode.Accepted, """
+            {
+              "correlationId": "83b538a7-df7c-4cf4-b988-cd3b71c4cd90",
+              "sourceId": "products",
+              "acceptedAt": "2026-08-13T10:15:30Z",
+              "acceptedEntryCount": 1,
+              "newPropertiesFound": [ { "id": "shape", "type": "Geometry" } ]
+            }
+            """);
+        using var client = Client(handler);
+
+        var result = await client.Sources.IngestEntries(Products, [ChairEntry()], TestContext.Current.CancellationToken);
+
+        result.Value.NewProperties.ShouldHaveSingleItem().Type.HasNoValue.ShouldBeTrue();
     }
 }

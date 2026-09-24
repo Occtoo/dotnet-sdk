@@ -29,6 +29,7 @@ internal static class OcctooResilience
             MaxDelay = options.MaxDelay,
             // The server's Retry-After is authoritative when present.
             ShouldRetryAfterHeader = true,
+            ShouldHandle = arguments => ValueTask.FromResult(ShouldRetry(arguments.Outcome, arguments.Context)),
             OnRetry = arguments =>
             {
                 OcctooLog.RetryScheduled(
@@ -45,5 +46,29 @@ internal static class OcctooResilience
 
         return new ResilienceHandler(
             new ResiliencePipelineBuilder<HttpResponseMessage>().AddRetry(retry).Build());
+    }
+
+    /// <summary>
+    /// Marks a non-GET request as safe to send twice — an upsert, say. Unmarked
+    /// writes are never replayed after an ambiguous failure.
+    /// </summary>
+    internal static readonly HttpRequestOptionsKey<bool> Replayable = new("Occtoo.Replayable");
+
+    // A 429 was refused before processing, so any request can be resent. Any
+    // other transient failure may hide a committed write: replaying a create
+    // would turn its success into a conflict and lose a one-time secret, so
+    // only reads and requests marked Replayable are resent.
+    private static bool ShouldRetry(Outcome<HttpResponseMessage> outcome, ResilienceContext context)
+    {
+        if (!HttpClientResiliencePredicates.IsTransient(outcome))
+            return false;
+
+        if (outcome.Result?.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+            return true;
+
+        var request = context.GetRequestMessage() ?? outcome.Result?.RequestMessage;
+        return request is null
+               || request.Method == HttpMethod.Get
+               || (request.Options.TryGetValue(Replayable, out var replayable) && replayable);
     }
 }

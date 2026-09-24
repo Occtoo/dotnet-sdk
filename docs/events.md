@@ -72,7 +72,7 @@ every `source_entry.*` type. For grammar the builder does not model,
 
 A pull page returns `Page<CloudEvent>`: `Items`, `HasMore`, an optional
 `Total` (opt in with `EventQuery.IncludeTotal`), and `Next` — an opaque
-`EventCursor` that continues the read strictly after the page. Every event also
+`PageCursor` that continues the read strictly after the page. Every event also
 carries its `Sequence`, and `sequence.AsCursor()` rebuilds a cursor from a
 processed event when a stored cursor was lost.
 

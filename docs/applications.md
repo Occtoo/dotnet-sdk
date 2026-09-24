@@ -1,0 +1,125 @@
+# Applications: identities and grants
+
+`client.Applications` manages the tenant's machine-to-machine applications —
+the identities behind `OcctooCredential.ClientCredentials` — and what each is
+allowed to do: `/v1/applications` and `/v1/applications/access-catalog`.
+
+```csharp
+var created = await client.Applications.Create(CreateApplication.WithName("Catalog reader")
+    .WithDescription("Reads the product source configuration")
+    .WithScopes(OcctooScopes.ReadSources)
+    .WithSources("products")
+    .Build());
+
+created.Tap(credentials =>
+{
+    // The client secret is returned exactly once. Store it now.
+    vault.Store(credentials.Application.ClientId, credentials.ClientSecret);
+});
+```
+
+Reads require `read:applications`; writes require `write:applications` — an
+administrative capability, since it mints identities and changes their grants.
+See [authentication.md](authentication.md).
+
+## The model
+
+`Application` carries the metadata (`Name`, `Description`, `Tags`), the
+identity (`ClientId`, `Audiences`), the grants (`ScopeKeys`,
+`ResourceSelectors`, `ApiSelectors`), audit timestamps, and an `Etag`. Read
+responses never include the secret; only `Create` returns
+`ApplicationCredentials` with the `ClientSecret`.
+
+## Building grants
+
+`CreateApplication.WithName(...)` — or `application.Edit()` for changes —
+returns a builder that spells every grant the way the API expects, so no
+one composes selectors by hand. Finish it with `Build()`:
+
+| Builder method | Grants |
+|---|---|
+| `WithScopes(OcctooScopes.ReadSources, …)` | Capabilities — use the `OcctooScopes` constants |
+| `WithSources("products", …)` | Specific sources |
+| `WithAllSources()` | Every current and future source |
+| `WithDestinations("webshop", …)` | Every current and future API version of specific destinations |
+| `WithAllDestinations()` | Every protected destination API, current and future |
+| `WithApiVersions(apiVersionId, …)` | Specific destination API versions |
+
+Every grant method has a `Without*` counterpart (`WithoutScopes`,
+`WithoutSources`, `WithoutAllSources`, …) that revokes it, as do
+`WithoutTags` and `WithoutDescription`. Removing grants never widens access: the API reads
+source scopes with no sources selected as *every* source, and selected sources
+with no source scope as *write* access, so a removal that would land in either
+state makes `Build()` throw `InvalidOperationException` with the fix — remove
+the source scopes too to revoke source access, or say `WithAllSources()` if
+every source is what you mean. The builders are the only way to make
+a `CreateApplication` or `UpdateApplication`, so nothing reaches the API
+unvalidated.
+
+API versions are granted by id — the id alone identifies a version, whichever
+destination it belongs to; the access catalog lists them. The builder drops
+duplicates and checks the shape of each input at the call site — every
+method takes a value object (`ApplicationName`, `ApplicationDescription`,
+`ApplicationTag`, `ApplicationScope`, `SourceId`, `DestinationId`,
+`ApiVersionId`), and string literals convert through its validation. Whether a
+grant *exists* is the API's call: it checks every grant against the tenant's
+catalog and answers an unknown one with a `ValidationError`.
+
+`Edit()` starts from the application's current settings, grants and etag, so
+an update built from it keeps everything you do not touch and fails with a
+`ConflictError` if the application changed since you read it.
+
+The valid grants come from the access catalog — a tree of `AccessNode`s
+(scopes, resources, destination APIs) — rather than from documentation, so
+what a tenant can grant is always what the API accepts:
+
+```csharp
+var catalog = await client.Applications.GetAccessCatalog();
+```
+
+## Updating with etags
+
+`Update` replaces every setting: name, description, tags, and all three grant
+collections. Building the replacement with `Edit()` carries the etag of the
+read it started from, and a stale one is rejected with a `ConflictError`, so
+a concurrent change can never be silently overwritten:
+
+```csharp
+await client.Applications.Get(id)
+    .Bind(current => client.Applications.Update(id,
+        current.Edit().WithScopes(OcctooScopes.ReadEvents).Build()));
+```
+
+`Delete` revokes the credentials; deleting an application that no longer
+exists succeeds.
+
+## Listing
+
+`List` takes an `ApplicationListQuery` — name substring, tags (all must
+match), inclusive created/updated windows, creating/updating actor — and a
+`PageRequest`. Lists are forward-only: a `Page<T>` carries `Items`, a `Next` cursor, and
+`HasMore` — false on the last page, where management lists return no cursor. Keep the same filters when
+following a cursor; it identifies a position in the *filtered* list.
+`Total` stays absent unless `PageRequest.IncludeTotal` asks for it — counting
+costs the API a scan.
+
+The SDK does not auto-paginate: how far to read, and what to do when a page
+fails midway, is the caller's call. Draining a list is a short loop:
+
+```csharp
+var query = new ApplicationListQuery();
+while (true)
+{
+    var page = await client.Applications.List(query);
+    if (page.IsFailure)
+        break; // or retry, or surface — every page is its own Result
+
+    foreach (var application in page.Value.Items)
+        Handle(application);
+
+    if (!page.Value.HasMore)
+        break;
+
+    query = query with { Page = query.Page with { After = page.Value.Next } };
+}
+```

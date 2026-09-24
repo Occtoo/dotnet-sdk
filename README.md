@@ -15,7 +15,10 @@ The official .NET client for [Occtoo](https://www.occtoo.com). One package,
 
 - **Authentication** — every Occtoo credential behind one abstraction, with
   token caching and refresh handled for you.
-- **Sources** — typed ingest of entries into your sources.
+- **Sources** — typed ingest of entries into your sources, and management of
+  sources and their properties.
+- **Applications** — the tenant's machine-to-machine applications and their
+  grants, with the access catalog as the vocabulary.
 - **Events** — react to changes across your tenant, by pulling pages or
   subscribing to a live stream of [CloudEvents](https://cloudevents.io/), with
   one typed record per event type. Event destinations (webhooks, Azure Service
@@ -127,7 +130,8 @@ Occtoo directs you to another environment. Token acquisition, caching
 default, any distributed provider by configuration), refresh-before-expiry,
 single-flight under concurrency, and recovery from a revoked token are handled
 for you. Full guides: [docs/authentication.md](docs/authentication.md) ·
-[docs/sources.md](docs/sources.md) · [docs/events.md](docs/events.md).
+[docs/sources.md](docs/sources.md) · [docs/applications.md](docs/applications.md) ·
+[docs/events.md](docs/events.md).
 
 Runnable samples under [`examples/`](examples), one project per capability:
 
@@ -188,9 +192,20 @@ tokens issued by `https://auth.occtoo.com`.
 | Method | Path | Purpose |
 |---|---|---|
 | `POST` | `/v1/sources/{sourceId}` | Validate typed JSON entries and queue them for asynchronous processing |
+| `GET` `POST` | `/v1/sources` | List (forward-paginated, filtered) and create sources |
+| `GET` `PATCH` `DELETE` | `/v1/sources/{sourceId}` | Read, update, and soft-delete a source |
+| `GET` `PUT` `DELETE` | `/v1/sources/{sourceId}/properties[/{propertyId}]` | List, read, upsert, and delete properties |
 
 Requires the `write:sources` scope. The legacy string-based import
 (`/datasources/{dataSource}/import`) and media ingest are not wrapped yet.
+
+### Applications
+
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` `POST` | `/v1/applications` | List and create applications (a fluent builder spells the grants); creation returns the one-time client secret |
+| `GET` `PUT` `DELETE` | `/v1/applications/{applicationId}` | Read, replace (etag-guarded), and delete an application |
+| `GET` | `/v1/applications/access-catalog` | The scopes, resources, and destination APIs an application can be granted |
 
 ### Events
 

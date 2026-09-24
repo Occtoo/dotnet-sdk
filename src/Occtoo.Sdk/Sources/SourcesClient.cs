@@ -94,8 +94,11 @@ public sealed class SourcesClient
             new IngestRequestBody(entries),
             IngestJsonContext.Default.IngestRequestBody);
 
+        // Entries are upserts: resending an already-accepted batch is harmless.
+        request.Options.Set(OcctooResilience.Replayable, true);
+
         var outcome = await OcctooTransport
-            .Send(_httpClient, request, _requestTimeout, cancellationToken)
+            .Send(_httpClient, _requestTimeout, request, cancellationToken)
             .Bind(async Task<Result<IngestReceipt, OcctooError>> (response) =>
             {
                 using (response)
@@ -121,6 +124,175 @@ public sealed class SourcesClient
                 OcctooLog.IngestFailed(_logger, sourceId.Value, error);
             });
     }
+
+    // ── Source management ──────────────────────────────────────────────────
+    // Reads need read:sources, writes need write:sources; an application
+    // credential also needs a grant for the source (or `sources` for all).
+
+    /// <summary>Reads one page of the tenant's sources. Soft-deleted sources are never listed.</summary>
+    public Task<Result<Page<Source>, OcctooError>> List(
+        SourceListQuery? query = null,
+        CancellationToken cancellationToken = default)
+    {
+        query ??= new SourceListQuery();
+        var uri = new QueryString("v1/sources")
+            .Add("name", query.Name)
+            .AddEnum("type", query.Type)
+            .AddEnum("status", query.Status)
+            .Add("createdFrom", query.CreatedFrom)
+            .Add("createdTo", query.CreatedTo)
+            .Add("updatedFrom", query.UpdatedFrom)
+            .Add("updatedTo", query.UpdatedTo)
+            .Add(query.Page)
+            .ToUri();
+
+        return Pages.Validate(query.Page)
+            .Bind(() => OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Get, uri), "list sources",
+                SourcesJsonContext.Default.ForwardPageDtoSourceDto, cancellationToken,
+                [new("occtoo.page.limit", query.Page.Limit)]))
+            .MapResponse(page => Pages.ToPage(page.Items, page.After, page.TotalCount, dto => dto.ToModel()));
+    }
+
+    /// <summary>Reads one source's metadata.</summary>
+    public Task<Result<Source, OcctooError>> Get(
+        SourceId sourceId,
+        CancellationToken cancellationToken = default) =>
+        OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Get, SourceUri(sourceId)),
+                "get source", SourcesJsonContext.Default.SourceDto, cancellationToken, SourceTag(sourceId))
+            .MapResponse(dto => dto.ToModel());
+
+    /// <summary>
+    /// Creates a generic source. Requires a grant for all sources
+    /// (<c>sources</c>), not just the new id.
+    /// </summary>
+    public Task<Result<Source, OcctooError>> Create(
+        CreateSource source,
+        CancellationToken cancellationToken = default)
+    {
+        if (source is null)
+            return Task.FromResult(Result.Failure<Source, OcctooError>(new ValidationError("A source is required.")));
+
+        if (string.IsNullOrWhiteSpace(source.Name))
+            return Task.FromResult(Result.Failure<Source, OcctooError>(new ValidationError("A source name is required.")));
+
+        var body = new CreateSourceDto(source.Id.Value, source.Name, source.Description.GetValueOrDefault());
+        return OcctooTransport.Send(_httpClient, _requestTimeout,
+                OcctooTransport.Request(HttpMethod.Post, new Uri("v1/sources", UriKind.Relative), body,
+                    SourcesJsonContext.Default.CreateSourceDto),
+                "create source", SourcesJsonContext.Default.SourceDto, cancellationToken)
+            .MapResponse(dto => dto.ToModel());
+    }
+
+    /// <summary>Changes a source's name and/or description.</summary>
+    public Task<Result<Source, OcctooError>> Update(
+        SourceId sourceId,
+        UpdateSource changes,
+        CancellationToken cancellationToken = default)
+    {
+        if (changes is null)
+            return Task.FromResult(Result.Failure<Source, OcctooError>(new ValidationError("Changes are required.")));
+
+        var body = new UpdateSourceDto(changes.Name.GetValueOrDefault(), changes.Description.GetValueOrDefault());
+        return OcctooTransport.Send(_httpClient, _requestTimeout,
+                OcctooTransport.Request(HttpMethod.Patch, SourceUri(sourceId), body, SourcesJsonContext.Default.UpdateSourceDto),
+                "update source", SourcesJsonContext.Default.SourceDto, cancellationToken, SourceTag(sourceId))
+            .MapResponse(dto => dto.ToModel());
+    }
+
+    /// <summary>
+    /// Soft-deletes a source and starts its cleanup workflow. Success means
+    /// the deletion was accepted, not completed.
+    /// </summary>
+    public Task<UnitResult<OcctooError>> Delete(
+        SourceId sourceId,
+        CancellationToken cancellationToken = default) =>
+        OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Delete, SourceUri(sourceId)), "delete source", cancellationToken, SourceTag(sourceId));
+
+    /// <summary>Reads one page of a source's properties.</summary>
+    public Task<Result<Page<SourceProperty>, OcctooError>> ListProperties(
+        SourceId sourceId,
+        PageRequest? page = null,
+        CancellationToken cancellationToken = default)
+    {
+        page ??= new PageRequest();
+        var uri = new QueryString($"v1/sources/{Uri.EscapeDataString(sourceId.Value)}/properties")
+            .Add(page)
+            .ToUri();
+
+        return Pages.Validate(page)
+            .Bind(() => OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Get, uri), "list source properties",
+                SourcesJsonContext.Default.ForwardPageDtoSourcePropertyDto, cancellationToken,
+                [new("occtoo.source.id", sourceId.Value), new("occtoo.page.limit", page.Limit)]))
+            .MapResponse(result => Pages.ToPage(result.Items, result.After, result.TotalCount, dto => dto.ToModel()));
+    }
+
+    /// <summary>Reads one property's metadata and workflow state.</summary>
+    public Task<Result<SourceProperty, OcctooError>> GetProperty(
+        SourceId sourceId,
+        PropertyId propertyId,
+        CancellationToken cancellationToken = default) =>
+        OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Get, PropertyUri(sourceId, propertyId)),
+                "get source property", SourcesJsonContext.Default.SourcePropertyDto, cancellationToken, PropertyTag(sourceId, propertyId))
+            .MapResponse(dto => dto.ToModel());
+
+    /// <summary>Creates or updates a property's metadata.</summary>
+    public Task<Result<SourceProperty, OcctooError>> UpsertProperty(
+        SourceId sourceId,
+        PropertyId propertyId,
+        UpsertSourceProperty property,
+        CancellationToken cancellationToken = default)
+    {
+        if (property is null)
+            return Task.FromResult(Result.Failure<SourceProperty, OcctooError>(new ValidationError("A property is required.")));
+
+        if (string.IsNullOrWhiteSpace(property.DisplayName))
+            return Task.FromResult(Result.Failure<SourceProperty, OcctooError>(new ValidationError("A property display name is required.")));
+
+        // The same rule the API applies, checked before the round trip.
+        var isList = property.Type.HasValue && property.Type.Value is SourcePropertyType.List or SourcePropertyType.LocalizedList;
+        if (isList && property.Delimiter.HasNoValue)
+            return Task.FromResult(Result.Failure<SourceProperty, OcctooError>(
+                new ValidationError("List and LocalizedList properties require a Delimiter.")));
+
+        if (property.Type.HasValue && !isList && property.Delimiter.HasValue)
+            return Task.FromResult(Result.Failure<SourceProperty, OcctooError>(
+                new ValidationError("Only List and LocalizedList properties take a Delimiter.")));
+
+        var body = new UpsertSourcePropertyDto(
+            property.DisplayName,
+            property.Type.HasValue ? property.Type.Value : null,
+            property.Delimiter.HasValue ? property.Delimiter.Value.Value : null,
+            property.Description.GetValueOrDefault());
+
+        return OcctooTransport.Send(_httpClient, _requestTimeout,
+                OcctooTransport.Request(HttpMethod.Put, PropertyUri(sourceId, propertyId), body,
+                    SourcesJsonContext.Default.UpsertSourcePropertyDto),
+                "upsert source property", SourcesJsonContext.Default.SourcePropertyDto, cancellationToken, PropertyTag(sourceId, propertyId))
+            .MapResponse(dto => dto.ToModel());
+    }
+
+    /// <summary>
+    /// Deletes a property through its cleanup workflow. Success means the
+    /// deletion was accepted; the property reports
+    /// <see cref="SourcePropertyState.Deleting"/> until it is gone.
+    /// </summary>
+    public Task<UnitResult<OcctooError>> DeleteProperty(
+        SourceId sourceId,
+        PropertyId propertyId,
+        CancellationToken cancellationToken = default) =>
+        OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Delete, PropertyUri(sourceId, propertyId)),
+            "delete source property", cancellationToken, PropertyTag(sourceId, propertyId));
+
+    private static KeyValuePair<string, object?>[] SourceTag(SourceId sourceId) => [new("occtoo.source.id", sourceId.Value)];
+
+    private static KeyValuePair<string, object?>[] PropertyTag(SourceId sourceId, PropertyId propertyId) =>
+        [new("occtoo.source.id", sourceId.Value), new("occtoo.property.id", propertyId.Value)];
+
+    private static Uri SourceUri(SourceId sourceId) =>
+        new($"v1/sources/{Uri.EscapeDataString(sourceId.Value)}", UriKind.Relative);
+
+    private static Uri PropertyUri(SourceId sourceId, PropertyId propertyId) =>
+        new($"v1/sources/{Uri.EscapeDataString(sourceId.Value)}/properties/{Uri.EscapeDataString(propertyId.Value)}", UriKind.Relative);
 
     private static async Task<Result<IngestReceipt, OcctooError>> ReadReceipt(
         HttpResponseMessage response,
@@ -163,10 +335,8 @@ public sealed class SourcesClient
             [
                 .. (accepted.NewPropertiesFound ?? []).Select(found => new InferredProperty(
                     PropertyId.From(found.Id ?? "unknown"),
-                    Enum.TryParse<SourcePropertyType>(found.Type, ignoreCase: true, out var type)
-                        ? type
-                        : SourcePropertyType.Text,
-                    found.Delimiter is { Length: > 0 } delimiter ? delimiter : Maybe<string>.None)),
+                    Enums.Read<SourcePropertyType>(found.Type),
+                    Delimiter.Read(found.Delimiter))),
             ]);
     }
 }

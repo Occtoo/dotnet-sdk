@@ -1,3 +1,4 @@
+using CSharpFunctionalExtensions;
 using Vogen;
 
 namespace Occtoo.Sources;
@@ -184,3 +185,24 @@ public readonly partial struct LanguageCode
 /// </summary>
 [ValueObject<Guid>]
 public readonly partial struct IngestCorrelationId;
+
+/// <summary>
+/// The separator of a list property's values. Occtoo accepts exactly one of
+/// <c>,</c> <c>;</c> <c>:</c> <c>|</c> <c>/</c>.
+/// </summary>
+[ValueObject<string>(toPrimitiveCasting: CastOperator.Explicit, fromPrimitiveCasting: CastOperator.None)]
+public readonly partial struct Delimiter
+{
+    /// <summary>Converts a string through the same validation as <see cref="From"/>.</summary>
+    /// <exception cref="ValueObjectValidationException">The value is invalid.</exception>
+    public static implicit operator Delimiter(string value) => From(value);
+
+    private static Validation Validate(string input) =>
+        input is "," or ";" or ":" or "|" or "/"
+            ? Validation.Ok
+            : Validation.Invalid("A delimiter must be one of , ; : | /");
+
+    // Reads stay lenient: a delimiter this SDK does not know is reported as absent.
+    internal static Maybe<Delimiter> Read(string? value) =>
+        value is { Length: > 0 } && TryFrom(value, out var delimiter) ? Maybe.From(delimiter) : Maybe<Delimiter>.None;
+}

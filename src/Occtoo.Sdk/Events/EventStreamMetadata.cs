@@ -25,5 +25,5 @@ public sealed record EventStreamPosition(EventSequence Sequence, Maybe<DateTimeO
 public sealed record EventStreamMetadata(
     Maybe<EventStreamPosition> First,
     Maybe<EventStreamPosition> Latest,
-    Maybe<EventCursor> After,
+    Maybe<PageCursor> After,
     long Total);

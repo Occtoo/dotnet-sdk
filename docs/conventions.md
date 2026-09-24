@@ -198,3 +198,11 @@ decision**. See [releasing.md](releasing.md) and the type table in
 
 The conventions workflow checks the commits in a pull request; pushes to
 `main` are covered by CI's build gates rather than re-linted.
+
+## Enums in responses
+
+Every enum the SDK reads from an API response is exposed as `Maybe<TEnum>`
+and read leniently: a value this SDK version does not know — one the
+platform added later — reads as absent instead of failing the whole
+response. One rule for every enum, so callers handle "unknown" the same way
+everywhere.

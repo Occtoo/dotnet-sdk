@@ -77,6 +77,15 @@ means `OcctooClientOptions.Timeout` bounds the whole sequence, and each retry
 logs a Warning under `Occtoo.Http`. Non-transient errors are never retried:
 replaying a `ValidationError` reproduces it.
 
+Only requests that are safe to send twice are replayed after an ambiguous
+failure — reads, and ingest, whose entries are upserts. A `5xx`, timeout or
+dropped connection on any other write (creating an application, updating one
+under an etag, deleting) may hide a change that was committed, so it surfaces
+as its `TransientError` instead: replaying would turn a successful create into
+a `ConflictError` and lose its one-time client secret. Check the resource
+before trying again. A `429` is resent for every request — it was refused
+before anything was processed.
+
 Notes on individual types:
 
 - **`RateLimitError.RetryAfter`** is a `Maybe<TimeSpan>` from the `Retry-After`

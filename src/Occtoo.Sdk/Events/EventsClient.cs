@@ -70,7 +70,7 @@ public sealed class EventsClient
         using var request = new HttpRequestMessage(HttpMethod.Get, PullUri(query));
 
         var outcome = await OcctooTransport
-            .Send(_httpClient, request, _requestTimeout, cancellationToken)
+            .Send(_httpClient, _requestTimeout, request, cancellationToken)
             .Bind(async Task<Result<Page<CloudEvent>, OcctooError>> (response) =>
             {
                 using (response)
@@ -111,7 +111,7 @@ public sealed class EventsClient
         using var request = new HttpRequestMessage(HttpMethod.Get, uri);
 
         var outcome = await OcctooTransport
-            .Send(_httpClient, request, _requestTimeout, cancellationToken)
+            .Send(_httpClient, _requestTimeout, request, cancellationToken)
             .Bind(async Task<Result<EventStreamMetadata, OcctooError>> (response) =>
             {
                 using (response)
@@ -285,7 +285,7 @@ public sealed class EventsClient
         // The per-request timeout bounds only connection establishment: the
         // stream itself is long-lived by design.
         var sent = await OcctooTransport
-            .Send(_httpClient, request, _requestTimeout, cancellationToken, HttpCompletionOption.ResponseHeadersRead)
+            .Send(_httpClient, _requestTimeout, request, cancellationToken, HttpCompletionOption.ResponseHeadersRead)
             .ConfigureAwait(false);
 
         request.Dispose();
@@ -361,8 +361,8 @@ public sealed class EventsClient
             var next = root.TryGetProperty("after", out var after)
                        && after.ValueKind == JsonValueKind.String
                        && after.GetString() is { Length: > 0 } cursor
-                ? Maybe.From(EventCursor.From(cursor))
-                : Maybe<EventCursor>.None;
+                ? Maybe.From(PageCursor.From(cursor))
+                : Maybe<PageCursor>.None;
 
             var total = root.TryGetProperty("total", out var count) && count.ValueKind == JsonValueKind.Number
                 ? Maybe.From(count.GetInt64())
@@ -391,8 +391,8 @@ public sealed class EventsClient
             var after = root.TryGetProperty("after", out var cursor)
                         && cursor.ValueKind == JsonValueKind.String
                         && cursor.GetString() is { Length: > 0 } value
-                ? Maybe.From(EventCursor.From(value))
-                : Maybe<EventCursor>.None;
+                ? Maybe.From(PageCursor.From(value))
+                : Maybe<PageCursor>.None;
 
             var total = root.TryGetProperty("total", out var count) && count.ValueKind == JsonValueKind.Number
                 ? count.GetInt64()
