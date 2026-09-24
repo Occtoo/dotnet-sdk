@@ -1,14 +1,8 @@
-using System.Diagnostics;
-using System.Net;
-using System.Net.Http.Json;
-using System.Text.Json;
 using CSharpFunctionalExtensions;
 using Microsoft.Extensions.Logging;
-using Occtoo.Http;
 using Occtoo.Http.Internal;
 using Occtoo.Logging;
 using Occtoo.Sources.Internal;
-using Occtoo.Telemetry;
 
 namespace Occtoo.Sources;
 
@@ -69,7 +63,7 @@ public sealed class SourcesClient
     ///     .TapError(error => logger.LogWarning("rejected: {Error}", error));
     /// </code>
     /// </example>
-    public async Task<Result<IngestReceipt, OcctooError>> IngestEntries(
+    public Task<Result<IngestReceipt, OcctooError>> IngestEntries(
         SourceId sourceId,
         IReadOnlyCollection<SourceEntry> entries,
         CancellationToken cancellationToken = default)
@@ -78,51 +72,24 @@ public sealed class SourcesClient
         // annotations already warn at compile time; at runtime they stay on
         // the failure track like every other rejected input.
         if (entries is null or { Count: 0 })
-            return new ValidationError("At least one entry is required.");
-
-        using var activity = OcctooTelemetry.Source.StartActivity(
-            $"ingest {sourceId.Value}", ActivityKind.Client);
-        activity?.SetTag("occtoo.source.id", sourceId.Value);
-        activity?.SetTag("occtoo.ingest.entry_count", entries.Count);
+            return Task.FromResult(Result.Failure<IngestReceipt, OcctooError>(new ValidationError("At least one entry is required.")));
 
         OcctooLog.Ingesting(_logger, entries.Count, sourceId.Value);
 
-        using var request = new HttpRequestMessage(
-            HttpMethod.Post,
-            new Uri($"v1/sources/{Uri.EscapeDataString(sourceId.Value)}", UriKind.Relative));
-        request.Content = JsonContent.Create(
-            new IngestRequestBody(entries),
-            IngestJsonContext.Default.IngestRequestBody);
+        var request = OcctooTransport.Request(
+            HttpMethod.Post, SourceUri(sourceId), new IngestRequestBody(entries), IngestJsonContext.Default.IngestRequestBody);
 
         // Entries are upserts: resending an already-accepted batch is harmless.
         request.Options.Set(OcctooResilience.Replayable, true);
 
-        var outcome = await OcctooTransport
-            .Send(_httpClient, _requestTimeout, request, cancellationToken)
-            .Bind(async Task<Result<IngestReceipt, OcctooError>> (response) =>
-            {
-                using (response)
-                {
-                    return response.StatusCode == HttpStatusCode.Accepted
-                        ? await ReadReceipt(response, cancellationToken).ConfigureAwait(false)
-                        : await OcctooApiErrors
-                            .Classify(response, $"Ingesting into source '{sourceId.Value}'", cancellationToken)
-                            .ConfigureAwait(false);
-                }
-            }).ConfigureAwait(false);
-
-        return outcome
-            .Tap(receipt =>
-            {
-                activity?.SetTag("occtoo.ingest.correlation_id", receipt.CorrelationId.Value);
-                OcctooLog.IngestAccepted(
-                    _logger, receipt.AcceptedEntryCount, receipt.SourceId.Value, receipt.CorrelationId.Value);
-            })
-            .TapError(error =>
-            {
-                OcctooTelemetry.Fail(activity, error);
-                OcctooLog.IngestFailed(_logger, sourceId.Value, error);
-            });
+        return OcctooTransport.Send(_httpClient, _requestTimeout, request, $"ingest {sourceId.Value}",
+                IngestJsonContext.Default.TypedIngestAcceptedDto, cancellationToken,
+                [new("occtoo.source.id", sourceId.Value), new("occtoo.ingest.entry_count", entries.Count)],
+                accepted => [new("occtoo.ingest.correlation_id", accepted.CorrelationId)])
+            .MapResponse(ToReceipt)
+            .Tap(receipt => OcctooLog.IngestAccepted(
+                _logger, receipt.AcceptedEntryCount, receipt.SourceId.Value, receipt.CorrelationId.Value))
+            .TapError(error => OcctooLog.IngestFailed(_logger, sourceId.Value, error));
     }
 
     // ── Source management ──────────────────────────────────────────────────
@@ -294,38 +261,10 @@ public sealed class SourcesClient
     private static Uri PropertyUri(SourceId sourceId, PropertyId propertyId) =>
         new($"v1/sources/{Uri.EscapeDataString(sourceId.Value)}/properties/{Uri.EscapeDataString(propertyId.Value)}", UriKind.Relative);
 
-    private static async Task<Result<IngestReceipt, OcctooError>> ReadReceipt(
-        HttpResponseMessage response,
-        CancellationToken cancellationToken)
+    private static IngestReceipt ToReceipt(TypedIngestAcceptedDto accepted)
     {
-        TypedIngestAcceptedDto? accepted;
-        try
-        {
-            accepted = await response.Content
-                .ReadFromJsonAsync(IngestJsonContext.Default.TypedIngestAcceptedDto, cancellationToken)
-                .ConfigureAwait(false);
-        }
-        catch (JsonException exception)
-        {
-            return new UnexpectedError(
-                $"Occtoo accepted the batch but the receipt could not be parsed: {exception.Message}",
-                (int)response.StatusCode);
-        }
-        catch (NotSupportedException exception)
-        {
-            // A non-JSON content type — a proxy or gateway answering in the
-            // API's place.
-            return new UnexpectedError(
-                $"Occtoo accepted the batch but the receipt could not be parsed: {exception.Message}",
-                (int)response.StatusCode);
-        }
-
         if (accepted is not { SourceId.Length: > 0 })
-        {
-            return new UnexpectedError(
-                "Occtoo accepted the batch but returned an incomplete receipt.",
-                (int)response.StatusCode);
-        }
+            throw new MalformedResponseException("The batch was accepted but its receipt names no source.");
 
         return new IngestReceipt(
             IngestCorrelationId.From(accepted.CorrelationId),

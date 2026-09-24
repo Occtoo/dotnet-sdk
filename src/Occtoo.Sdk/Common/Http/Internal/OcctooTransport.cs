@@ -70,7 +70,8 @@ internal static class OcctooTransport
         string operation,
         JsonTypeInfo<T> responseType,
         CancellationToken cancellationToken,
-        IReadOnlyList<KeyValuePair<string, object?>>? tags = null)
+        IReadOnlyList<KeyValuePair<string, object?>>? tags = null,
+        Func<T, IReadOnlyList<KeyValuePair<string, object?>>>? responseTags = null)
     {
         using (request)
         {
@@ -87,7 +88,17 @@ internal static class OcctooTransport
                     }
                 }).ConfigureAwait(false);
 
-            return outcome.TapError(error => OcctooTelemetry.Fail(activity, error));
+            // Some attributes (an ingest's correlation id) exist only in the response.
+            return outcome
+                .Tap(value =>
+                {
+                    if (activity is not null && responseTags is not null)
+                    {
+                        foreach (var (key, tag) in responseTags(value))
+                            activity.SetTag(key, tag);
+                    }
+                })
+                .TapError(error => OcctooTelemetry.Fail(activity, error));
         }
     }
 
