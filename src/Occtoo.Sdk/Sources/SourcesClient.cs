@@ -135,9 +135,6 @@ public sealed class SourcesClient
         CancellationToken cancellationToken = default)
     {
         query ??= new SourceListQuery();
-        if (Pages.Validate(query.Page) is { HasValue: true } invalid)
-            return Task.FromResult(Result.Failure<Page<Source>, OcctooError>(invalid.Value));
-
         var uri = new QueryString("v1/sources")
             .Add("name", query.Name)
             .AddEnum("type", query.Type)
@@ -149,8 +146,10 @@ public sealed class SourcesClient
             .Add(query.Page)
             .ToUri();
 
-        return OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Get, uri), "list sources",
-                SourcesJsonContext.Default.ForwardPageDtoSourceDto, cancellationToken)
+        return Pages.Validate(query.Page)
+            .Bind(() => OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Get, uri), "list sources",
+                SourcesJsonContext.Default.ForwardPageDtoSourceDto, cancellationToken,
+                [new("occtoo.page.limit", query.Page.Limit)]))
             .MapResponse(page => Pages.ToPage(page.Items, page.After, page.TotalCount, dto => dto.ToModel()));
     }
 
@@ -159,7 +158,7 @@ public sealed class SourcesClient
         SourceId sourceId,
         CancellationToken cancellationToken = default) =>
         OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Get, SourceUri(sourceId)),
-                "get source", SourcesJsonContext.Default.SourceDto, cancellationToken)
+                "get source", SourcesJsonContext.Default.SourceDto, cancellationToken, SourceTag(sourceId))
             .MapResponse(dto => dto.ToModel());
 
     /// <summary>
@@ -172,6 +171,9 @@ public sealed class SourcesClient
     {
         if (source is null)
             return Task.FromResult(Result.Failure<Source, OcctooError>(new ValidationError("A source is required.")));
+
+        if (string.IsNullOrWhiteSpace(source.Name))
+            return Task.FromResult(Result.Failure<Source, OcctooError>(new ValidationError("A source name is required.")));
 
         var body = new CreateSourceDto(source.Id.Value, source.Name, source.Description.GetValueOrDefault());
         return OcctooTransport.Send(_httpClient, _requestTimeout,
@@ -193,7 +195,7 @@ public sealed class SourcesClient
         var body = new UpdateSourceDto(changes.Name.GetValueOrDefault(), changes.Description.GetValueOrDefault());
         return OcctooTransport.Send(_httpClient, _requestTimeout,
                 OcctooTransport.Request(HttpMethod.Patch, SourceUri(sourceId), body, SourcesJsonContext.Default.UpdateSourceDto),
-                "update source", SourcesJsonContext.Default.SourceDto, cancellationToken)
+                "update source", SourcesJsonContext.Default.SourceDto, cancellationToken, SourceTag(sourceId))
             .MapResponse(dto => dto.ToModel());
     }
 
@@ -204,7 +206,7 @@ public sealed class SourcesClient
     public Task<UnitResult<OcctooError>> Delete(
         SourceId sourceId,
         CancellationToken cancellationToken = default) =>
-        OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Delete, SourceUri(sourceId)), "delete source", cancellationToken);
+        OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Delete, SourceUri(sourceId)), "delete source", cancellationToken, SourceTag(sourceId));
 
     /// <summary>Reads one page of a source's properties.</summary>
     public Task<Result<Page<SourceProperty>, OcctooError>> ListProperties(
@@ -213,15 +215,14 @@ public sealed class SourcesClient
         CancellationToken cancellationToken = default)
     {
         page ??= new PageRequest();
-        if (Pages.Validate(page) is { HasValue: true } invalid)
-            return Task.FromResult(Result.Failure<Page<SourceProperty>, OcctooError>(invalid.Value));
-
         var uri = new QueryString($"v1/sources/{Uri.EscapeDataString(sourceId.Value)}/properties")
             .Add(page)
             .ToUri();
 
-        return OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Get, uri), "list source properties",
-                SourcesJsonContext.Default.ForwardPageDtoSourcePropertyDto, cancellationToken)
+        return Pages.Validate(page)
+            .Bind(() => OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Get, uri), "list source properties",
+                SourcesJsonContext.Default.ForwardPageDtoSourcePropertyDto, cancellationToken,
+                [new("occtoo.source.id", sourceId.Value), new("occtoo.page.limit", page.Limit)]))
             .MapResponse(result => Pages.ToPage(result.Items, result.After, result.TotalCount, dto => dto.ToModel()));
     }
 
@@ -231,7 +232,7 @@ public sealed class SourcesClient
         PropertyId propertyId,
         CancellationToken cancellationToken = default) =>
         OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Get, PropertyUri(sourceId, propertyId)),
-                "get source property", SourcesJsonContext.Default.SourcePropertyDto, cancellationToken)
+                "get source property", SourcesJsonContext.Default.SourcePropertyDto, cancellationToken, PropertyTag(sourceId, propertyId))
             .MapResponse(dto => dto.ToModel());
 
     /// <summary>Creates or updates a property's metadata.</summary>
@@ -243,6 +244,9 @@ public sealed class SourcesClient
     {
         if (property is null)
             return Task.FromResult(Result.Failure<SourceProperty, OcctooError>(new ValidationError("A property is required.")));
+
+        if (string.IsNullOrWhiteSpace(property.DisplayName))
+            return Task.FromResult(Result.Failure<SourceProperty, OcctooError>(new ValidationError("A property display name is required.")));
 
         // The same rule the API applies, checked before the round trip.
         var isList = property.Type.HasValue && property.Type.Value is SourcePropertyType.List or SourcePropertyType.LocalizedList;
@@ -263,7 +267,7 @@ public sealed class SourcesClient
         return OcctooTransport.Send(_httpClient, _requestTimeout,
                 OcctooTransport.Request(HttpMethod.Put, PropertyUri(sourceId, propertyId), body,
                     SourcesJsonContext.Default.UpsertSourcePropertyDto),
-                "upsert source property", SourcesJsonContext.Default.SourcePropertyDto, cancellationToken)
+                "upsert source property", SourcesJsonContext.Default.SourcePropertyDto, cancellationToken, PropertyTag(sourceId, propertyId))
             .MapResponse(dto => dto.ToModel());
     }
 
@@ -277,7 +281,12 @@ public sealed class SourcesClient
         PropertyId propertyId,
         CancellationToken cancellationToken = default) =>
         OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Delete, PropertyUri(sourceId, propertyId)),
-            "delete source property", cancellationToken);
+            "delete source property", cancellationToken, PropertyTag(sourceId, propertyId));
+
+    private static KeyValuePair<string, object?>[] SourceTag(SourceId sourceId) => [new("occtoo.source.id", sourceId.Value)];
+
+    private static KeyValuePair<string, object?>[] PropertyTag(SourceId sourceId, PropertyId propertyId) =>
+        [new("occtoo.source.id", sourceId.Value), new("occtoo.property.id", propertyId.Value)];
 
     private static Uri SourceUri(SourceId sourceId) =>
         new($"v1/sources/{Uri.EscapeDataString(sourceId.Value)}", UriKind.Relative);
@@ -326,9 +335,7 @@ public sealed class SourcesClient
             [
                 .. (accepted.NewPropertiesFound ?? []).Select(found => new InferredProperty(
                     PropertyId.From(found.Id ?? "unknown"),
-                    Enum.TryParse<SourcePropertyType>(found.Type, ignoreCase: true, out var type)
-                        ? type
-                        : SourcePropertyType.Text,
+                    Enums.Read<SourcePropertyType>(found.Type),
                     Delimiter.Read(found.Delimiter))),
             ]);
     }

@@ -16,11 +16,13 @@ namespace Occtoo.Applications;
 /// var application = CreateApplication.WithName("Catalog reader")
 ///     .WithScopes(OcctooScopes.ReadSources)
 ///     .WithSources("products", "assets")
-///     .WithDestinations("webshop");
+///     .WithDestinations("webshop")
+///     .Build();
 ///
 /// var update = current.Edit()
 ///     .WithoutSources("assets")
-///     .WithApiVersions("2b1d7f3a-5c2e-4b8f-9a6d-1e0c4f7a8b9c");
+///     .WithApiVersions("2b1d7f3a-5c2e-4b8f-9a6d-1e0c4f7a8b9c")
+///     .Build();
 /// </code>
 /// </example>
 public abstract class ApplicationBuilder<TBuilder>
@@ -202,7 +204,7 @@ public abstract class ApplicationBuilder<TBuilder>
         [.. versions.Select(version => $"api-version:{(Guid.TryParse(version.Value, out var id) ? id.ToString("N") : version.Value)}")];
 }
 
-/// <summary>Builds a <see cref="CreateApplication"/>; converts implicitly.</summary>
+/// <summary>Builds a <see cref="CreateApplication"/>.</summary>
 public sealed class CreateApplicationBuilder : ApplicationBuilder<CreateApplicationBuilder>
 {
     internal CreateApplicationBuilder(ApplicationName name)
@@ -211,15 +213,13 @@ public sealed class CreateApplicationBuilder : ApplicationBuilder<CreateApplicat
     }
 
     /// <summary>The settings for <see cref="ApplicationsClient.Create"/>.</summary>
+    /// <exception cref="InvalidOperationException">A removal would widen source access.</exception>
     public CreateApplication Build() => new(Settings());
-
-    /// <summary>Finishes the application implicitly.</summary>
-    public static implicit operator CreateApplication(CreateApplicationBuilder builder) => builder.Build();
 }
 
 /// <summary>
 /// Builds an <see cref="UpdateApplication"/> from an application's current
-/// settings and etag; converts implicitly.
+/// settings and etag.
 /// </summary>
 public sealed class UpdateApplicationBuilder : ApplicationBuilder<UpdateApplicationBuilder>
 {
@@ -229,8 +229,6 @@ public sealed class UpdateApplicationBuilder : ApplicationBuilder<UpdateApplicat
         : base(application) => _etag = application.Etag;
 
     /// <summary>The replacement for <see cref="ApplicationsClient.Update"/>.</summary>
+    /// <exception cref="InvalidOperationException">A removal would widen source access.</exception>
     public UpdateApplication Build() => new(Settings(), _etag);
-
-    /// <summary>Finishes the update implicitly.</summary>
-    public static implicit operator UpdateApplication(UpdateApplicationBuilder builder) => builder.Build();
 }

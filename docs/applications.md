@@ -8,7 +8,8 @@ allowed to do: `/v1/applications` and `/v1/applications/access-catalog`.
 var created = await client.Applications.Create(CreateApplication.WithName("Catalog reader")
     .WithDescription("Reads the product source configuration")
     .WithScopes(OcctooScopes.ReadSources)
-    .WithSources("products"));
+    .WithSources("products")
+    .Build());
 
 created.Tap(credentials =>
 {
@@ -33,7 +34,7 @@ responses never include the secret; only `Create` returns
 
 `CreateApplication.WithName(...)` — or `application.Edit()` for changes —
 returns a builder that spells every grant the way the API expects, so no
-one composes selectors by hand:
+one composes selectors by hand. Finish it with `Build()`:
 
 | Builder method | Grants |
 |---|---|
@@ -86,7 +87,7 @@ a concurrent change can never be silently overwritten:
 ```csharp
 await client.Applications.Get(id)
     .Bind(current => client.Applications.Update(id,
-        current.Edit().WithScopes(OcctooScopes.ReadEvents)));
+        current.Edit().WithScopes(OcctooScopes.ReadEvents).Build()));
 ```
 
 `Delete` revokes the credentials; deleting an application that no longer

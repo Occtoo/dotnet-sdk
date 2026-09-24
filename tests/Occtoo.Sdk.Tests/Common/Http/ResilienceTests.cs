@@ -150,7 +150,7 @@ public class ResilienceTests
         using var client = Client(handler, FastRetries);
 
         var result = await client.Applications.Create(
-            CreateApplication.WithName("Catalog reader"), TestContext.Current.CancellationToken);
+            CreateApplication.WithName("Catalog reader").Build(), TestContext.Current.CancellationToken);
 
         result.Error.ShouldBeOfType<ServerError>();
         handler.RequestCount.ShouldBe(1);

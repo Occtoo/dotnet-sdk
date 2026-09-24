@@ -5,10 +5,10 @@ namespace Occtoo.Http.Internal;
 /// <summary>Shared page validation and mapping for the management lists.</summary>
 internal static class Pages
 {
-    internal static Maybe<OcctooError> Validate(PageRequest page) =>
+    internal static UnitResult<OcctooError> Validate(PageRequest page) =>
         page.Limit is < 1 or > PageRequest.MaxLimit
             ? new ValidationError($"Limit must be between 1 and {PageRequest.MaxLimit}.")
-            : Maybe<OcctooError>.None;
+            : UnitResult.Success<OcctooError>();
 
     // Management lists return no cursor once exhausted, so the cursor's
     // presence is the has-more signal.

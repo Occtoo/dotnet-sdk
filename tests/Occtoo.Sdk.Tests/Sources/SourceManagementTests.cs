@@ -242,4 +242,35 @@ public class SourceManagementTests
 
         result.Error.ShouldBeOfType<UnexpectedError>();
     }
+
+    [Fact]
+    public async Task Enum_values_this_sdk_does_not_know_read_as_absent_instead_of_failing_the_page()
+    {
+        using var handler = new StubHandler()
+            .Respond(HttpStatusCode.OK, """{ "items": [{ "id": "p", "name": "P", "status": "Archived", "type": "Stream", "createdAt": "2026-09-01T00:00:00Z", "updatedAt": "2026-09-01T00:00:00Z" }], "after": null }""")
+            .Respond(HttpStatusCode.OK, """{ "id": "tags", "displayName": "Tags", "type": "Vector", "state": "Migrating" }""");
+        using var client = Client(handler);
+
+        var source = (await client.Sources.List(cancellationToken: TestContext.Current.CancellationToken)).Value.Items.ShouldHaveSingleItem();
+        source.Status.HasNoValue.ShouldBeTrue();
+        source.Type.HasNoValue.ShouldBeTrue();
+
+        var property = (await client.Sources.GetProperty(Products, PropertyId.From("tags"), TestContext.Current.CancellationToken)).Value;
+        property.Type.HasNoValue.ShouldBeTrue();
+        property.State.HasNoValue.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task Blank_names_fail_before_the_request()
+    {
+        using var handler = new StubHandler();
+        using var client = Client(handler);
+
+        (await client.Sources.Create(new CreateSource(Products, " "), TestContext.Current.CancellationToken))
+            .Error.ShouldBeOfType<ValidationError>();
+        (await client.Sources.UpsertProperty(Products, PropertyId.From("tags"), new UpsertSourceProperty(""), TestContext.Current.CancellationToken))
+            .Error.ShouldBeOfType<ValidationError>();
+
+        handler.RequestCount.ShouldBe(0);
+    }
 }

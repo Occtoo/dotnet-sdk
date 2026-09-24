@@ -40,8 +40,8 @@ public sealed record Source(
     SourceId Id,
     string Name,
     Maybe<string> Description,
-    SourceStatus Status,
-    SourceType Type,
+    Maybe<SourceStatus> Status,
+    Maybe<SourceType> Type,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt);
 
@@ -55,7 +55,7 @@ public sealed record SourceProperty(
     Maybe<string> Description,
     Maybe<SourcePropertyType> Type,
     Maybe<Delimiter> Delimiter,
-    SourcePropertyState State);
+    Maybe<SourcePropertyState> State);
 
 /// <summary>A new generic source.</summary>
 public sealed record CreateSource(SourceId Id, string Name)

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using CSharpFunctionalExtensions;
+using Occtoo.Http.Internal;
 
 namespace Occtoo.Sources.Internal;
 
@@ -15,9 +16,9 @@ internal sealed record SourceDto
 
     public string? Description { get; init; }
 
-    public SourceStatus Status { get; init; }
+    public string? Status { get; init; }
 
-    public SourceType Type { get; init; }
+    public string? Type { get; init; }
 
     public DateTimeOffset CreatedAt { get; init; }
 
@@ -27,8 +28,8 @@ internal sealed record SourceDto
         SourceId.From(Id),
         Name,
         Description is { Length: > 0 } ? Maybe.From(Description) : Maybe<string>.None,
-        Status,
-        Type,
+        Enums.Read<SourceStatus>(Status),
+        Enums.Read<SourceType>(Type),
         CreatedAt,
         UpdatedAt);
 }
@@ -45,15 +46,15 @@ internal sealed record SourcePropertyDto
 
     public string? Delimiter { get; init; }
 
-    public SourcePropertyState State { get; init; }
+    public string? State { get; init; }
 
     internal SourceProperty ToModel() => new(
         PropertyId.From(Id),
         DisplayName,
         Description is { Length: > 0 } ? Maybe.From(Description) : Maybe<string>.None,
-        PropertyTypes.Parse(Type),
+        Enums.Read<SourcePropertyType>(Type),
         Sources.Delimiter.Read(Delimiter),
-        State);
+        Enums.Read<SourcePropertyState>(State));
 }
 
 internal sealed record CreateSourceDto(string Id, string Name, string? Description);
@@ -89,17 +90,3 @@ internal sealed record ForwardPageDto<T>
 [JsonSerializable(typeof(ForwardPageDto<SourcePropertyDto>))]
 internal sealed partial class SourcesJsonContext : JsonSerializerContext;
 
-/// <summary>
-/// Reads a property type name leniently: a name this SDK does not know
-/// (a legacy or future type) reads as untyped rather than failing the
-/// whole response.
-/// </summary>
-internal static class PropertyTypes
-{
-    internal static Maybe<SourcePropertyType> Parse(string? name) =>
-        name is { Length: > 0 }
-        && Enum.TryParse<SourcePropertyType>(name, ignoreCase: true, out var type)
-        && Enum.IsDefined(type)
-            ? Maybe.From(type)
-            : Maybe<SourcePropertyType>.None;
-}

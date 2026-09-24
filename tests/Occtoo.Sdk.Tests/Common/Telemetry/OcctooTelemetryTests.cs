@@ -174,4 +174,25 @@ public class OcctooTelemetryTests
             authenticate.Status.ShouldBe(ActivityStatusCode.Unset);
         }
     }
+
+    [Fact]
+    public async Task Management_spans_carry_the_resource_they_act_on()
+    {
+        var (listener, stopped) = Listen();
+        using (listener)
+        {
+            using var handler = new StubHandler().Respond(HttpStatusCode.OK, """
+                { "id": "otel-tagged", "name": "P", "status": "Active", "type": "Generic", "createdAt": "2026-09-01T00:00:00Z", "updatedAt": "2026-09-01T00:00:00Z" }
+                """);
+            using var client = new OcctooClient(new HttpClient(handler), new OcctooClientOptions
+            {
+                Credential = OcctooCredential.ApiKey(ApiKey.From("key-1")),
+            });
+
+            await client.Sources.Get(SourceId.From("otel-tagged"), TestContext.Current.CancellationToken);
+        }
+
+        stopped.ShouldContain(activity =>
+            activity.OperationName == "get source" && (string?)activity.GetTagItem("occtoo.source.id") == "otel-tagged");
+    }
 }

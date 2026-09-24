@@ -36,9 +36,6 @@ public sealed class ApplicationsClient
         CancellationToken cancellationToken = default)
     {
         query ??= new ApplicationListQuery();
-        if (Pages.Validate(query.Page) is { HasValue: true } invalid)
-            return Task.FromResult(Result.Failure<Page<Application>, OcctooError>(invalid.Value));
-
         var uri = new QueryString("v1/applications")
             .Add("name", query.Name)
             .AddEach("tags", query.Tags)
@@ -51,8 +48,10 @@ public sealed class ApplicationsClient
             .Add(query.Page)
             .ToUri();
 
-        return OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Get, uri), "list applications",
-                ApplicationsJsonContext.Default.ForwardPageDtoApplicationDto, cancellationToken)
+        return Pages.Validate(query.Page)
+            .Bind(() => OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Get, uri), "list applications",
+                ApplicationsJsonContext.Default.ForwardPageDtoApplicationDto, cancellationToken,
+                [new("occtoo.page.limit", query.Page.Limit)]))
             .MapResponse(page => Pages.ToPage(page.Items, page.After, page.TotalCount, dto => dto.ToModel()));
     }
 
@@ -62,7 +61,7 @@ public sealed class ApplicationsClient
         CancellationToken cancellationToken = default) =>
         OcctooTransport.Send(_httpClient, _requestTimeout,
                 OcctooTransport.Request(HttpMethod.Get, Uri(applicationId)),
-                "get application", ApplicationsJsonContext.Default.ApplicationDto, cancellationToken)
+                "get application", ApplicationsJsonContext.Default.ApplicationDto, cancellationToken, ApplicationTag(applicationId))
             .MapResponse(dto => dto.ToModel());
 
     /// <summary>
@@ -115,8 +114,9 @@ public sealed class ApplicationsClient
 
         return OcctooTransport.Send(_httpClient, _requestTimeout,
                 OcctooTransport.Request(HttpMethod.Put, Uri(applicationId), body, ApplicationsJsonContext.Default.UpdateApplicationDto),
-                "update application", ApplicationsJsonContext.Default.ApplicationDto, cancellationToken)
-            .MapResponse(dto => dto.ToModel());
+                "update application", ApplicationsJsonContext.Default.ApplicationDto, cancellationToken, ApplicationTag(applicationId))
+            .MapResponse(dto => dto.ToModel())
+            .Tap(updated => OcctooLog.ApplicationUpdated(_logger, updated.Id.Value));
     }
 
     /// <summary>
@@ -126,7 +126,7 @@ public sealed class ApplicationsClient
     public Task<UnitResult<OcctooError>> Delete(
         TenantApplicationId applicationId,
         CancellationToken cancellationToken = default) =>
-        OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Delete, Uri(applicationId)), "delete application", cancellationToken)
+        OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Delete, Uri(applicationId)), "delete application", cancellationToken, ApplicationTag(applicationId))
             .Tap(() => OcctooLog.ApplicationDeleted(_logger, applicationId.Value));
 
     /// <summary>
@@ -140,6 +140,9 @@ public sealed class ApplicationsClient
                 OcctooTransport.Request(HttpMethod.Get, new Uri("v1/applications/access-catalog", UriKind.Relative)),
                 "get application access catalog", ApplicationsJsonContext.Default.AccessNodeDtoArray, cancellationToken)
             .MapResponse(IReadOnlyList<AccessNode> (nodes) => [.. OcctooTransport.Elements(nodes, "catalog").Select(node => node.ToModel())]);
+
+    private static KeyValuePair<string, object?>[] ApplicationTag(TenantApplicationId applicationId) =>
+        [new("occtoo.application.id", applicationId.Value.ToString("D"))];
 
     private static Uri Uri(TenantApplicationId applicationId) =>
         new($"v1/applications/{applicationId.Value:D}", UriKind.Relative);

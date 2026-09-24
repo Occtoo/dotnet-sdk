@@ -67,7 +67,7 @@ spans when it is not:
 | `pull events` | Client | `occtoo.events.limit`, `occtoo.events.count` |
 | `stream events` | Client | one span per connection attempt |
 | `events metadata` | Client | `occtoo.events.total` |
-| `list sources`, `get source`, `create source`, … | Client | one span per management operation, named after it |
+| `list sources`, `get source`, `create source`, … | Client | one span per management operation, named after it; `occtoo.source.id`, `occtoo.property.id`, `occtoo.application.id`, `occtoo.page.limit` where they apply |
 
 A token acquisition triggered mid-request nests under the operation that needed
 it, so a slow ingest that was really a slow token exchange shows up as exactly

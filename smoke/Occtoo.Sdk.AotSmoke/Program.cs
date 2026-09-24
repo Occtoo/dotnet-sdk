@@ -80,7 +80,7 @@ var entry = SourceEntry.WithId("sku-123")
 var accepted = await client.Sources.IngestEntries(SourceId.From("products"), [entry]);
 Check("ingest receipt parsed", accepted.IsSuccess
     && accepted.Value.AcceptedEntryCount == 1
-    && accepted.Value.NewProperties is [{ Type: SourcePropertyType.List }]);
+    && accepted.Value.NewProperties is [{ Type: { HasValue: true, Value: SourcePropertyType.List } }]);
 Check("request body carries native JSON types", transport.LastBody is { } body
     && body.Contains("\"value\":100.111")
     && body.Contains("\"value\":true")

@@ -131,4 +131,8 @@ internal static partial class OcctooLog
     [LoggerMessage(EventId = 501, Level = LogLevel.Information,
         Message = "Application {ApplicationId} deleted and its credentials revoked")]
     internal static partial void ApplicationDeleted(ILogger logger, Guid applicationId);
+
+    [LoggerMessage(EventId = 502, Level = LogLevel.Information,
+        Message = "Application {ApplicationId} updated; its settings and grants were replaced")]
+    internal static partial void ApplicationUpdated(ILogger logger, Guid applicationId);
 }

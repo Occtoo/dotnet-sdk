@@ -26,7 +26,7 @@ public class MalformedResponseTests
         using var c = Client(h);
         OcctooError? error = op switch
         {
-            "create" => (await c.Applications.Create(CreateApplication.WithName("x"), TestContext.Current.CancellationToken)).Error,
+            "create" => (await c.Applications.Create(CreateApplication.WithName("x").Build(), TestContext.Current.CancellationToken)).Error,
             "sources" => (await c.Sources.List(cancellationToken: TestContext.Current.CancellationToken)).Error,
             "properties" => (await c.Sources.ListProperties(SourceId.From("products"), cancellationToken: TestContext.Current.CancellationToken)).Error,
             "catalog" => (await c.Applications.GetAccessCatalog(TestContext.Current.CancellationToken)).Error,

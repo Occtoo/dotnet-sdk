@@ -69,11 +69,12 @@ internal static class OcctooTransport
         HttpRequestMessage request,
         string operation,
         JsonTypeInfo<T> responseType,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IReadOnlyList<KeyValuePair<string, object?>>? tags = null)
     {
         using (request)
         {
-            using var activity = OcctooTelemetry.Source.StartActivity(operation, ActivityKind.Client);
+            using var activity = Start(operation, tags);
 
             var outcome = await Send(httpClient, timeout, request, cancellationToken)
                 .Bind(async Task<Result<T, OcctooError>> (response) =>
@@ -96,11 +97,12 @@ internal static class OcctooTransport
         TimeSpan timeout,
         HttpRequestMessage request,
         string operation,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IReadOnlyList<KeyValuePair<string, object?>>? tags = null)
     {
         using (request)
         {
-            using var activity = OcctooTelemetry.Source.StartActivity(operation, ActivityKind.Client);
+            using var activity = Start(operation, tags);
 
             var outcome = await Send(httpClient, timeout, request, cancellationToken)
                 .Bind(async Task<UnitResult<OcctooError>> (response) =>
@@ -127,12 +129,9 @@ internal static class OcctooTransport
         Func<T, TModel> map)
     {
         var result = await sent.ConfigureAwait(false);
-        if (result.IsFailure)
-            return result.Error;
-
         try
         {
-            return map(result.Value);
+            return result.Map(map);
         }
         catch (Exception exception) when (exception is Vogen.ValueObjectValidationException or MalformedResponseException)
         {
@@ -148,6 +147,19 @@ internal static class OcctooTransport
         items.Any(item => item is null)
             ? throw new MalformedResponseException($"'{field}' contains a null element.")
             : items;
+
+    // One span per operation, carrying the caller's attributes (occtoo.source.id, …).
+    private static Activity? Start(string operation, IReadOnlyList<KeyValuePair<string, object?>>? tags)
+    {
+        var activity = OcctooTelemetry.Source.StartActivity(operation, ActivityKind.Client);
+        if (activity is not null && tags is not null)
+        {
+            foreach (var (key, value) in tags)
+                activity.SetTag(key, value);
+        }
+
+        return activity;
+    }
 
     internal static HttpRequestMessage Request(HttpMethod method, Uri uri) => new(method, uri);
 

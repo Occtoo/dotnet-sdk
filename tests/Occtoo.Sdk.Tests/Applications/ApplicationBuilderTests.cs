@@ -17,7 +17,8 @@ public class ApplicationBuilderTests
             .WithScopes(OcctooScopes.ReadSources, OcctooScopes.ReadEvents)
             .WithSources("products", "assets")
             .WithDestinations("webshop")
-            .WithApiVersions("2B1D7F3A-5C2E-4B8F-9A6D-1E0C4F7A8B9C");
+            .WithApiVersions("2B1D7F3A-5C2E-4B8F-9A6D-1E0C4F7A8B9C")
+            .Build();
 
         application.Name.ShouldBe("Catalog reader");
         application.Description.GetValueOrThrow().ShouldBe("Reads products");
@@ -49,7 +50,7 @@ public class ApplicationBuilderTests
             ["commerce"], ["read:sources"], ["source:products"], [], [], Etag: 7,
             DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch);
 
-        UpdateApplication update = current.Edit().WithSources("assets");
+        var update = current.Edit().WithSources("assets").Build();
 
         update.Name.ShouldBe("Reader");
         update.Etag.ShouldBe(7u);

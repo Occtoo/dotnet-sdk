@@ -106,6 +106,30 @@ public class OcctooLogTests
 
     private sealed record LogEntry(string Category, LogLevel Level, string Message);
 
+    [Fact]
+    public async Task An_application_update_is_logged_as_an_audit_worthy_change()
+    {
+        var log = new CollectingLoggerFactory();
+        var id = Occtoo.Applications.TenantApplicationId.From(Guid.Parse("2b1d7f3a-5c2e-4b8f-9a6d-1e0c4f7a8b9c"));
+        using var transport = new StubHandler().Respond(HttpStatusCode.OK, """
+            { "id": "2b1d7f3a-5c2e-4b8f-9a6d-1e0c4f7a8b9c", "name": "Reader", "clientId": "c", "tags": [], "scopeKeys": [],
+              "resourceSelectors": [], "apiSelectors": [], "audiences": [], "etag": 2,
+              "createdAt": "2026-09-01T00:00:00Z", "lastModifiedAt": "2026-09-01T00:00:00Z" }
+            """);
+        using var client = new OcctooClient(new HttpClient(transport), new OcctooClientOptions
+        {
+            Credential = OcctooCredential.ApiKey(ApiKey.From("key-1")),
+            LoggerFactory = log,
+        });
+        var current = new Occtoo.Applications.Application(id, "Reader", CSharpFunctionalExtensions.Maybe<string>.None,
+            ClientId.From("c"), [], [], [], [], [], Etag: 1, DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch);
+
+        (await client.Applications.Update(id, current.Edit().Build(), TestContext.Current.CancellationToken)).IsSuccess.ShouldBeTrue();
+
+        log.Entries.ShouldContain(e => e.Category == "Occtoo.Applications"
+            && e.Level == LogLevel.Information && e.Message.Contains("updated"));
+    }
+
     private sealed class CollectingLoggerFactory : ILoggerFactory
     {
         public ConcurrentQueue<LogEntry> Entries { get; } = new();

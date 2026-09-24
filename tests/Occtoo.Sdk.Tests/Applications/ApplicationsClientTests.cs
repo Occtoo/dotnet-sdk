@@ -112,7 +112,7 @@ public class ApplicationsClientTests
         var result = await client.Applications.Create(CreateApplication.WithName("Catalog reader")
             .WithDescription("Reads the product source configuration")
             .WithScopes("read:sources")
-            .WithSources("products"), TestContext.Current.CancellationToken);
+            .WithSources("products").Build(), TestContext.Current.CancellationToken);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.ClientSecret.Value.ShouldBe("s3cret");
@@ -134,9 +134,9 @@ public class ApplicationsClientTests
             .Respond(HttpStatusCode.Conflict, """{ "title": "stale etag" }""");
         using var client = Client(handler);
 
-        UpdateApplication replacement = new Application(
+        var replacement = new Application(
             Id, "Catalog reader", Maybe<string>.None, ClientId.From("client-abc"), [], [], [], [], [], Etag: 3,
-            DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch).Edit().WithScopes("read:sources");
+            DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch).Edit().WithScopes("read:sources").Build();
 
         var updated = await client.Applications.Update(Id, replacement, TestContext.Current.CancellationToken);
         updated.IsSuccess.ShouldBeTrue();
