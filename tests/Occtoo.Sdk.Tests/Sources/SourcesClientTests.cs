@@ -308,4 +308,15 @@ public class SourcesClientTests
 
         result.Value.NewProperties.ShouldHaveSingleItem().Type.HasNoValue.ShouldBeTrue();
     }
+
+    [Fact]
+    public async Task Any_success_status_is_an_accepted_batch()
+    {
+        using var handler = new StubHandler().Respond(HttpStatusCode.OK, AcceptedBody);
+        using var client = Client(handler);
+
+        var result = await client.Sources.IngestEntries(Products, [ChairEntry()], TestContext.Current.CancellationToken);
+
+        result.Value.AcceptedEntryCount.ShouldBe(1);
+    }
 }
