@@ -195,6 +195,7 @@ tokens issued by `https://auth.occtoo.com`.
 | `GET` `POST` | `/v1/sources` | List (forward-paginated, filtered) and create sources |
 | `GET` `PATCH` `DELETE` | `/v1/sources/{sourceId}` | Read, update, and soft-delete a source |
 | `GET` `PUT` `DELETE` | `/v1/sources/{sourceId}/properties[/{propertyId}]` | List, read, upsert, and delete properties |
+| `GET` | `/v1/sources/{sourceId}/entries[/{entryId}]` | Read stored entries — one by id, or up to 100 by ids — typed by the source configuration |
 
 Requires the `write:sources` scope. The legacy string-based import
 (`/datasources/{dataSource}/import`) and media ingest are not wrapped yet.

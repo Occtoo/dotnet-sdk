@@ -128,3 +128,43 @@ and the paging loop. Every `Source` carries its `SourceType` (`Generic` or `Medi
 by name substring, `SourceType`,
 `SourceStatus` and inclusive created/updated windows; soft-deleted sources are
 never listed.
+
+## Reading entries
+
+`GetEntry` and `GetEntries` (`/v1/sources/{sourceId}/entries[/{entryId}]`,
+`read:sources`) return what is stored, typed by the source's *current*
+property configuration — the same `PropertyValue` union ingest writes, so a
+value round-trips:
+
+```csharp
+await client.Sources.GetEntry("products", "chair-1")
+    .Tap(entry =>
+    {
+        foreach (var property in entry.Properties)
+        {
+            var text = property.Value switch
+            {
+                PropertyValue.DecimalValue d => $"{d.Value:0.##}",
+                PropertyValue.ListValue l => string.Join(", ", l.Items),
+                PropertyValue.ClearValue => "(cleared)",
+                var other => other.ToString(),
+            };
+            Console.WriteLine($"{property.Id.Value}{property.Language.Map(l => $" [{l.Value}]").GetValueOrDefault()}: {text}");
+        }
+    });
+```
+
+Localized properties yield one `StoredProperty` per language, all sharing
+the property's `LastUpdated`. A property whose type is not configured has no
+`Type` and a text value; a cleared value is `PropertyValue.Clear` (an empty
+list for list types). Reads reflect *completed* ingestion, which may lag an
+accepted ingest request — do not treat a not-yet-visible entry as a failed
+ingest.
+
+`GetEntries` is a bounded lookup, not a listing: 1–100 ids per call (checked
+client-side), results in the requested order, missing or deleted ids simply
+absent. A stored value that cannot be represented as its configured type
+fails the whole request: the API answers `ConflictError` when *it* cannot
+convert the value, and the SDK returns `DataTypeError` when a value arrives in
+a shape it cannot hold faithfully — a number beyond `decimal`'s range, a list
+item that is not a string. Nothing is dropped or coerced silently.

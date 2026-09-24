@@ -288,6 +288,59 @@ public sealed class SourcesClient
     private static KeyValuePair<string, object?>[] PropertyTag(SourceId sourceId, PropertyId propertyId) =>
         [new("occtoo.source.id", sourceId.Value), new("occtoo.property.id", propertyId.Value)];
 
+    // ── Reading entries ────────────────────────────────────────────────────
+
+    /// <summary>The most ids one <see cref="GetEntries"/> call may request.</summary>
+    public const int MaxEntriesPerRead = 100;
+
+    /// <summary>
+    /// Reads one stored entry, with values typed by the source's current
+    /// property configuration. A deleted or unknown entry is a
+    /// <see cref="NotFoundError"/>; a stored value that cannot be represented
+    /// as its configured type is a <see cref="ConflictError"/> from the API, or a
+    /// <see cref="DataTypeError"/> when the SDK cannot represent it.
+    /// </summary>
+    public Task<Result<StoredSourceEntry, OcctooError>> GetEntry(
+        SourceId sourceId,
+        EntryId entryId,
+        CancellationToken cancellationToken = default) =>
+        OcctooTransport.Send(_httpClient, _requestTimeout,
+                OcctooTransport.Request(HttpMethod.Get, EntryUri(sourceId, entryId)),
+                "get source entry", SourceEntriesJsonContext.Default.StoredEntryDto, cancellationToken,
+                [new("occtoo.source.id", sourceId.Value), new("occtoo.entry.id", entryId.Value)])
+            .MapResponse(dto => dto.ToModel());
+
+    /// <summary>
+    /// Reads up to <see cref="MaxEntriesPerRead"/> stored entries by id in one
+    /// request. Results follow the requested order; ids that are missing or
+    /// deleted are simply absent, so a shorter list is not a failure.
+    /// </summary>
+    public Task<Result<IReadOnlyList<StoredSourceEntry>, OcctooError>> GetEntries(
+        SourceId sourceId,
+        IReadOnlyList<EntryId> entryIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (entryIds is null or { Count: 0 })
+            return Task.FromResult(Result.Failure<IReadOnlyList<StoredSourceEntry>, OcctooError>(
+                new ValidationError("At least one entry id is required.")));
+
+        if (entryIds.Count > MaxEntriesPerRead)
+            return Task.FromResult(Result.Failure<IReadOnlyList<StoredSourceEntry>, OcctooError>(
+                new ValidationError($"At most {MaxEntriesPerRead} entry ids can be read per request.")));
+
+        var uri = new QueryString($"v1/sources/{Uri.EscapeDataString(sourceId.Value)}/entries")
+            .AddEach("id", [.. entryIds.Select(id => id.Value)])
+            .ToUri();
+
+        return OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Get, uri), "get source entries",
+                SourceEntriesJsonContext.Default.StoredEntriesDto, cancellationToken,
+                [new("occtoo.source.id", sourceId.Value), new("occtoo.entry.count", entryIds.Count)])
+            .MapResponse(IReadOnlyList<StoredSourceEntry> (dto) => [.. OcctooTransport.Elements(dto.Items, "items").Select(item => item.ToModel())]);
+    }
+
+    private static Uri EntryUri(SourceId sourceId, EntryId entryId) =>
+        new($"v1/sources/{Uri.EscapeDataString(sourceId.Value)}/entries/{Uri.EscapeDataString(entryId.Value)}", UriKind.Relative);
+
     private static Uri SourceUri(SourceId sourceId) =>
         new($"v1/sources/{Uri.EscapeDataString(sourceId.Value)}", UriKind.Relative);
 

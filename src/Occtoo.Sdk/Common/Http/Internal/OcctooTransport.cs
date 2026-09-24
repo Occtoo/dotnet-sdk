@@ -133,6 +133,10 @@ internal static class OcctooTransport
         {
             return result.Map(map);
         }
+        catch (DataTypeException exception)
+        {
+            return new DataTypeError(exception.Message);
+        }
         catch (Exception exception) when (exception is Vogen.ValueObjectValidationException or MalformedResponseException)
         {
             return new UnexpectedError($"Occtoo returned an incomplete response: {exception.Message}");
@@ -191,6 +195,9 @@ internal static class OcctooTransport
     private static string Describe(string operation) =>
         char.ToUpperInvariant(operation[0]) + operation[1..];
 }
+
+/// <summary>A response value that does not fit its type; mapped to a <see cref="DataTypeError"/>.</summary>
+internal sealed class DataTypeException(string message) : Exception(message);
 
 /// <summary>A parsed response that breaks the API's contract; mapped to an <see cref="UnexpectedError"/>.</summary>
 internal sealed class MalformedResponseException(string message) : Exception(message);
