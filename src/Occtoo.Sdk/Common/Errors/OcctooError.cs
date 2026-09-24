@@ -139,6 +139,15 @@ public sealed record ValidationError(
 }
 
 /// <summary>
+/// A value in a response that the SDK cannot represent as its type — a number
+/// outside <see cref="decimal"/>'s range, a list holding something other than
+/// strings. Reported rather than dropped or coerced, so no data is silently
+/// lost; it usually means the platform added a shape this SDK version predates.
+/// </summary>
+/// <param name="Message">Which value, and why it does not fit.</param>
+public sealed record DataTypeError(string Message) : OcctooError(Message);
+
+/// <summary>
 /// A response the SDK did not expect and cannot classify — an unknown status
 /// code, or a body that does not parse.
 /// </summary>

@@ -135,4 +135,21 @@ public class SourceEntryReadTests
 
         result.Error.ShouldBeOfType<UnexpectedError>();
     }
+
+    [Theory]
+    [InlineData("""1e300""", "Decimal", "outside the range")]
+    [InlineData("""["a", 1]""", "List", "not a string")]
+    [InlineData("""{ "nested": true }""", "Text", "no property type represents")]
+    public async Task A_value_the_sdk_cannot_represent_is_a_data_type_error_not_a_silent_loss(string value, string type, string reason)
+    {
+        using var handler = new StubHandler().Respond(HttpStatusCode.OK, $$"""
+            { "id": "chair-1", "lastUpdated": "2026-09-15T10:00:00Z",
+              "properties": [{ "id": "p", "value": {{value}}, "type": "{{type}}", "lastUpdated": "2026-09-15T10:00:00Z" }] }
+            """);
+        using var client = Client(handler);
+
+        var result = await client.Sources.GetEntry(Products, EntryId.From("chair-1"), TestContext.Current.CancellationToken);
+
+        result.Error.ShouldBeOfType<DataTypeError>().Message.ShouldContain(reason);
+    }
 }

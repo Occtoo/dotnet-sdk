@@ -164,4 +164,7 @@ ingest.
 `GetEntries` is a bounded lookup, not a listing: 1–100 ids per call (checked
 client-side), results in the requested order, missing or deleted ids simply
 absent. A stored value that cannot be represented as its configured type
-fails the whole request with a `ConflictError`.
+fails the whole request: the API answers `ConflictError` when *it* cannot
+convert the value, and the SDK returns `DataTypeError` when a value arrives in
+a shape it cannot hold faithfully — a number beyond `decimal`'s range, a list
+item that is not a string. Nothing is dropped or coerced silently.

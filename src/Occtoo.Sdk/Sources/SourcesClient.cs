@@ -297,17 +297,17 @@ public sealed class SourcesClient
     /// Reads one stored entry, with values typed by the source's current
     /// property configuration. A deleted or unknown entry is a
     /// <see cref="NotFoundError"/>; a stored value that cannot be represented
-    /// as its configured type is a <see cref="ConflictError"/>.
+    /// as its configured type is a <see cref="ConflictError"/> from the API, or a
+    /// <see cref="DataTypeError"/> when the SDK cannot represent it.
     /// </summary>
     public Task<Result<StoredSourceEntry, OcctooError>> GetEntry(
         SourceId sourceId,
         EntryId entryId,
         CancellationToken cancellationToken = default) =>
         OcctooTransport.Send(_httpClient, _requestTimeout,
-                OcctooTransport.Request(HttpMethod.Get, new Uri(
-                    $"v1/sources/{Uri.EscapeDataString(sourceId.Value)}/entries/{Uri.EscapeDataString(entryId.Value)}",
-                    UriKind.Relative)),
-                "get source entry", SourceEntriesJsonContext.Default.StoredEntryDto, cancellationToken)
+                OcctooTransport.Request(HttpMethod.Get, EntryUri(sourceId, entryId)),
+                "get source entry", SourceEntriesJsonContext.Default.StoredEntryDto, cancellationToken,
+                [new("occtoo.source.id", sourceId.Value), new("occtoo.entry.id", entryId.Value)])
             .MapResponse(dto => dto.ToModel());
 
     /// <summary>
@@ -333,9 +333,13 @@ public sealed class SourcesClient
             .ToUri();
 
         return OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Get, uri), "get source entries",
-                SourceEntriesJsonContext.Default.StoredEntriesDto, cancellationToken)
+                SourceEntriesJsonContext.Default.StoredEntriesDto, cancellationToken,
+                [new("occtoo.source.id", sourceId.Value), new("occtoo.entry.count", entryIds.Count)])
             .MapResponse(IReadOnlyList<StoredSourceEntry> (dto) => [.. OcctooTransport.Elements(dto.Items, "items").Select(item => item.ToModel())]);
     }
+
+    private static Uri EntryUri(SourceId sourceId, EntryId entryId) =>
+        new($"v1/sources/{Uri.EscapeDataString(sourceId.Value)}/entries/{Uri.EscapeDataString(entryId.Value)}", UriKind.Relative);
 
     private static Uri SourceUri(SourceId sourceId) =>
         new($"v1/sources/{Uri.EscapeDataString(sourceId.Value)}", UriKind.Relative);

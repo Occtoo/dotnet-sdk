@@ -28,6 +28,7 @@ OcctooError                        what happened                        what to 
 ├─ NotFoundError                   resource does not exist              fix the id
 ├─ ConflictError                   resource state rejects the request   wait or resolve
 ├─ ValidationError                 payload rejected before processing   fix the payload (see Failures)
+├─ DataTypeError                   response value does not fit its type update the SDK / report it
 └─ UnexpectedError                 unclassifiable response              investigate
 ```
 
