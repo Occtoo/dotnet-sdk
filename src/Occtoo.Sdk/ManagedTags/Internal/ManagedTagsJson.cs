@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using CSharpFunctionalExtensions;
+using Occtoo.Http.Internal;
 
 namespace Occtoo.ManagedTags.Internal;
 
@@ -15,7 +16,7 @@ internal sealed record ManagedTagDto
 
     public string DisplayName { get; init; } = "";
 
-    public ManagedTagType Type { get; init; }
+    public string? Type { get; init; }
 
     public Guid? ParentId { get; init; }
 
@@ -30,7 +31,7 @@ internal sealed record ManagedTagDto
     internal ManagedTag ToModel() => new(
         ManagedTagId.From(Id),
         DisplayName,
-        Type,
+        Enums.Read<ManagedTagType>(Type),
         ParentId is { } parent ? Maybe.From(ManagedTagId.From(parent)) : Maybe<ManagedTagId>.None,
         CreatedAt,
         LastModifiedAt is { } modified ? Maybe.From(modified) : Maybe<DateTimeOffset>.None,
@@ -66,16 +67,21 @@ internal sealed record ManagedTagValueDto
         CreatedBy,
         UpdatedBy is { } updatedBy ? Maybe.From(updatedBy) : Maybe<Guid>.None);
 
-    private static ManagedTagValueContent ReadContent(JsonElement value) => value.ValueKind switch
+    // Content never falls back silently: a shape neither a single string nor a
+    // map of strings is a DataTypeError naming the value.
+    private ManagedTagValueContent ReadContent(JsonElement value) => value.ValueKind switch
     {
-        JsonValueKind.Object => ManagedTagValueContent.Localized(
-            value.EnumerateObject()
-                .Where(property => property.Value.ValueKind == JsonValueKind.String)
-                .ToDictionary(property => property.Name, property => property.Value.GetString()!, StringComparer.Ordinal)),
         JsonValueKind.String => ManagedTagValueContent.Text(value.GetString()!),
-        JsonValueKind.Null or JsonValueKind.Undefined => ManagedTagValueContent.Text(""),
-        _ => ManagedTagValueContent.Text(value.GetRawText()),
+        JsonValueKind.Object => new ManagedTagValueContent.LocalizedValue(
+            value.EnumerateObject().ToDictionary(property => property.Name, Translation, StringComparer.Ordinal)),
+        _ => throw new DataTypeException($"Managed tag value '{Key}' is a JSON {value.ValueKind}, not a string or a map of translations."),
     };
+
+    private string Translation(JsonProperty translation) =>
+        translation.Value.ValueKind == JsonValueKind.String
+            ? translation.Value.GetString()!
+            : throw new DataTypeException(
+                $"Managed tag value '{Key}' has a '{translation.Name}' translation that is a JSON {translation.Value.ValueKind}, not a string.");
 }
 
 internal sealed record ManagedTagValueContentDto(string? SingleValue, IReadOnlyDictionary<string, string>? LocalizedValue)

@@ -1,4 +1,5 @@
 using CSharpFunctionalExtensions;
+using Occtoo.Sources;
 using Vogen;
 
 namespace Occtoo.ManagedTags;
@@ -50,12 +51,19 @@ public enum ManagedTagType
 public sealed record ManagedTag(
     ManagedTagId Id,
     string DisplayName,
-    ManagedTagType Type,
+    Maybe<ManagedTagType> Type,
     Maybe<ManagedTagId> ParentId,
     DateTimeOffset CreatedAt,
     Maybe<DateTimeOffset> LastModifiedAt,
     Maybe<Guid> CreatedBy,
-    Maybe<Guid> UpdatedBy);
+    Maybe<Guid> UpdatedBy)
+{
+    /// <summary>
+    /// An update pre-filled with this tag's name and parent, so changing one
+    /// keeps the other: <c>tag.Edit() with { DisplayName = "Colours" }</c>.
+    /// </summary>
+    public UpdateManagedTag Edit() => new(DisplayName) { ParentId = ParentId };
+}
 
 /// <summary>
 /// The content of a managed tag value — a single string for
@@ -71,14 +79,17 @@ public abstract record ManagedTagValueContent
     /// <summary>A single string, for <see cref="ManagedTagType.Text"/> tags.</summary>
     public static ManagedTagValueContent Text(string value) => new TextValue(value);
 
-    /// <summary>One string per language code, for <see cref="ManagedTagType.LocalizedText"/> tags.</summary>
-    public static ManagedTagValueContent Localized(IReadOnlyDictionary<string, string> translations) =>
-        new LocalizedValue(translations);
+    /// <summary>One string per language, for <see cref="ManagedTagType.LocalizedText"/> tags.</summary>
+    public static ManagedTagValueContent Localized(IReadOnlyDictionary<LanguageCode, string> translations) =>
+        new LocalizedValue(translations.ToDictionary(pair => pair.Key.Value, pair => pair.Value, StringComparer.Ordinal));
 
     /// <summary>A single string.</summary>
     public sealed record TextValue(string Value) : ManagedTagValueContent;
 
-    /// <summary>Strings keyed by language code.</summary>
+    /// <summary>
+    /// Strings keyed by language code — as stored, so a key the platform holds
+    /// is never rejected on read.
+    /// </summary>
     public sealed record LocalizedValue(IReadOnlyDictionary<string, string> Translations) : ManagedTagValueContent;
 
     /// <summary>A string literal is a single value.</summary>
@@ -98,7 +109,14 @@ public sealed record ManagedTagValue(
     DateTimeOffset CreatedAt,
     Maybe<DateTimeOffset> LastModifiedAt,
     Guid CreatedBy,
-    Maybe<Guid> UpdatedBy);
+    Maybe<Guid> UpdatedBy)
+{
+    /// <summary>
+    /// An update pre-filled with this value's content, order and parent, so
+    /// changing one keeps the rest: <c>value.Edit() with { Order = 2 }</c>.
+    /// </summary>
+    public UpdateManagedTagValue Edit() => new(Content) { Order = Order, ParentKey = ParentKey };
+}
 
 /// <summary>A new managed tag. Names are unique within the tenant.</summary>
 public sealed record CreateManagedTag(string DisplayName, ManagedTagType Type)
@@ -108,8 +126,9 @@ public sealed record CreateManagedTag(string DisplayName, ManagedTagType Type)
 }
 
 /// <summary>
-/// Replaces a managed tag's name and parent. The type is immutable, and
-/// changing the parent clears the parent links of its values.
+/// Replaces a managed tag's name and parent. An absent <c>ParentId</c> un-nests
+/// the tag, so start from <see cref="ManagedTag.Edit"/> to keep it. The type is
+/// immutable, and changing the parent clears the parent links of its values.
 /// </summary>
 public sealed record UpdateManagedTag(string DisplayName)
 {
@@ -130,7 +149,11 @@ public sealed record CreateManagedTagValue(ManagedTagValueKey Key, ManagedTagVal
     public Maybe<ManagedTagValueKey> ParentKey { get; init; } = Maybe<ManagedTagValueKey>.None;
 }
 
-/// <summary>Replaces a value's content, order, and parent. The key is immutable.</summary>
+/// <summary>
+/// Replaces a value's content, order, and parent — an absent <c>ParentKey</c>
+/// un-nests it and <c>Order</c> defaults to 0, so start from
+/// <see cref="ManagedTagValue.Edit"/> to keep them. The key is immutable.
+/// </summary>
 public sealed record UpdateManagedTagValue(ManagedTagValueContent Content)
 {
     /// <summary>Display order; defaults to 0.</summary>

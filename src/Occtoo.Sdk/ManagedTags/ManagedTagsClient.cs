@@ -36,9 +36,6 @@ public sealed class ManagedTagsClient
         CancellationToken cancellationToken = default)
     {
         query ??= new ManagedTagListQuery();
-        if (Pages.Validate(query.Page) is { HasValue: true } invalid)
-            return Task.FromResult(Result.Failure<Page<ManagedTag>, OcctooError>(invalid.Value));
-
         var uri = new QueryString("v1/managed-tags")
             .Add("name", query.Name)
             .AddEnum("type", query.Type)
@@ -50,8 +47,10 @@ public sealed class ManagedTagsClient
             .Add(query.Page)
             .ToUri();
 
-        return OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Get, uri), "list managed tags",
-                ManagedTagsJsonContext.Default.ForwardPageDtoManagedTagDto, cancellationToken)
+        return Pages.Validate(query.Page)
+            .Bind(() => OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Get, uri), "list managed tags",
+                ManagedTagsJsonContext.Default.ForwardPageDtoManagedTagDto, cancellationToken,
+                [new("occtoo.page.limit", query.Page.Limit)]))
             .MapResponse(page => Pages.ToPage(page.Items, page.After, page.TotalCount, dto => dto.ToModel()));
     }
 
@@ -60,7 +59,7 @@ public sealed class ManagedTagsClient
         ManagedTagId managedTagId,
         CancellationToken cancellationToken = default) =>
         OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Get, TagUri(managedTagId)),
-                "get managed tag", ManagedTagsJsonContext.Default.ManagedTagDto, cancellationToken)
+                "get managed tag", ManagedTagsJsonContext.Default.ManagedTagDto, cancellationToken, TagTag(managedTagId))
             .MapResponse(dto => dto.ToModel());
 
     /// <summary>Creates a managed tag.</summary>
@@ -70,6 +69,9 @@ public sealed class ManagedTagsClient
     {
         if (tag is null)
             return Task.FromResult(Result.Failure<ManagedTag, OcctooError>(new ValidationError("A managed tag is required.")));
+
+        if (string.IsNullOrWhiteSpace(tag.DisplayName))
+            return Task.FromResult(Result.Failure<ManagedTag, OcctooError>(new ValidationError("A managed tag display name is required.")));
 
         var body = new CreateManagedTagDto(tag.DisplayName, tag.Type, tag.ParentId.HasValue ? tag.ParentId.Value.Value : null);
         return OcctooTransport.Send(_httpClient, _requestTimeout,
@@ -89,11 +91,15 @@ public sealed class ManagedTagsClient
         if (tag is null)
             return Task.FromResult(Result.Failure<ManagedTag, OcctooError>(new ValidationError("A managed tag is required.")));
 
+        if (string.IsNullOrWhiteSpace(tag.DisplayName))
+            return Task.FromResult(Result.Failure<ManagedTag, OcctooError>(new ValidationError("A managed tag display name is required.")));
+
         var body = new UpdateManagedTagDto(tag.DisplayName, tag.ParentId.HasValue ? tag.ParentId.Value.Value : null);
         return OcctooTransport.Send(_httpClient, _requestTimeout,
                 OcctooTransport.Request(HttpMethod.Put, TagUri(managedTagId), body, ManagedTagsJsonContext.Default.UpdateManagedTagDto),
-                "update managed tag", ManagedTagsJsonContext.Default.ManagedTagDto, cancellationToken)
-            .MapResponse(dto => dto.ToModel());
+                "update managed tag", ManagedTagsJsonContext.Default.ManagedTagDto, cancellationToken, TagTag(managedTagId))
+            .MapResponse(dto => dto.ToModel())
+            .Tap(updated => OcctooLog.ManagedTagUpdated(_logger, updated.Id.Value));
     }
 
     /// <summary>
@@ -103,7 +109,7 @@ public sealed class ManagedTagsClient
     public Task<UnitResult<OcctooError>> Delete(
         ManagedTagId managedTagId,
         CancellationToken cancellationToken = default) =>
-        OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Delete, TagUri(managedTagId)), "delete managed tag", cancellationToken)
+        OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Delete, TagUri(managedTagId)), "delete managed tag", cancellationToken, TagTag(managedTagId))
             .Tap(() => OcctooLog.ManagedTagDeleted(_logger, managedTagId.Value));
 
     // ── Values ─────────────────────────────────────────────────────────────
@@ -115,17 +121,16 @@ public sealed class ManagedTagsClient
         CancellationToken cancellationToken = default)
     {
         query ??= new ManagedTagValueListQuery();
-        if (Pages.Validate(query.Page) is { HasValue: true } invalid)
-            return Task.FromResult(Result.Failure<Page<ManagedTagValue>, OcctooError>(invalid.Value));
-
         var uri = new QueryString($"v1/managed-tags/{managedTagId.Value:D}/values")
             .Add("key", query.Key)
             .Add("parentKey", query.ParentKey.Map(key => key.Value))
             .Add(query.Page)
             .ToUri();
 
-        return OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Get, uri), "list managed tag values",
-                ManagedTagsJsonContext.Default.ForwardPageDtoManagedTagValueDto, cancellationToken)
+        return Pages.Validate(query.Page)
+            .Bind(() => OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Get, uri), "list managed tag values",
+                ManagedTagsJsonContext.Default.ForwardPageDtoManagedTagValueDto, cancellationToken,
+                [new("occtoo.managed_tag.id", managedTagId.Value.ToString("D")), new("occtoo.page.limit", query.Page.Limit)]))
             .MapResponse(page => Pages.ToPage(page.Items, page.After, page.TotalCount, dto => dto.ToModel()));
     }
 
@@ -135,7 +140,7 @@ public sealed class ManagedTagsClient
         ManagedTagValueKey key,
         CancellationToken cancellationToken = default) =>
         OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Get, ValueUri(managedTagId, key)),
-                "get managed tag value", ManagedTagsJsonContext.Default.ManagedTagValueDto, cancellationToken)
+                "get managed tag value", ManagedTagsJsonContext.Default.ManagedTagValueDto, cancellationToken, ValueTag(managedTagId, key))
             .MapResponse(dto => dto.ToModel());
 
     /// <summary>Creates a value. An existing key is a <see cref="ConflictError"/>.</summary>
@@ -156,8 +161,9 @@ public sealed class ManagedTagsClient
         return OcctooTransport.Send(_httpClient, _requestTimeout,
                 OcctooTransport.Request(HttpMethod.Post, new Uri($"v1/managed-tags/{managedTagId.Value:D}/values", UriKind.Relative),
                     body, ManagedTagsJsonContext.Default.CreateManagedTagValueDto),
-                "create managed tag value", ManagedTagsJsonContext.Default.ManagedTagValueDto, cancellationToken)
-            .MapResponse(dto => dto.ToModel());
+                "create managed tag value", ManagedTagsJsonContext.Default.ManagedTagValueDto, cancellationToken, ValueTag(managedTagId, value.Key))
+            .MapResponse(dto => dto.ToModel())
+            .Tap(created => OcctooLog.ManagedTagValueCreated(_logger, managedTagId.Value, created.Key.Value));
     }
 
     /// <summary>Replaces a value's content, order, and parent.</summary>
@@ -178,8 +184,9 @@ public sealed class ManagedTagsClient
         return OcctooTransport.Send(_httpClient, _requestTimeout,
                 OcctooTransport.Request(HttpMethod.Put, ValueUri(managedTagId, key), body,
                     ManagedTagsJsonContext.Default.UpdateManagedTagValueDto),
-                "update managed tag value", ManagedTagsJsonContext.Default.ManagedTagValueDto, cancellationToken)
-            .MapResponse(dto => dto.ToModel());
+                "update managed tag value", ManagedTagsJsonContext.Default.ManagedTagValueDto, cancellationToken, ValueTag(managedTagId, key))
+            .MapResponse(dto => dto.ToModel())
+            .Tap(updated => OcctooLog.ManagedTagValueUpdated(_logger, managedTagId.Value, updated.Key.Value));
     }
 
     /// <summary>Deletes a value, clearing parent links to it within its tag.</summary>
@@ -187,7 +194,14 @@ public sealed class ManagedTagsClient
         ManagedTagId managedTagId,
         ManagedTagValueKey key,
         CancellationToken cancellationToken = default) =>
-        OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Delete, ValueUri(managedTagId, key)), "delete managed tag value", cancellationToken);
+        OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Delete, ValueUri(managedTagId, key)), "delete managed tag value", cancellationToken, ValueTag(managedTagId, key))
+            .Tap(() => OcctooLog.ManagedTagValueDeleted(_logger, managedTagId.Value, key.Value));
+
+    private static KeyValuePair<string, object?>[] TagTag(ManagedTagId managedTagId) =>
+        [new("occtoo.managed_tag.id", managedTagId.Value.ToString("D"))];
+
+    private static KeyValuePair<string, object?>[] ValueTag(ManagedTagId managedTagId, ManagedTagValueKey key) =>
+        [new("occtoo.managed_tag.id", managedTagId.Value.ToString("D")), new("occtoo.managed_tag_value.key", key.Value)];
 
     private static Uri TagUri(ManagedTagId managedTagId) =>
         new($"v1/managed-tags/{managedTagId.Value:D}", UriKind.Relative);

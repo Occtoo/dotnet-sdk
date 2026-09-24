@@ -3,6 +3,7 @@ using System.Text.Json;
 using CSharpFunctionalExtensions;
 using Occtoo.Authentication;
 using Occtoo.ManagedTags;
+using Occtoo.Sources;
 using Shouldly;
 using Vogen;
 using Xunit;
@@ -153,7 +154,7 @@ public class ManagedTagsClientTests
         using var client = Client(handler);
 
         await client.ManagedTags.CreateValue(Colors, new CreateManagedTagValue("blue",
-            ManagedTagValueContent.Localized(new Dictionary<string, string> { ["en"] = "Blue", ["sv"] = "Blå" }))
+            ManagedTagValueContent.Localized(new Dictionary<LanguageCode, string> { [LanguageCode.From("en")] = "Blue", [LanguageCode.From("sv")] = "Blå" }))
         {
             Order = 1,
             ParentKey = ManagedTagValueKey.From("cool"),
@@ -216,5 +217,51 @@ public class ManagedTagsClientTests
 
         var tag = await client.ManagedTags.Get(Colors, TestContext.Current.CancellationToken);
         tag.Error.ShouldBeOfType<UnexpectedError>();
+    }
+
+    [Fact]
+    public void Edit_keeps_the_parent_and_order_you_do_not_change()
+    {
+        var tag = new ManagedTag(Colors, "Colors", ManagedTagType.Text, ManagedTagId.From(Guid.NewGuid()),
+            DateTimeOffset.UnixEpoch, Maybe<DateTimeOffset>.None, Maybe<Guid>.None, Maybe<Guid>.None);
+        var renamed = tag.Edit() with { DisplayName = "Colours" };
+        renamed.ParentId.ShouldBe(tag.ParentId);
+
+        var value = new ManagedTagValue(ManagedTagValueKey.From("blue"), ManagedTagValueContent.Text("Blue"), 3,
+            ManagedTagValueKey.From("cool"), DateTimeOffset.UnixEpoch, Maybe<DateTimeOffset>.None, Guid.NewGuid(), Maybe<Guid>.None);
+        var recoloured = value.Edit() with { Content = ManagedTagValueContent.Text("Navy") };
+        recoloured.Order.ShouldBe(3);
+        recoloured.ParentKey.GetValueOrThrow().Value.ShouldBe("cool");
+    }
+
+    [Theory]
+    [InlineData("""{ "en": 1 }""", "not a string")]
+    [InlineData("""[ "Blue" ]""", "not a string or a map")]
+    public async Task Content_the_sdk_cannot_represent_is_a_data_type_error(string content, string reason)
+    {
+        using var handler = new StubHandler().Respond(HttpStatusCode.OK, $$"""
+            { "key": "blue", "value": {{content}}, "order": 0, "createdAt": "2026-09-01T10:00:00Z",
+              "createdBy": "9d8c7b6a-5f4e-4d3c-8b2a-1f0e9d8c7b6a" }
+            """);
+        using var client = Client(handler);
+
+        var result = await client.ManagedTags.GetValue(Colors, "blue", TestContext.Current.CancellationToken);
+
+        result.Error.ShouldBeOfType<DataTypeError>().Message.ShouldContain(reason);
+    }
+
+    [Fact]
+    public async Task An_unknown_tag_type_reads_as_absent_and_blank_names_fail_before_the_request()
+    {
+        using var handler = new StubHandler().Respond(HttpStatusCode.OK, """
+            { "id": "6f1c2d3e-4a5b-4c6d-8e7f-9a0b1c2d3e4f", "displayName": "Colors", "type": "RichText",
+              "createdAt": "2026-09-01T10:00:00Z" }
+            """);
+        using var client = Client(handler);
+
+        (await client.ManagedTags.Get(Colors, TestContext.Current.CancellationToken)).Value.Type.HasNoValue.ShouldBeTrue();
+        (await client.ManagedTags.Create(new CreateManagedTag(" ", ManagedTagType.Text), TestContext.Current.CancellationToken))
+            .Error.ShouldBeOfType<ValidationError>();
+        handler.RequestCount.ShouldBe(1);
     }
 }

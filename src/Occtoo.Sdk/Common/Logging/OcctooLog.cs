@@ -148,4 +148,20 @@ internal static partial class OcctooLog
     [LoggerMessage(EventId = 601, Level = LogLevel.Information,
         Message = "Managed tag {ManagedTagId} deleted with its values")]
     internal static partial void ManagedTagDeleted(ILogger logger, Guid managedTagId);
+
+    [LoggerMessage(EventId = 602, Level = LogLevel.Information,
+        Message = "Managed tag {ManagedTagId} updated")]
+    internal static partial void ManagedTagUpdated(ILogger logger, Guid managedTagId);
+
+    [LoggerMessage(EventId = 610, Level = LogLevel.Information,
+        Message = "Value '{Key}' created in managed tag {ManagedTagId}")]
+    internal static partial void ManagedTagValueCreated(ILogger logger, Guid managedTagId, string key);
+
+    [LoggerMessage(EventId = 611, Level = LogLevel.Information,
+        Message = "Value '{Key}' updated in managed tag {ManagedTagId}")]
+    internal static partial void ManagedTagValueUpdated(ILogger logger, Guid managedTagId, string key);
+
+    [LoggerMessage(EventId = 612, Level = LogLevel.Information,
+        Message = "Value '{Key}' deleted from managed tag {ManagedTagId}")]
+    internal static partial void ManagedTagValueDeleted(ILogger logger, Guid managedTagId, string key);
 }
