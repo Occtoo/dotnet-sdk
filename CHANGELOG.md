@@ -2,6 +2,21 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v0.3.0](https://github.com/Occtoo/dotnet-sdk/compare/b76fde3d9e5ec7bdb6ea3553244e0fe12c91ae8d..v0.3.0) - 2026-09-24
+#### Features
+- ![BREAKING](https://img.shields.io/badge/BREAKING-red) (**applications**) application and source management surfaces (#1) - ([f023d48](https://github.com/Occtoo/dotnet-sdk/commit/f023d4874cc8b953f89139601a0fed06e2a445ac)) - Ihor Korotenko
+- ![BREAKING](https://img.shields.io/badge/BREAKING-red) (**managed-tags**) managed tags and values (#3) - ([3b1b4c8](https://github.com/Occtoo/dotnet-sdk/commit/3b1b4c8170063c0a357cd0f657053a0eb5730ac7)) - Ihor Korotenko
+- (**sources**) typed reads of stored entries (#2) - ([f066451](https://github.com/Occtoo/dotnet-sdk/commit/f0664517251956f7d91fc83400f2c7adb33b7350)) - Ihor Korotenko
+#### Documentation
+- issue forms, contact routing, and a security policy - ([be01357](https://github.com/Occtoo/dotnet-sdk/commit/be0135773fa1d553c827a19867c48c171eb69251)) - Ihor Korotenko
+- use GitHub's own CI badge while the repository is private - ([b76fde3](https://github.com/Occtoo/dotnet-sdk/commit/b76fde3d9e5ec7bdb6ea3553244e0fe12c91ae8d)) - Ihor Korotenko
+#### Refactoring
+- (**sources**) ingest goes through OcctooTransport.Send<T> (#5) - ([7b2031e](https://github.com/Occtoo/dotnet-sdk/commit/7b2031ef05b20eaaa6e1856e6b679284f259ab99)) - Ihor Korotenko
+#### Miscellaneous Chores
+- add CODEOWNERS so reviewers are requested automatically - ([467bbb5](https://github.com/Occtoo/dotnet-sdk/commit/467bbb5440c6448477d21ae0b565c4a062fd1194)) - Ihor Korotenko
+
+- - -
+
 ## [v0.2.0](https://github.com/Occtoo/dotnet-sdk/compare/8b875470d1df94e72fe8769cb6c1b3e2c3ebbf73..v0.2.0) - 2026-08-24
 #### Features
 - (**events**) typed parsing and signature verification for event destinations - ([01f4f24](https://github.com/Occtoo/dotnet-sdk/commit/01f4f2411115f1f8691eeb8de4c4f275cf4a8db6)) - Ihor Korotenko
