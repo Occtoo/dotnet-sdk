@@ -77,7 +77,7 @@ public sealed partial class AssetsClient
         AssetUploadOptions? options = null,
         CancellationToken cancellationToken = default)
     {
-        options ??= new ();
+        options ??= new();
 
         var planned = Plan(assets, options);
 
@@ -152,7 +152,7 @@ public sealed partial class AssetsClient
     private Task<Result<AssetUploadReport, OcctooError>> Run(
         SourceId dataSourceId,
         IReadOnlyCollection<AssetUpload> assets,
-        IReadOnlyDictionary<AssetKey, long> lengths,
+        Dictionary<AssetKey, long> lengths,
         AssetUploadOptions options,
         CancellationToken cancellationToken)
     {
@@ -184,7 +184,7 @@ public sealed partial class AssetsClient
     private async Task<Result<AssetUploadReport, OcctooError>> Carry(
         SourceId dataSourceId,
         IReadOnlyCollection<AssetUpload> assets,
-        IReadOnlyDictionary<AssetKey, long> lengths,
+        Dictionary<AssetKey, long> lengths,
         AssetBatch<AssetUploadLink> initialized,
         AssetUploadOptions options,
         CancellationToken cancellationToken)
@@ -353,7 +353,7 @@ public sealed partial class AssetsClient
         AssetUploadOptions options,
         IReadOnlyCollection<AssetUpload> chunk,
         AssetBatch<AssetFileInfo> completed,
-        IReadOnlyDictionary<AssetKey, long> lengths)
+        Dictionary<AssetKey, long> lengths)
     {
         foreach (var asset in chunk)
         {
@@ -501,7 +501,7 @@ public sealed partial class AssetsClient
         long transferred,
         long length)
     {
-        outcomes[asset.Key] = new (
+        outcomes[asset.Key] = new(
             asset.Key,
             asset.Filename,
             reached,
@@ -517,7 +517,7 @@ public sealed partial class AssetsClient
         long transferred,
         long total,
         OcctooError? failure) =>
-        options.Progress?.Report(new (
+        options.Progress?.Report(new(
             asset.Key,
             asset.Filename,
             stage,

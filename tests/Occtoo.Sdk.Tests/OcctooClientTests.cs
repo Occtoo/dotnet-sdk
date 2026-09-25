@@ -125,7 +125,7 @@ public class OcctooClientTests
     [Fact]
     public void Disposes_both_clients_it_created_itself()
     {
-        var client = new OcctooClient(new ()
+        var client = new OcctooClient(new()
         {
             Credential = OcctooCredential.ApiKey(ApiKey.From("key-1")),
         });

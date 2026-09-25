@@ -443,7 +443,7 @@ public sealed partial class AssetsClient
     private static List<AssetDto> ToDtos(IReadOnlyCollection<Asset> assets) =>
         [.. assets.Select(asset => new AssetDto(asset.Key.Value, asset.Filename.Value))];
 
-    private static IReadOnlyList<KeyValuePair<string, object?>> Tags(
+    private static List<KeyValuePair<string, object?>> Tags(
         SourceId dataSourceId,
         int count,
         Maybe<FolderId> folderId = default)
