@@ -30,6 +30,11 @@ their `ToString()` so an interpolated log line cannot leak them.
 For **typed ingest** (`client.Sources`), use `ClientCredentials` with your tenant
 id as the audience and the `write:sources` scope.
 
+For **asset uploads** (`client.Assets`), use `ClientCredentials` the same way,
+with `OcctooScopes.WriteMedia` as the scope. That surface accepts any one of
+`write:media`, `write:sources` or `import-datasource`, so a credential that
+already ingests needs nothing added.
+
 ### Organization API key
 
 ```csharp

@@ -27,7 +27,7 @@
     <PackageProjectUrl>https://github.com/Occtoo/dotnet-sdk</PackageProjectUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>icon.png</PackageIcon>
-    <PackageTags>occtoo;ingest;events;cloudevents;sdk</PackageTags>
+    <PackageTags>occtoo;ingest;assets;media;upload;events;cloudevents;sdk</PackageTags>
     <RepositoryUrl>https://github.com/Occtoo/dotnet-sdk</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
   </PropertyGroup>

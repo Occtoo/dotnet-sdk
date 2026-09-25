@@ -103,9 +103,9 @@ public class OcctooClientTests
     }
 
     [Fact]
-    public void Does_not_dispose_an_http_client_it_was_given()
+    public async Task Does_not_dispose_an_http_client_it_was_given()
     {
-        using var handler = new StubHandler();
+        using var handler = new StubHandler().RespondAlways(HttpStatusCode.OK, "{}");
         using var httpClient = new HttpClient(handler);
         var client = new OcctooClient(httpClient, new OcctooClientOptions
         {
@@ -114,7 +114,29 @@ public class OcctooClientTests
         client.Dispose();
 
         // Still usable: disposing the SDK client must not break the caller's client.
-        httpClient.BaseAddress.ShouldBe(new Uri("https://api.occtoo.com"));
+        var response = await httpClient.GetAsync(
+            new Uri("https://api.occtoo.com/v1/events"),
+            TestContext.Current.CancellationToken);
+        response.Dispose();
+
+        handler.RequestCount.ShouldBe(1);
+    }
+
+    [Fact]
+    public void Disposes_both_clients_it_created_itself()
+    {
+        var client = new OcctooClient(new()
+        {
+            Credential = OcctooCredential.ApiKey(ApiKey.From("key-1")),
+        });
+
+        var api = client.HttpClient;
+        var uploads = client.UploadHttpClient;
+
+        client.Dispose();
+
+        Should.Throw<ObjectDisposedException>(() => api.Timeout = TimeSpan.FromSeconds(1));
+        Should.Throw<ObjectDisposedException>(() => uploads.Timeout = TimeSpan.FromSeconds(1));
     }
 
     [Fact]
@@ -163,7 +185,7 @@ public class OcctooClientTests
 
         using var provider = services.BuildServiceProvider();
 
-        Should.Throw<InvalidOperationException>(() => provider.GetRequiredService<OcctooClient>());
+        Should.Throw<InvalidOperationException>(provider.GetRequiredService<OcctooClient>);
     }
 
     [Fact]
@@ -180,7 +202,7 @@ public class OcctooClientTests
             .AddHttpClient(OcctooServiceCollectionExtensions.HttpClientName)
             .ConfigurePrimaryHttpMessageHandler(() => transport);
 
-        using var provider = services.BuildServiceProvider();
+        await using var provider = services.BuildServiceProvider();
         var httpClient = provider
             .GetRequiredService<IHttpClientFactory>()
             .CreateClient(OcctooServiceCollectionExtensions.HttpClientName);
@@ -191,6 +213,97 @@ public class OcctooClientTests
         response.Dispose();
 
         transport.Requests.Single().Header("x-api-key").ShouldBe("key-1");
+    }
+
+    [Fact]
+    public async Task Does_not_dispose_an_upload_client_it_was_given()
+    {
+        using var handler = new StubHandler();
+        using var httpClient = new HttpClient(handler);
+        using var uploadHandler = new StubHandler().RespondAlways(HttpStatusCode.Created, "{}");
+        using var uploadHttpClient = new HttpClient(uploadHandler);
+
+        var client = new OcctooClient(httpClient, new OcctooClientOptions
+        {
+            Credential = OcctooCredential.ApiKey(ApiKey.From("key-1")),
+            UploadHttpClient = uploadHttpClient,
+        });
+
+        _ = client.Assets;
+        client.Dispose();
+
+        var response = await uploadHttpClient.GetAsync(
+            new Uri("https://tenant.blob.core.windows.net/media/logo.png"),
+            TestContext.Current.CancellationToken);
+        response.Dispose();
+
+        uploadHandler.RequestCount.ShouldBe(1);
+    }
+
+    [Fact]
+    public void Refuses_the_authenticated_client_as_the_upload_transport()
+    {
+        using var handler = new StubHandler();
+        using var httpClient = new HttpClient(handler);
+
+        var options = new OcctooClientOptions
+        {
+            Credential = OcctooCredential.ApiKey(ApiKey.From("key-1")),
+            UploadHttpClient = httpClient,
+        };
+
+        Should.Throw<InvalidOperationException>(() => new OcctooClient(httpClient, options))
+            .Message.ShouldContain("blob storage");
+    }
+
+    [Fact]
+    public void Refuses_an_upload_client_that_already_carries_a_credential()
+    {
+        using var uploadHandler = new StubHandler();
+        using var uploadHttpClient = new HttpClient(uploadHandler);
+        uploadHttpClient.DefaultRequestHeaders.Authorization = new("Bearer", "token-1");
+
+        var options = new OcctooClientOptions
+        {
+            Credential = OcctooCredential.ApiKey(ApiKey.From("key-1")),
+            UploadHttpClient = uploadHttpClient,
+        };
+
+        Should.Throw<InvalidOperationException>(() => new OcctooClient(options))
+            .Message.ShouldContain("Authorization");
+    }
+
+    [Fact]
+    public async Task Dependency_injection_registers_an_upload_client_with_no_credential_on_it()
+    {
+        var services = new ServiceCollection();
+        services.AddOcctooClient(options => options with
+        {
+            Credential = OcctooCredential.ApiKey(ApiKey.From("key-1")),
+        });
+
+        var transport = new StubHandler().RespondAlways(HttpStatusCode.Created, "{}");
+        services
+            .AddHttpClient(OcctooServiceCollectionExtensions.UploadHttpClientName)
+            .ConfigurePrimaryHttpMessageHandler(() => transport);
+
+        await using var provider = services.BuildServiceProvider();
+
+        // The client the SDK hands its asset surface is the one registered by
+        // AddOcctooClient, not one the test registered: it carries the infinite
+        // timeout that registration sets, which the factory's default does not.
+        var client = provider.GetRequiredService<OcctooClient>();
+        client.UploadHttpClient.Timeout.ShouldBe(Timeout.InfiniteTimeSpan);
+
+        var response = await client.UploadHttpClient.GetAsync(
+            new Uri("https://tenant.blob.core.windows.net/media/logo.png"),
+            TestContext.Current.CancellationToken);
+        response.Dispose();
+
+        // The bytes go to a storage account: an Occtoo credential must not ride along.
+        var request = transport.Requests.Single();
+        request.Header("x-api-key").ShouldBeNull();
+        request.Header("Authorization").ShouldBeNull();
     }
 
     [Fact]

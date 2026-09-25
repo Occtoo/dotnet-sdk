@@ -17,6 +17,9 @@ The official .NET client for [Occtoo](https://www.occtoo.com). One package,
   token caching and refresh handled for you.
 - **Sources** — typed ingest of entries into your sources, and management of
   sources and their properties.
+- **Assets** — upload files into a Media data source. One call creates the
+  assets, moves the bytes straight to storage, and completes them — reporting
+  progress per file and telling you exactly which ones made it.
 - **Applications** — the tenant's machine-to-machine applications and their
   grants, with the access catalog as the vocabulary.
 - **Managed tags** — controlled vocabularies and their values, plain or
@@ -29,7 +32,7 @@ The official .NET client for [Occtoo](https://www.occtoo.com). One package,
   the part every receiver otherwise hand-rolls.
 
 > [!IMPORTANT]
-> **Status: pre-alpha.** Authentication, typed ingest, and events are
+> **Status: pre-alpha.** Authentication, typed ingest, assets and events are
 > implemented and tested. Expect breaking changes until `1.0`.
 
 ## Getting started
@@ -89,6 +92,21 @@ await foreach (var evt in client.Events.Stream(new EventStreamOptions { Filter =
 }
 ```
 
+And uploading files — one call initializes, transfers and completes the assets,
+and the report says per file what happened:
+
+```csharp
+using Occtoo.Assets;
+
+var upload = await client.Assets.Upload(
+    SourceId.From("product-media"),
+    [
+        AssetUpload.FromFile("logo_1", "files/logo.png"),
+        AssetUpload.FromFile("note_1", "files/note.txt"),
+    ],
+    new AssetUploadOptions { Progress = dashboard });   // your own IProgress<AssetProgress>
+```
+
 Every operation returns `Result<T, OcctooError>`
 ([CSharpFunctionalExtensions](https://github.com/vkhorikov/CSharpFunctionalExtensions))
 — expected failures come back as values, not exceptions; throwing is reserved
@@ -133,7 +151,8 @@ default, any distributed provider by configuration), refresh-before-expiry,
 single-flight under concurrency, and recovery from a revoked token are handled
 for you. Full guides: [docs/authentication.md](docs/authentication.md) ·
 [docs/sources.md](docs/sources.md) · [docs/applications.md](docs/applications.md) ·
-[docs/managed-tags.md](docs/managed-tags.md) · [docs/events.md](docs/events.md).
+[docs/managed-tags.md](docs/managed-tags.md) · [docs/assets.md](docs/assets.md) ·
+[docs/events.md](docs/events.md).
 
 Runnable samples under [`examples/`](examples), one project per capability:
 
@@ -200,7 +219,20 @@ tokens issued by `https://auth.occtoo.com`.
 | `GET` | `/v1/sources/{sourceId}/entries[/{entryId}]` | Read stored entries — one by id, or up to 100 by ids — typed by the source configuration |
 
 Requires the `write:sources` scope. The legacy string-based import
-(`/datasources/{dataSource}/import`) and media ingest are not wrapped yet.
+(`/datasources/{dataSource}/import`) is not wrapped yet.
+
+### Assets
+
+| Method | Path | Purpose |
+|---|---|---|
+| `POST` | `/v1/assets/{dataSourceId}` | Create assets in a Media data source and sign an upload link per key |
+| `POST` | `/v1/assets/{dataSourceId}/uploadLinks` | Sign a fresh link for assets that are already initialized |
+| `POST` | `/v1/assets/{dataSourceId}/complete` | Read each uploaded blob back and create the file |
+| `GET` `DELETE` | `/v1/assets/{dataSourceId}?key=…` | Read or delete up to 50 assets by key |
+
+Requires `write:media`, `write:sources` or `import-datasource`. The bytes go
+straight to Azure Blob Storage against a signed URL and never pass through
+Occtoo.
 
 ### Applications
 
@@ -244,7 +276,7 @@ docs/       contributor and design documentation
 ```
 
 Inside `src/Occtoo.Sdk`, code is organized by feature: `Authentication/`,
-`Sources/`, `Events/`, and `Common/` for what they share (the error model, the
+`Sources/`, `Assets/`, `Events/`, and `Common/` for what they share (the error model, the
 HTTP pipeline, JSON conventions).
 
 | File | Role |

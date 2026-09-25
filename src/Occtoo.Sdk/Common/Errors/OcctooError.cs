@@ -148,6 +148,34 @@ public sealed record ValidationError(
 public sealed record DataTypeError(string Message) : OcctooError(Message);
 
 /// <summary>
+/// One asset of a batch was refused while the call as a whole succeeded — the
+/// asset was never initialized, is already completed, or its blob was not
+/// there to complete from.
+/// </summary>
+/// <remarks>
+/// Occtoo answers these per key with a reason of its own, which is carried here
+/// verbatim. Repeating the same call reproduces the same refusal; what fixes it
+/// depends on the reason.
+/// </remarks>
+/// <param name="Message">Reason for refusing this asset.</param>
+public sealed record AssetRejectedError(string Message) : OcctooError(Message);
+
+/// <summary>
+/// The caller cancelled a run that was already under way.
+/// </summary>
+/// <remarks>
+/// Cancellation stays an <see cref="OperationCanceledException"/> on every
+/// surface that returns a result, and this error is never in a failure track.
+/// It exists for the one place cancellation has to take a shape:
+/// <see cref="Assets.AssetsClient.Upload"/> carries it on the last
+/// <see cref="Assets.AssetProgress"/> of every asset it had not settled, so a
+/// view rendered from progress is not left showing a transfer that will never
+/// finish.
+/// </remarks>
+/// <param name="Message">What went wrong.</param>
+public sealed record CancelledError(string Message) : OcctooError(Message);
+
+/// <summary>
 /// A response the SDK did not expect and cannot classify — an unknown status
 /// code, or a body that does not parse.
 /// </summary>

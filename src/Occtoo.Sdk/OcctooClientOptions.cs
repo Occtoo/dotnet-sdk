@@ -34,6 +34,26 @@ public sealed record OcctooClientOptions
     public TimeSpan Timeout { get; init; } = TimeSpan.FromSeconds(100);
 
     /// <summary>
+    /// The transport asset uploads use. The SDK creates and owns one when this
+    /// is left unset.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Do not give it a retrying handler. An upload's body is a stream, and a
+    /// handler that replays the request sends an empty one; retries belong to
+    /// <see cref="Assets.AssetsClient.Upload"/>, which reopens the content
+    /// first.
+    /// </para>
+    /// <para>
+    /// A client you supply keeps its own <see cref="HttpClient.Timeout"/>, and
+    /// the .NET default of 100 seconds will cut a large upload short. Set
+    /// <see cref="System.Threading.Timeout.InfiniteTimeSpan"/> and bound the
+    /// transfer with <see cref="Assets.AssetUploadOptions.TransferTimeout"/>.
+    /// </para>
+    /// </remarks>
+    public HttpClient? UploadHttpClient { get; init; }
+
+    /// <summary>
     /// Where the SDK logs. Defaults to no logging. Everything the SDK emits
     /// lives under the <c>Occtoo</c> category prefix
     /// (<see cref="Occtoo.Logging.OcctooLogCategories"/>), so one
@@ -77,6 +97,21 @@ public sealed record OcctooClientOptions
         if (Timeout <= TimeSpan.Zero && Timeout != System.Threading.Timeout.InfiniteTimeSpan)
             throw new InvalidOperationException($"{nameof(Timeout)} must be positive.");
 
+        if (UploadHttpClient is { } upload && CredentialHeader(upload) is { } header)
+        {
+            throw new InvalidOperationException(
+                $"{nameof(UploadHttpClient)} must not carry a {header} header: asset uploads go to blob "
+                + "storage and are authorized by a signed URL, not by an Occtoo credential.");
+        }
+
         Resilience.Validate();
     }
+
+    private static string? CredentialHeader(HttpClient httpClient) => httpClient switch
+    {
+        { DefaultRequestHeaders.Authorization: not null } => "Authorization",
+        _ when httpClient.DefaultRequestHeaders.Contains(ApiKeyCredential.HeaderName) =>
+            ApiKeyCredential.HeaderName,
+        _ => null,
+    };
 }
