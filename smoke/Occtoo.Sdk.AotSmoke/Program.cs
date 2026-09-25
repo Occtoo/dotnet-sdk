@@ -2,12 +2,14 @@
 // the paths that break silently under AOT if a reflection or dynamic-codegen
 // dependency sneaks in: value-object construction, the OAuth token exchange
 // (snake_case JSON), FusionCache token storage, ingest request serialization,
-// receipt parsing, and problem-details parsing. Everything is scripted; no
+// receipt parsing, problem-details parsing, the asset payloads and their
+// generated filename regex, and one byte transfer. Everything is scripted; no
 // network is involved. Exit code 0 means the SDK works in this deployment shape.
 
 using System.Net;
 using System.Text;
 using Occtoo;
+using Occtoo.Assets;
 using Occtoo.Authentication;
 using Occtoo.Events;
 using Occtoo.Http;
@@ -63,7 +65,11 @@ using var credential = OcctooCredential.ClientCredentials(
 
 using var client = new OcctooClient(
     new HttpClient(new OcctooAuthenticationHandler(credential) { InnerHandler = transport }),
-    new OcctooClientOptions { Credential = credential });
+    new OcctooClientOptions
+    {
+        Credential = credential,
+        UploadHttpClient = new HttpClient(transport) { Timeout = Timeout.InfiniteTimeSpan },
+    });
 
 var authenticated = await client.Authenticate();
 Check("token exchange parsed and cached", authenticated.IsSuccess
@@ -158,6 +164,98 @@ var verified = OcctooWebhook.Verify(
 Check("webhook signature verified and event parsed", verified is
 { IsSuccess: true, Value: { Id: "delivery-1", Event: SourceEntryDeleted } });
 
+// 5. Assets: the value objects, the asset payloads, and one byte transfer
+Check("AssetKey rejects a key the API would reject", !AssetKey.TryFrom("note.txt", out _));
+Check("AssetFilename applies the server's rule without ICU",
+    AssetFilename.TryFrom("logo.png", out _) && !AssetFilename.TryFrom("../logo.png", out _));
+
+// The link expiry is relative: a fixed date would slip into the past and then
+// send Upload looking for a re-sign the scripted queue has no answer for.
+var linkExpiresAt = DateTimeOffset.UtcNow
+    .AddHours(1)
+    .ToString("O", System.Globalization.CultureInfo.InvariantCulture);
+
+transport.Enqueue(HttpStatusCode.OK, $$"""
+    {
+      "initialized": {
+        "logo": {
+          "uploadUrl": "https://tenant.blob.core.windows.net/media/logo.png?sig=abc",
+          "expiresAt": "{{linkExpiresAt}}"
+        }
+      },
+      "failed": { "note_1": "Asset already completed" }
+    }
+    """);
+
+var asset = new Asset(AssetKey.From("logo"), AssetFilename.From("logo.png"));
+var initialized = await client.Assets.Initialize(SourceId.From("media"), [asset]);
+Check("initialize response parsed", initialized is
+{
+    IsSuccess: true,
+    Value: { Succeeded.Count: 1, Failed.Count: 1 },
+});
+
+transport.Enqueue(HttpStatusCode.Created, "");
+var link = initialized.Value.Succeeded[AssetKey.From("logo")];
+var transferred = await client.Assets.Transfer(link, AssetContent.FromBytes("12345"u8.ToArray()));
+Check("bytes transferred against the signed URL", transferred is { IsSuccess: true, Value.Bytes: 5 });
+Check("the upload is a block blob with no Occtoo credential",
+    transport.LastHeaders.TryGetValue("x-ms-blob-type", out var blobType)
+    && blobType == "BlockBlob"
+    && !transport.LastHeaders.ContainsKey("Authorization")
+    && !transport.LastHeaders.ContainsKey("x-api-key"));
+
+transport.Enqueue(HttpStatusCode.OK, """
+    {
+      "completed": {
+        "logo": {
+          "filename": "logo.png",
+          "mimeType": "image/png",
+          "size": 5,
+          "publicUrl": "https://cdn.occtoo.com/media/logo.png",
+          "width": 64
+        }
+      },
+      "failed": {}
+    }
+    """);
+
+var completed = await client.Assets.Complete(SourceId.From("media"), [asset]);
+Check("completion response parsed", completed is { IsSuccess: true }
+    && completed.Value.Succeeded[AssetKey.From("logo")] is
+    { MimeType: "image/png", Size: 5, Width.HasValue: true, Height.HasValue: false });
+
+transport.Enqueue(HttpStatusCode.OK, """
+    {
+      "logo": {
+        "status": "Quarantined",
+        "filename": "logo.png",
+        "mimeType": "image/png",
+        "size": 5,
+        "publicUrl": "https://cdn.occtoo.com/media/logo.png"
+      }
+    }
+    """);
+
+var state = await client.Assets.GetState(SourceId.From("media"), [AssetKey.From("logo")]);
+Check("asset state parsed, and a status this SDK predates reads as absent",
+    state is { IsSuccess: true }
+    && state.Value[AssetKey.From("logo")] is
+    { Status.HasValue: false, Filename.HasValue: true, Size.HasValue: true });
+
+transport.Enqueue(HttpStatusCode.BadRequest, """
+    {
+      "title": "Bad Request",
+      "status": 400,
+      "detail": "Asset uploads can only target Media data sources"
+    }
+    """);
+
+var refused = await client.Assets.Initialize(SourceId.From("media"), [asset]);
+Check("problem details mapped to a ValidationError",
+    refused is { IsFailure: true, Error: ValidationError }
+    && refused.Error.Message.Contains("Media data sources", StringComparison.Ordinal));
+
 Console.WriteLine(failures == 0 ? "AOT smoke: OK" : $"AOT smoke: {failures} FAILED");
 return failures == 0 ? 0 : 1;
 
@@ -166,6 +264,8 @@ internal sealed class ScriptedHandler : HttpMessageHandler
     private readonly Queue<(HttpStatusCode Status, string Json)> _responses = new();
 
     public string? LastBody { get; private set; }
+
+    public Dictionary<string, string> LastHeaders { get; } = new(StringComparer.OrdinalIgnoreCase);
 
     public void Enqueue(HttpStatusCode status, string json) => _responses.Enqueue((status, json));
 
@@ -176,6 +276,10 @@ internal sealed class ScriptedHandler : HttpMessageHandler
         LastBody = request.Content is null
             ? null
             : await request.Content.ReadAsStringAsync(cancellationToken);
+
+        LastHeaders.Clear();
+        foreach (var header in request.Headers)
+            LastHeaders[header.Key] = string.Join(",", header.Value);
 
         var (status, json) = _responses.Dequeue();
         return new HttpResponseMessage(status)

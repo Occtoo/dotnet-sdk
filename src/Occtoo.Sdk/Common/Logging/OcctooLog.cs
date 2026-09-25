@@ -27,11 +27,15 @@ public static class OcctooLogCategories
 
     /// <summary>The Managed tags feature — managed tags and their values.</summary>
     public const string ManagedTags = "Occtoo.ManagedTags";
+
+    /// <summary>The Assets feature — uploading files into a Media data source.</summary>
+    public const string Assets = "Occtoo.Assets";
 }
 
 /// <summary>
 /// The SDK's log events, source-generated so logging costs nothing when the
-/// level is off. Event ids: 1xx authentication, 2xx http, 3xx sources.
+/// level is off. Event ids: 1xx authentication, 2xx http, 3xx sources,
+/// 4xx events, 5xx applications, 6xx managed tags, 7xx assets.
 /// </summary>
 /// <remarks>
 /// The levels form a deliberate ladder: Information marks the rare, meaningful
@@ -164,4 +168,32 @@ internal static partial class OcctooLog
     [LoggerMessage(EventId = 612, Level = LogLevel.Information,
         Message = "Value '{Key}' deleted from managed tag {ManagedTagId}")]
     internal static partial void ManagedTagValueDeleted(ILogger logger, Guid managedTagId, string key);
+
+    // ── Assets (7xx) ───────────────────────────────────────────────────────
+
+    [LoggerMessage(EventId = 700, Level = LogLevel.Debug,
+        Message = "Initializing {AssetCount} assets in data source '{DataSourceId}'")]
+    internal static partial void InitializingAssets(ILogger logger, int assetCount, string dataSourceId);
+
+    [LoggerMessage(EventId = 701, Level = LogLevel.Information,
+        Message = "Upload finished: {CompletedCount} assets completed, {FailedCount} failed, in '{DataSourceId}'")]
+    internal static partial void UploadFinished(
+        ILogger logger, int completedCount, int failedCount, string dataSourceId);
+
+    [LoggerMessage(EventId = 702, Level = LogLevel.Warning,
+        Message = "Occtoo refused asset '{AssetKey}': {Reason}")]
+    internal static partial void AssetRejected(ILogger logger, string assetKey, string reason);
+
+    [LoggerMessage(EventId = 703, Level = LogLevel.Warning,
+        Message = "Transfer of asset '{AssetKey}' failed (attempt {Attempt}/{MaxAttempts}); sending it again: {Error}")]
+    internal static partial void TransferRetrying(
+        ILogger logger, string assetKey, int attempt, int maxAttempts, OcctooError error);
+
+    [LoggerMessage(EventId = 704, Level = LogLevel.Warning,
+        Message = "The upload link for asset '{AssetKey}' was no longer valid; re-signing it and sending the bytes again")]
+    internal static partial void UploadLinkRefreshed(ILogger logger, string assetKey);
+
+    [LoggerMessage(EventId = 705, Level = LogLevel.Warning,
+        Message = "Upload into '{DataSourceId}' could not run: {Error}")]
+    internal static partial void UploadFailed(ILogger logger, string dataSourceId, OcctooError error);
 }

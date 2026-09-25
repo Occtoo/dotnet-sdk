@@ -28,6 +28,8 @@ OcctooError                        what happened                        what to 
 ├─ NotFoundError                   resource does not exist              fix the id
 ├─ ConflictError                   resource state rejects the request   wait or resolve
 ├─ ValidationError                 payload rejected before processing   fix the payload (see Failures)
+├─ AssetRejectedError              one asset of a batch was refused     read the reason; repeating won't help
+├─ CancelledError                  you cancelled the run                nothing — progress only, see below
 ├─ DataTypeError                   response value does not fit its type update the SDK / report it
 └─ UnexpectedError                 unclassifiable response              investigate
 ```
@@ -97,6 +99,13 @@ Notes on individual types:
 - **`AuthenticationError.ErrorCode`** is the OAuth `error` code
   (`invalid_client`, `access_denied`, ...) when an authorization server supplied
   one.
+- **`AssetRejectedError`** is one asset of a batch refused while the call as a
+  whole succeeded — it carries Occtoo's own reason for that key. It appears in
+  an `AssetUploadReport`; see [assets.md](assets.md).
+- **Blob storage failures** are not Occtoo responses, so they name the asset and
+  carry storage's `x-ms-error-code` and `x-ms-request-id` instead of a
+  `traceId`. They still land on the same types: an expired upload link is an
+  `AuthenticationError`, a busy account a `RateLimitError`.
 - Messages embed Occtoo's `requestId`/`traceId` when the response carried one —
   that is what a support ticket needs.
 
@@ -120,3 +129,7 @@ Cancellation stays idiomatic .NET: cancelling the `CancellationToken` you passed
 surfaces as `OperationCanceledException`, not as an error result. A *timeout*
 the SDK hit on your behalf, by contrast, is a `TimeoutError` — you asked for the
 operation, and it failed; you did not ask for it to stop.
+
+`CancelledError` never reaches a failure track. It rides the last
+`AssetProgress` of every asset a cancelled `Upload` had not settled; the run
+itself still leaves as `OperationCanceledException`.

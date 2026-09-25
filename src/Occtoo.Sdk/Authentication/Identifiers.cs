@@ -81,6 +81,13 @@ public static class OcctooScopes
     /// <summary>Change cards, card definitions, and managed tags.</summary>
     public const string WriteCards = "write:cards";
 
+    /// <summary>
+    /// Upload and delete files. The asset surface also accepts
+    /// <see cref="WriteSources"/>, so a credential that already ingests needs
+    /// nothing added.
+    /// </summary>
+    public const string WriteMedia = "write:media";
+
     /// <summary>Every Events API transport.</summary>
     public const string ReadEvents = "read:events";
 

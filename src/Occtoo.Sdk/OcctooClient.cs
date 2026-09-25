@@ -1,5 +1,6 @@
 using CSharpFunctionalExtensions;
 using Occtoo.Applications;
+using Occtoo.Assets;
 using Occtoo.Authentication;
 using Occtoo.Events;
 using Occtoo.Http;
@@ -42,6 +43,10 @@ public sealed class OcctooClient : IDisposable
 {
     private readonly HttpClient _httpClient;
     private readonly bool _ownsHttpClient;
+
+    // Uploads get their own transport, built on first use.
+    private readonly Lazy<HttpClient> _uploadHttpClient;
+    private readonly bool _ownsUploadHttpClient;
 
     /// <summary>
     /// Creates a client that owns its <see cref="HttpClient"/>.
@@ -90,10 +95,13 @@ public sealed class OcctooClient : IDisposable
             Timeout = Timeout.InfiniteTimeSpan,
         };
         _ownsHttpClient = true;
+        _ownsUploadHttpClient = options.UploadHttpClient is null;
+        _uploadHttpClient = UploadTransport(options);
         Sources = CreateSources();
         Events = CreateEvents();
         Applications = CreateApplications();
         ManagedTags = CreateManagedTags();
+        Assets = CreateAssets();
     }
 
     /// <summary>
@@ -108,13 +116,23 @@ public sealed class OcctooClient : IDisposable
     /// build. <see cref="Occtoo.DependencyInjection.OcctooServiceCollectionExtensions.AddOcctooClient"/>
     /// wires this up correctly.
     /// </param>
-    /// <param name="options">How to reach and authenticate against Occtoo.</param>
+    /// <param name="options">
+    /// How to reach and authenticate against Occtoo. Asset uploads go through
+    /// <see cref="OcctooClientOptions.UploadHttpClient"/>
+    /// </param>
     /// <exception cref="InvalidOperationException"><paramref name="options"/> is incomplete.</exception>
     public OcctooClient(HttpClient httpClient, OcctooClientOptions options)
     {
         ArgumentNullException.ThrowIfNull(httpClient);
         ArgumentNullException.ThrowIfNull(options);
         options.Validate();
+
+        if (ReferenceEquals(httpClient, options.UploadHttpClient))
+        {
+            throw new InvalidOperationException(
+                $"{nameof(OcctooClientOptions.UploadHttpClient)} must not be the client Occtoo is called with: "
+                + "asset uploads go to blob storage and must carry no Occtoo credential.");
+        }
 
         Options = options;
         Credential = options.Credential;
@@ -123,10 +141,13 @@ public sealed class OcctooClient : IDisposable
         httpClient.BaseAddress ??= options.BaseAddress;
         _httpClient = httpClient;
         _ownsHttpClient = false;
+        _ownsUploadHttpClient = options.UploadHttpClient is null;
+        _uploadHttpClient = UploadTransport(options);
         Sources = CreateSources();
         Events = CreateEvents();
         Applications = CreateApplications();
         ManagedTags = CreateManagedTags();
+        Assets = CreateAssets();
     }
 
     private SourcesClient CreateSources() => new(
@@ -148,6 +169,21 @@ public sealed class OcctooClient : IDisposable
         _httpClient,
         Options.LoggerFactory.CreateLogger(OcctooLogCategories.ManagedTags),
         Options.Timeout);
+
+    private AssetsClient CreateAssets() => new(
+        _httpClient,
+        _uploadHttpClient,
+        Options.LoggerFactory.CreateLogger(OcctooLogCategories.Assets),
+        Options.Timeout);
+
+    private static Lazy<HttpClient> UploadTransport(OcctooClientOptions options) =>
+        options.UploadHttpClient is { } supplied
+            ? new Lazy<HttpClient>(() => supplied)
+            : new Lazy<HttpClient>(() =>
+                new HttpClient(new SocketsHttpHandler { PooledConnectionLifetime = TimeSpan.FromMinutes(2) })
+                {
+                    Timeout = Timeout.InfiniteTimeSpan,
+                });
 
     private static void AdoptCredentialLogger(OcctooClientOptions options)
     {
@@ -189,6 +225,11 @@ public sealed class OcctooClient : IDisposable
     public ManagedTagsClient ManagedTags { get; }
 
     /// <summary>
+    /// The Assets feature — uploading files into a Media data source.
+    /// </summary>
+    public AssetsClient Assets { get; }
+
+    /// <summary>
     /// Establishes the credential without calling an API, so a misconfigured
     /// secret surfaces at startup rather than on the first real request.
     /// </summary>
@@ -219,11 +260,17 @@ public sealed class OcctooClient : IDisposable
     internal HttpClient HttpClient => _httpClient;
 
     /// <summary>
-    /// Disposes the underlying <see cref="HttpClient"/>, if this client created it.
+    /// The unauthenticated transport asset uploads use, built on first use.
     /// </summary>
+    internal HttpClient UploadHttpClient => _uploadHttpClient.Value;
+
+    /// <summary>Disposes the <see cref="HttpClient"/>s this client created.</summary>
     public void Dispose()
     {
         if (_ownsHttpClient)
             _httpClient.Dispose();
+
+        if (_ownsUploadHttpClient && _uploadHttpClient.IsValueCreated)
+            _uploadHttpClient.Value.Dispose();
     }
 }

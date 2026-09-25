@@ -8,7 +8,8 @@ namespace Occtoo.Sdk.Tests;
 /// </summary>
 internal sealed class StubHandler : HttpMessageHandler
 {
-    private readonly Queue<Func<HttpRequestMessage, HttpResponseMessage>> _responses = new();
+    private readonly Queue<Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>>> _responses = new();
+    private readonly Lock _gate = new();
 
     /// <summary>Every request the handler was asked to send, in order.</summary>
     public List<RecordedRequest> Requests { get; } = [];
@@ -17,11 +18,20 @@ internal sealed class StubHandler : HttpMessageHandler
 
     public StubHandler Respond(HttpStatusCode statusCode, string json)
     {
-        _responses.Enqueue(_ => JsonResponse(statusCode, json));
+        _responses.Enqueue((_, _) => Task.FromResult(JsonResponse(statusCode, json)));
         return this;
     }
 
     public StubHandler Respond(Func<HttpRequestMessage, HttpResponseMessage> respond)
+    {
+        _responses.Enqueue((request, _) => Task.FromResult(respond(request)));
+        return this;
+    }
+
+    /// <summary>
+    /// Answers asynchronously, so a test can hold a request open
+    /// </summary>
+    public StubHandler Respond(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> respond)
     {
         _responses.Enqueue(respond);
         return this;
@@ -30,11 +40,11 @@ internal sealed class StubHandler : HttpMessageHandler
     /// <summary>Replies with this response to every request from now on.</summary>
     public StubHandler RespondAlways(HttpStatusCode statusCode, string json)
     {
-        Always = _ => JsonResponse(statusCode, json);
+        Always = (_, _) => Task.FromResult(JsonResponse(statusCode, json));
         return this;
     }
 
-    private Func<HttpRequestMessage, HttpResponseMessage>? Always { get; set; }
+    private Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>>? Always { get; set; }
 
     protected override async Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request,
@@ -51,20 +61,33 @@ internal sealed class StubHandler : HttpMessageHandler
             header => string.Join(",", header.Value),
             StringComparer.OrdinalIgnoreCase);
 
-        Requests.Add(new RecordedRequest(
-            request.Method,
-            request.RequestUri,
-            headers,
-            body));
+        IReadOnlyDictionary<string, string> contentHeaders = request.Content is null
+            ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            : request.Content.Headers.ToDictionary(
+                header => header.Key,
+                header => string.Join(",", header.Value),
+                StringComparer.OrdinalIgnoreCase);
 
-        if (_responses.Count > 0)
-            return _responses.Dequeue()(request);
+        // Asset uploads run several requests at once, so recording and picking
+        // the answer are serialized here
+        Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> respond;
 
-        if (Always is { } always)
-            return always(request);
+        lock (_gate)
+        {
+            Requests.Add(new RecordedRequest(
+                request.Method,
+                request.RequestUri,
+                headers,
+                body,
+                contentHeaders));
 
-        throw new InvalidOperationException(
-            $"Unexpected request to {request.RequestUri}: the stub has no response left to give.");
+            respond = _responses.Count > 0
+                ? _responses.Dequeue()
+                : Always ?? throw new InvalidOperationException(
+                    $"Unexpected request to {request.RequestUri}: the stub has no response left to give.");
+        }
+
+        return await respond(request, cancellationToken);
     }
 
     private static HttpResponseMessage JsonResponse(HttpStatusCode statusCode, string json) =>
@@ -78,7 +101,8 @@ internal sealed record RecordedRequest(
     HttpMethod Method,
     Uri? RequestUri,
     IReadOnlyDictionary<string, string> Headers,
-    string? Body)
+    string? Body,
+    IReadOnlyDictionary<string, string> ContentHeaders)
 {
     /// <summary>Parses a form-encoded body into its parameters.</summary>
     public IReadOnlyDictionary<string, string> Form =>
@@ -93,4 +117,7 @@ internal sealed record RecordedRequest(
                     StringComparer.Ordinal);
 
     public string? Header(string name) => Headers.GetValueOrDefault(name);
+
+    /// <summary>A header that belongs to the body — Content-Length, Content-Type.</summary>
+    public string? ContentHeader(string name) => ContentHeaders.GetValueOrDefault(name);
 }
