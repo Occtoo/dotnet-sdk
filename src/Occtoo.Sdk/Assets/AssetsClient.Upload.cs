@@ -1,8 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
-using System.Net;
 using CSharpFunctionalExtensions;
-using Occtoo.Assets.Internal;
 using Occtoo.Logging;
 using Occtoo.Sources;
 using Occtoo.Telemetry;
@@ -216,12 +214,6 @@ public sealed partial class AssetsClient
                     {
                         var tracker = trackers[asset.Key];
 
-                        // One span per file: the key is what an operator
-                        // searches for.
-                        using var activity = OcctooTelemetry.Source.StartActivity(
-                            "transfer asset", ActivityKind.Client);
-                        activity?.SetTag("occtoo.assets.key", asset.Key.Value);
-
                         var moved = await TransferWithRetry(
                                 dataSourceId,
                                 asset,
@@ -232,21 +224,14 @@ public sealed partial class AssetsClient
                                 token)
                             .ConfigureAwait(false);
 
-                        moved
-                            .Tap(transfer => activity?.SetTag("occtoo.assets.bytes", transfer.Bytes))
-                            .TapError(error =>
-                            {
-                                OcctooTelemetry.Fail(activity, error);
-
-                                Settle(
-                                    outcomes,
-                                    options,
-                                    asset,
-                                    AssetUploadStage.Transferring,
-                                    error,
-                                    tracker.Transferred,
-                                    lengths[asset.Key]);
-                            });
+                        moved.TapError(error => Settle(
+                            outcomes,
+                            options,
+                            asset,
+                            AssetUploadStage.Transferring,
+                            error,
+                            tracker.Transferred,
+                            lengths[asset.Key]));
                     })
                 .ConfigureAwait(false);
         }
@@ -430,8 +415,7 @@ public sealed partial class AssetsClient
                 Report(options, asset, AssetUploadStage.Transferring, 0, length, null);
             }
 
-            var outcome = await BlobTransfer
-                .Put(_uploadHttpClient.Value, link, asset.Content, length, transferOptions, cancellationToken)
+            var outcome = await Transfer(link, asset.Content, transferOptions, cancellationToken)
                 .ConfigureAwait(false);
 
             if (outcome.IsSuccess)
@@ -441,7 +425,7 @@ public sealed partial class AssetsClient
 
             // An expired or invalid link is not a failed attempt — it is the
             // one failure the SDK can fix outright.
-            if (failure.Status == HttpStatusCode.Forbidden
+            if (failure is AuthenticationError
                 && !refreshed
                 && asset.Content.CanReopen
                 && (await Resign().ConfigureAwait(false)).IsSuccess)
@@ -450,11 +434,11 @@ public sealed partial class AssetsClient
             }
 
             attempt++;
-            if (attempt >= maxAttempts || failure.Error is not TransientError)
-                return failure.Error;
+            if (attempt >= maxAttempts || failure is not TransientError)
+                return failure;
 
-            OcctooLog.TransferRetrying(_logger, asset.Key.Value, attempt, maxAttempts, failure.Error);
-            await Task.Delay(Wait(attempt, failure.Error), cancellationToken).ConfigureAwait(false);
+            OcctooLog.TransferRetrying(_logger, asset.Key.Value, attempt, maxAttempts, failure);
+            await Task.Delay(Wait(attempt, failure), cancellationToken).ConfigureAwait(false);
         }
     }
 

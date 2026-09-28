@@ -9,15 +9,6 @@ using Occtoo.Http.Internal;
 namespace Occtoo.Assets.Internal;
 
 /// <summary>
-/// A failed attempt to upload an asset's bytes to blob storage.
-/// <see cref="Status"/> is the HTTP status blob storage responded with, or null if
-/// there was no response at all. <see cref="AssetsClient.Upload"/> checks it to spot an
-/// expired link worth re-signing via <see cref="AssetsClient.RefreshUploadLinks"/> and
-/// retrying.
-/// </summary>
-internal sealed record BlobFailure(OcctooError Error, HttpStatusCode? Status);
-
-/// <summary>
 /// The one request that moves an asset's bytes: a single <c>Put Blob</c>
 /// against the signed URL Occtoo handed out.
 /// </summary>
@@ -37,7 +28,7 @@ internal static class BlobTransfer
     private const string RequestIdHeader = "x-ms-request-id";
     private const int MaxBodySnippet = 512;
 
-    internal static async Task<Result<AssetTransfer, BlobFailure>> Put(
+    internal static async Task<Result<AssetTransfer, OcctooError>> Put(
         HttpClient httpClient,
         AssetUploadLink link,
         AssetContent content,
@@ -49,12 +40,11 @@ internal static class BlobTransfer
 
         return await opened.Match(
             stream => Send(httpClient, link, stream, length, options, cancellationToken),
-            error => Task.FromResult(
-                Result.Failure<AssetTransfer, BlobFailure>(new BlobFailure(error, null))))
+            error => Task.FromResult(Result.Failure<AssetTransfer, OcctooError>(error)))
             .ConfigureAwait(false);
     }
 
-    private static async Task<Result<AssetTransfer, BlobFailure>> Send(
+    private static async Task<Result<AssetTransfer, OcctooError>> Send(
         HttpClient httpClient,
         AssetUploadLink link,
         Stream opened,
@@ -84,7 +74,7 @@ internal static class BlobTransfer
             .ConfigureAwait(false);
 
         return await sent.Match(
-            async Task<Result<AssetTransfer, BlobFailure>> (response) =>
+            async Task<Result<AssetTransfer, OcctooError>> (response) =>
             {
                 using (response)
                 {
@@ -92,11 +82,10 @@ internal static class BlobTransfer
                         return new AssetTransfer(link.Key, length, Stopwatch.GetElapsedTime(started));
 
                     var body = await ReadSnippet(response, cancellationToken).ConfigureAwait(false);
-                    return new BlobFailure(Classify(response, link, body), response.StatusCode);
+                    return Classify(response, link, body);
                 }
             },
-            error => Task.FromResult(
-                Result.Failure<AssetTransfer, BlobFailure>(new BlobFailure(Unreachable(error, link), null))))
+            error => Task.FromResult(Result.Failure<AssetTransfer, OcctooError>(Unreachable(error, link))))
             .ConfigureAwait(false);
     }
 

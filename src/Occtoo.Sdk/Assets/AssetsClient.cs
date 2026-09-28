@@ -174,7 +174,7 @@ public sealed partial class AssetsClient
 
         var outcome = await ResolveLength(content)
             .Match(
-                length => TransferBytes(link, content, length, options, cancellationToken),
+                length => BlobTransfer.Put(_uploadHttpClient.Value, link, content, length, options, cancellationToken),
                 error => Task.FromResult(Result.Failure<AssetTransfer, OcctooError>(error)))
             .ConfigureAwait(false);
 
@@ -280,20 +280,6 @@ public sealed partial class AssetsClient
                 "delete assets",
                 cancellationToken,
                 Tags(dataSourceId, keys.Count)));
-
-    private async Task<Result<AssetTransfer, OcctooError>> TransferBytes(
-        AssetUploadLink link,
-        AssetContent content,
-        long length,
-        AssetTransferOptions options,
-        CancellationToken cancellationToken)
-    {
-        var transferred = await BlobTransfer
-            .Put(_uploadHttpClient.Value, link, content, length, options, cancellationToken)
-            .ConfigureAwait(false);
-
-        return transferred.MapError(failure => failure.Error);
-    }
 
     private Task<Result<AssetBatch<AssetUploadLink>, OcctooError>> SendForLinks(
         HttpRequestMessage request,

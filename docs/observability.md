@@ -90,6 +90,7 @@ error's kind (`RateLimitError`, `ValidationError`, ...) for low-cardinality
 faceting.
 
 The asset key is high cardinality, so it sits only on `transfer asset`, where
-one span is one file and the key is what an operator searches for. Both
-`Transfer` and `Upload` open that span, so a run under `upload assets` shows one
-child per file, retries included.
+one span is one attempt at sending a file and the key is what an operator
+searches for. `Upload` sends each file through `Transfer`, so a run under
+`upload assets` shows one child per attempt, and a retried file shows as a
+failed span followed by another.
