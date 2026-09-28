@@ -84,7 +84,7 @@ public sealed partial class AssetsClient
         using var activity = OcctooTelemetry.Source.StartActivity(
             "upload assets", ActivityKind.Client);
         activity?.SetTag("occtoo.source.id", dataSourceId.Value);
-        activity?.SetTag("occtoo.assets.count", assets.Count);
+        activity?.SetTag("occtoo.assets.count", assets?.Count ?? 0);
 
         var outcome = await planned
             .Match(
@@ -118,18 +118,8 @@ public sealed partial class AssetsClient
         IReadOnlyCollection<AssetUpload>? assets,
         AssetUploadOptions options) =>
         options.Validate()
-            .Bind(() => assets is null or { Count: 0 }
-                ? Result.Failure<IReadOnlyCollection<AssetUpload>, OcctooError>(
-                    new ValidationError("At least one asset is required."))
-                : Result.Success<IReadOnlyCollection<AssetUpload>, OcctooError>(assets))
-            .Ensure(
-                present => present.Count <= MaxAssetsPerInitialize,
-                new ValidationError($"At most {MaxAssetsPerInitialize} assets can be uploaded in one run."))
-            .Ensure(
-                present => !HasDuplicates(
-                    [.. present.Select(asset => asset.Key.Value)], StringComparer.OrdinalIgnoreCase),
-                new ValidationError("Asset keys must be distinct within a run; Occtoo compares them ignoring case."))
-            .Bind(Lengths);
+            .Bind(() => Validate(assets?.Select(asset => asset.Asset).ToList(), MaxAssetsPerInitialize, "uploaded"))
+            .Bind(() => Lengths(assets!));
 
     private static Result<Dictionary<AssetKey, long>, OcctooError> Lengths(IReadOnlyCollection<AssetUpload> assets)
     {
