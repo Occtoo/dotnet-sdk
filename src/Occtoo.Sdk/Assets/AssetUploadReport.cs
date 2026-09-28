@@ -35,13 +35,13 @@ public sealed record AssetUploadOutcome(
 public sealed record AssetUploadReport(SourceId DataSourceId, IReadOnlyList<AssetUploadOutcome> Outcomes)
 {
     /// <summary>The assets that now have a file.</summary>
-    public IReadOnlyList<AssetUploadOutcome> Completed { get; } =
+    public IReadOnlyList<AssetUploadOutcome> Completed =>
         [.. Outcomes.Where(outcome => outcome.Outcome.IsSuccess)];
 
     /// <summary>The assets that do not.</summary>
-    public IReadOnlyList<AssetUploadOutcome> Failed { get; } =
+    public IReadOnlyList<AssetUploadOutcome> Failed =>
         [.. Outcomes.Where(outcome => outcome.Outcome.IsFailure)];
 
     /// <summary>Whether every asset in the run has a file.</summary>
-    public bool AllCompleted => Failed.Count == 0;
+    public bool AllCompleted => Outcomes.All(outcome => outcome.Outcome.IsSuccess);
 }
