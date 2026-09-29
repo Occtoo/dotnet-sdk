@@ -23,14 +23,14 @@ public sealed partial class AssetsClient
     /// slots against a link that expires in an hour, and storage is under no
     /// obligation to ask for something sane.
     /// </summary>
-    private static readonly TimeSpan _maxHonouredRetryAfter = TimeSpan.FromMinutes(2);
+    private static readonly TimeSpan MaxHonouredRetryAfter = TimeSpan.FromMinutes(2);
 
     /// <summary>
     /// Carried on the last report of an asset that had not settled when the
     /// caller cancelled the run. The run itself still leaves <see cref="Upload"/>
     /// as an <see cref="OperationCanceledException"/>.
     /// </summary>
-    private static readonly CancelledError _cancelled = new("The upload run was cancelled.");
+    private static readonly CancelledError Cancelled = new("The upload run was cancelled.");
 
     /// <summary>
     /// Uploads assets: creates them, sends their bytes, and completes them.
@@ -318,7 +318,7 @@ public sealed partial class AssetsClient
                     options,
                     asset,
                     tracker is null ? AssetUploadStage.Initializing : reached,
-                    _cancelled,
+                    Cancelled,
                     tracker?.Transferred ?? 0,
                     lengths[asset.Key]);
             }
@@ -509,7 +509,7 @@ public sealed partial class AssetsClient
     /// </summary>
     private static TimeSpan Wait(int attempt, OcctooError error) =>
         error is RateLimitError { RetryAfter.HasValue: true } throttled
-            ? Delays.Min(throttled.RetryAfter.Value, _maxHonouredRetryAfter)
+            ? Delays.Min(throttled.RetryAfter.Value, MaxHonouredRetryAfter)
             : Backoff(attempt);
 
     private static TimeSpan Backoff(int attempt)
