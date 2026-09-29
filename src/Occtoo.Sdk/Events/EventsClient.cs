@@ -187,8 +187,8 @@ public sealed class EventsClient
             if (!firstConnect)
             {
                 OcctooLog.EventStreamReconnecting(_logger, delay);
-                await Task.Delay(Jittered(delay), cancellationToken).ConfigureAwait(false);
-                delay = Min(TimeSpan.FromTicks(delay.Ticks * 2), options.MaxReconnectDelay);
+                await Task.Delay(Delays.Jittered(delay), cancellationToken).ConfigureAwait(false);
+                delay = Delays.Min(TimeSpan.FromTicks(delay.Ticks * 2), options.MaxReconnectDelay);
             }
 
             firstConnect = false;
@@ -425,9 +425,4 @@ public sealed class EventsClient
             return new EventStreamPosition(EventSequence.From(value), time);
         }
     }
-
-    private static TimeSpan Jittered(TimeSpan delay) =>
-        TimeSpan.FromTicks((long)(delay.Ticks * (0.8 + (Random.Shared.NextDouble() * 0.4))));
-
-    private static TimeSpan Min(TimeSpan left, TimeSpan right) => left < right ? left : right;
 }

@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using CSharpFunctionalExtensions;
+using Occtoo.Http.Internal;
 using Occtoo.Logging;
 using Occtoo.Sources;
 using Occtoo.Telemetry;
@@ -507,7 +508,7 @@ public sealed partial class AssetsClient
     /// </summary>
     private static TimeSpan Wait(int attempt, OcctooError error) =>
         error is RateLimitError { RetryAfter.HasValue: true } throttled
-            ? Shorter(throttled.RetryAfter.Value, _maxHonouredRetryAfter)
+            ? Delays.Min(throttled.RetryAfter.Value, _maxHonouredRetryAfter)
             : Backoff(attempt);
 
     private static TimeSpan Backoff(int attempt)
@@ -518,10 +519,8 @@ public sealed partial class AssetsClient
             TransferBackoffMilliseconds * (1L << Math.Min(attempt - 1, 16)),
             MaxBackoffMilliseconds);
 
-        return TimeSpan.FromMilliseconds(milliseconds * (0.8 + (Random.Shared.NextDouble() * 0.4)));
+        return Delays.Jittered(TimeSpan.FromMilliseconds(milliseconds));
     }
-
-    private static TimeSpan Shorter(TimeSpan left, TimeSpan right) => left < right ? left : right;
 
     /// <summary>
     /// Passes one asset's byte reports through and remembers how far they got,
