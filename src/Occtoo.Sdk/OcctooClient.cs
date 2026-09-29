@@ -178,7 +178,7 @@ public sealed class OcctooClient : IDisposable
 
     private static Lazy<HttpClient> UploadTransport(OcctooClientOptions options) =>
         options.UploadHttpClient is { } supplied
-            ? new Lazy<HttpClient>(() => supplied)
+            ? new Lazy<HttpClient>(supplied)
             : new Lazy<HttpClient>(() =>
                 new HttpClient(new SocketsHttpHandler { PooledConnectionLifetime = TimeSpan.FromMinutes(2) })
                 {
