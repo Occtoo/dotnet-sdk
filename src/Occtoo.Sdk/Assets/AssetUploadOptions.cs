@@ -91,7 +91,4 @@ public sealed record AssetUploadOptions
             new ValidationError($"{nameof(TransferTimeout)} must be positive."),
         _ => UnitResult.Success<OcctooError>(),
     };
-
-    internal AssetTransferOptions ForTransfer(IProgress<AssetProgress>? progress) =>
-        new() { Progress = progress, Timeout = TransferTimeout };
 }

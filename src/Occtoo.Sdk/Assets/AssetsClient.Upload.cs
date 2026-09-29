@@ -375,7 +375,7 @@ public sealed partial class AssetsClient
         TransferTracker tracker,
         CancellationToken cancellationToken)
     {
-        var transferOptions = options.ForTransfer(tracker);
+        var transferOptions = new AssetTransferOptions { Progress = tracker, Timeout = options.TransferTimeout };
         var maxAttempts = asset.Content.CanReopen ? options.MaxTransferAttempts : 1;
         var attempt = 0;
         var refreshed = false;
