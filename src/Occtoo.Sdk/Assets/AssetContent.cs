@@ -105,12 +105,6 @@ public abstract record AssetContent
 
         internal override Task<Result<Stream, OcctooError>> Open(CancellationToken cancellationToken)
         {
-            if (string.IsNullOrWhiteSpace(Path))
-            {
-                return Task.FromResult(Result.Failure<Stream, OcctooError>(
-                    new ValidationError("A file path is required.")));
-            }
-
             try
             {
                 Stream stream = new FileStream(
