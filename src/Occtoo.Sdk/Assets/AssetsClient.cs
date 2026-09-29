@@ -89,7 +89,6 @@ public sealed partial class AssetsClient
         Maybe<FolderId> folderId = default,
         CancellationToken cancellationToken = default) =>
         Validate(assets, MaxAssetsPerInitialize, "initialized")
-            .Tap(() => OcctooLog.InitializingAssets(_logger, assets.Count, dataSourceId.Value))
             .Bind(() => SendForLinks(
                 OcctooTransport.Request(
                     HttpMethod.Post,

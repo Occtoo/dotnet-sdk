@@ -171,10 +171,6 @@ internal static partial class OcctooLog
 
     // ── Assets (7xx) ───────────────────────────────────────────────────────
 
-    [LoggerMessage(EventId = 700, Level = LogLevel.Debug,
-        Message = "Initializing {AssetCount} assets in data source '{DataSourceId}'")]
-    internal static partial void InitializingAssets(ILogger logger, int assetCount, string dataSourceId);
-
     [LoggerMessage(EventId = 701, Level = LogLevel.Information,
         Message = "Upload finished: {CompletedCount} assets completed, {FailedCount} failed, in '{DataSourceId}'")]
     internal static partial void UploadFinished(
