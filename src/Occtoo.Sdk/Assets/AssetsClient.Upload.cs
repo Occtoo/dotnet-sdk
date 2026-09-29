@@ -14,6 +14,7 @@ public sealed partial class AssetsClient
 {
     private const int TransferBackoffMilliseconds = 200;
     private const long MaxBackoffMilliseconds = 30_000;
+    private const string NoAnswerReason = "Occtoo did not answer for this asset.";
 
     /// <summary>
     /// The longest the SDK waits out a <c>Retry-After</c> from storage before
@@ -293,7 +294,7 @@ public sealed partial class AssetsClient
                 options,
                 asset,
                 AssetUploadStage.Initializing,
-                new AssetRejectedError("Occtoo did not answer for this asset."),
+                new AssetRejectedError(NoAnswerReason),
                 transferred: 0,
                 lengths[asset.Key]);
         }
@@ -347,7 +348,7 @@ public sealed partial class AssetsClient
 
             var reason = completed.Failed.TryGetValue(asset.Key, out var refused)
                 ? refused
-                : "Occtoo did not answer for this asset.";
+                : NoAnswerReason;
 
             // Its bytes are all in storage; it is the file that was not made.
             Settle(
