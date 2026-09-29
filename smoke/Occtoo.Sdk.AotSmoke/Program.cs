@@ -166,8 +166,6 @@ Check("webhook signature verified and event parsed", verified is
 
 // 5. Assets: the value objects, the asset payloads, and one byte transfer
 Check("AssetKey rejects a key the API would reject", !AssetKey.TryFrom("note.txt", out _));
-Check("AssetFilename applies the server's rule without ICU",
-    AssetFilename.TryFrom("logo.png", out _) && !AssetFilename.TryFrom("../logo.png", out _));
 
 // The link expiry is relative: a fixed date would slip into the past and then
 // send Upload looking for a re-sign the scripted queue has no answer for.

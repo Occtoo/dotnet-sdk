@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using Occtoo.Sources;
 using Vogen;
 
@@ -95,13 +94,6 @@ public readonly partial struct AssetFilename
     /// <exception cref="ValueObjectValidationException">The path ends in no usable filename.</exception>
     public static AssetFilename FromPath(string path) => From(Path.GetFileName(path));
 
-    // Mirrors the server's own rule: anything except a path separator or a
-    // control character, not starting or ending with a space or '.', and no
-    // '..' anywhere. GeneratedRegex is the AOT-safe form.
-    [GeneratedRegex(@"^(?![ .])(?!.*\.\.)[^\x00-\x1F\x7F/\\]+(?<![ .])$",
-        RegexOptions.CultureInvariant, matchTimeoutMilliseconds: 1000)]
-    private static partial Regex Allowed();
-
     // Each rule reports itself: this is the value object a caller trips over
     // most, and "invalid filename" does not say what to change.
     private static Validation Validate(string input) => input switch
@@ -116,7 +108,7 @@ public readonly partial struct AssetFilename
             $"'{input}' is not a valid filename: it must not end with a space or a '.'."),
         _ when input.Contains("..", StringComparison.Ordinal) => Validation.Invalid(
             $"'{input}' is not a valid filename: it must not contain '..'."),
-        _ when !Allowed().IsMatch(input) => Validation.Invalid(
+        _ when input.AsSpan().ContainsAnyInRange('\0', '\x1F') || input.Contains('\x7F') => Validation.Invalid(
             $"'{input}' is not a valid filename: it must not contain control characters."),
         _ => Validation.Ok,
     };
