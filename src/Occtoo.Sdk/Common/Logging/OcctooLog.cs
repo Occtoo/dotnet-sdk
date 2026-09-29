@@ -196,4 +196,8 @@ internal static partial class OcctooLog
     [LoggerMessage(EventId = 705, Level = LogLevel.Warning,
         Message = "Upload into '{DataSourceId}' could not run: {Error}")]
     internal static partial void UploadFailed(ILogger logger, string dataSourceId, OcctooError error);
+
+    [LoggerMessage(EventId = 706, Level = LogLevel.Debug,
+        Message = "The upload link for asset '{AssetKey}' had expired before its bytes were sent; re-signed it")]
+    internal static partial void ExpiredUploadLinkRefreshed(ILogger logger, string assetKey);
 }

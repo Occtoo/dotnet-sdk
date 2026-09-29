@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using CSharpFunctionalExtensions;
+using Microsoft.Extensions.Logging;
 using Occtoo.Http.Internal;
 using Occtoo.Logging;
 using Occtoo.Sources;
@@ -382,7 +383,7 @@ public sealed partial class AssetsClient
         var refreshed = false;
         var announced = false;
 
-        Task<Result<AssetUploadLink, OcctooError>> Resign() =>
+        Task<Result<AssetUploadLink, OcctooError>> Resign(Action<ILogger, string> log) =>
             RefreshLink(dataSourceId, asset, cancellationToken)
                 .Tap(signed =>
                 {
@@ -392,7 +393,7 @@ public sealed partial class AssetsClient
                     // asset's one recovery.
                     refreshed = true;
                     link = signed;
-                    OcctooLog.UploadLinkRefreshed(_logger, asset.Key.Value);
+                    log(_logger, asset.Key.Value);
                 });
 
         // A retry loop is the one place a result's flag beats a combinator:
@@ -406,7 +407,7 @@ public sealed partial class AssetsClient
             // anyway, and if the link really was dead, the 403 below still
             // gets its re-sign.
             if (!refreshed && link.HasExpired())
-                await Resign().ConfigureAwait(false);
+                await Resign(OcctooLog.ExpiredUploadLinkRefreshed).ConfigureAwait(false);
 
             // One transfer-start report per asset, whatever it took to get the
             // bytes moving: a retry reports its way up from zero again, and a
@@ -430,7 +431,7 @@ public sealed partial class AssetsClient
             if (failure is AuthenticationError
                 && !refreshed
                 && asset.Content.CanReopen
-                && (await Resign().ConfigureAwait(false)).IsSuccess)
+                && (await Resign(OcctooLog.UploadLinkRefreshed).ConfigureAwait(false)).IsSuccess)
             {
                 continue;
             }
