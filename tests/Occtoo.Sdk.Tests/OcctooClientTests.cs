@@ -257,23 +257,6 @@ public class OcctooClientTests
     }
 
     [Fact]
-    public void Refuses_an_upload_client_that_already_carries_a_credential()
-    {
-        using var uploadHandler = new StubHandler();
-        using var uploadHttpClient = new HttpClient(uploadHandler);
-        uploadHttpClient.DefaultRequestHeaders.Authorization = new("Bearer", "token-1");
-
-        var options = new OcctooClientOptions
-        {
-            Credential = OcctooCredential.ApiKey(ApiKey.From("key-1")),
-            UploadHttpClient = uploadHttpClient,
-        };
-
-        Should.Throw<InvalidOperationException>(() => new OcctooClient(options))
-            .Message.ShouldContain("Authorization");
-    }
-
-    [Fact]
     public async Task Dependency_injection_registers_an_upload_client_with_no_credential_on_it()
     {
         var services = new ServiceCollection();

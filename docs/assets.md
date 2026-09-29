@@ -99,7 +99,7 @@ The bytes never pass through Occtoo. The upload link is a signed URL for the ten
 
 How you reach that client depends on how you registered the SDK. `AddOcctooClient` puts it under the named client `Occtoo.Uploads` (`OcctooServiceCollectionExtensions.UploadHttpClientName`), which you can configure with a proxy or your own primary handler. `AddKeyedOcctooClient` appends a suffix unique to that registration, so there is no name to configure — set `OcctooClientOptions.UploadHttpClient` instead, which is also how you supply the client without dependency injection at all.
 
-Two mistakes are refused at construction rather than at the first upload: passing the same `HttpClient` as both the Occtoo client and `UploadHttpClient`, and supplying an upload client that already carries an `Authorization` or `x-api-key` header. Both throw `InvalidOperationException`.
+If `UploadHttpClient` is the same `HttpClient` as the Occtoo client, the constructor throws `InvalidOperationException`. Don't put Occtoo credentials on the upload client either: no default auth header, no authenticating handler.
 
 Two things have to hold for that client. **Nothing may retry the request** — the body is a stream, and a replay sends one that has already been read. Retries live in `Upload`, which reopens the content first. **Nothing may put a total-request timeout on it** — a transfer takes as long as the file takes, and the client the SDK registers has none.
 

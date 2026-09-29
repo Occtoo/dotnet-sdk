@@ -39,6 +39,11 @@ public sealed record OcctooClientOptions
     /// </summary>
     /// <remarks>
     /// <para>
+    /// Do not give it an Occtoo credential, as a default header or an
+    /// authenticating handler. Uploads go to blob storage, and the signed URL
+    /// is their only authorization.
+    /// </para>
+    /// <para>
     /// Do not give it a retrying handler. An upload's body is a stream, and a
     /// handler that replays the request sends an empty one; retries belong to
     /// <see cref="Assets.AssetsClient.Upload"/>, which reopens the content
@@ -97,21 +102,6 @@ public sealed record OcctooClientOptions
         if (Timeout <= TimeSpan.Zero && Timeout != System.Threading.Timeout.InfiniteTimeSpan)
             throw new InvalidOperationException($"{nameof(Timeout)} must be positive.");
 
-        if (UploadHttpClient is { } upload && CredentialHeader(upload) is { } header)
-        {
-            throw new InvalidOperationException(
-                $"{nameof(UploadHttpClient)} must not carry a {header} header: asset uploads go to blob "
-                + "storage and are authorized by a signed URL, not by an Occtoo credential.");
-        }
-
         Resilience.Validate();
     }
-
-    private static string? CredentialHeader(HttpClient httpClient) => httpClient switch
-    {
-        { DefaultRequestHeaders.Authorization: not null } => "Authorization",
-        _ when httpClient.DefaultRequestHeaders.Contains(ApiKeyCredential.HeaderName) =>
-            ApiKeyCredential.HeaderName,
-        _ => null,
-    };
 }
