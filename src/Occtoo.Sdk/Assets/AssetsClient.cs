@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Text;
 using CSharpFunctionalExtensions;
 using Microsoft.Extensions.Logging;
 using Occtoo.Assets.Internal;
@@ -452,19 +451,10 @@ public sealed partial class AssetsClient
     private static Uri AssetsUri(SourceId dataSourceId, string operation) =>
         new($"v1/assets/{Uri.EscapeDataString(dataSourceId.Value)}/{operation}", UriKind.Relative);
 
-    private static Uri KeysUri(SourceId dataSourceId, IReadOnlyCollection<AssetKey> keys)
-    {
-        var builder = new StringBuilder("v1/assets/").Append(Uri.EscapeDataString(dataSourceId.Value));
-        var separator = '?';
-
-        foreach (var key in keys)
-        {
-            builder.Append(separator).Append("key=").Append(Uri.EscapeDataString(key.Value));
-            separator = '&';
-        }
-
-        return new Uri(builder.ToString(), UriKind.Relative);
-    }
+    private static Uri KeysUri(SourceId dataSourceId, IReadOnlyCollection<AssetKey> keys) =>
+        new QueryString($"v1/assets/{Uri.EscapeDataString(dataSourceId.Value)}")
+            .AddEach("key", [.. keys.Select(key => key.Value)])
+            .ToUri();
 
     // The ceilings are contract limits a validator enforces, so the SDK rejects
     // an oversized batch where the caller made it rather than spending a round
