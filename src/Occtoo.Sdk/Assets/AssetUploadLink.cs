@@ -27,7 +27,5 @@ public sealed record AssetUploadLink(AssetKey Key, AssetFilename Filename, Uri U
     public Asset Asset => new(Key, Filename);
 
     /// <summary>Whether the link has passed its expiry.</summary>
-    /// <param name="timeProvider">The clock to read; the system clock by default.</param>
-    public bool HasExpired(TimeProvider? timeProvider = null) =>
-        (timeProvider ?? TimeProvider.System).GetUtcNow() >= ExpiresAt;
+    public bool HasExpired() => TimeProvider.System.GetUtcNow() >= ExpiresAt;
 }

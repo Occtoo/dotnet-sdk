@@ -91,7 +91,7 @@ The ceilings are contract limits, not recommendations, so the SDK rejects an ove
 
 `Delete` answers `204` and returns `UnitResult<OcctooError>` — there is nothing to hand back but the failure track. It composes with `Bind`, `Tap` and `TapError` like every other result.
 
-`AssetUploadLink.HasExpired()` reads your clock against the link's expiry, and takes an optional `TimeProvider` so a test can drive it.
+`AssetUploadLink.HasExpired()` reads the system clock against the link's expiry.
 
 ## The transfer
 
