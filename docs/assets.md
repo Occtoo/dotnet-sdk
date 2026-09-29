@@ -131,7 +131,7 @@ There is one timeout the SDK does not own. An upload client it creates itself ru
 
 `AssetUploadOptions.Progress` takes an `IProgress<AssetProgress>`. Each asset reports once when it starts initializing, once when its transfer starts, at intervals while the bytes move, once when it starts completing, and once when it is done; a failure ends that asset with a single report carrying the stage it reached, the error, and how many bytes had moved by then. Byte-level reports are throttled to at most one per 100 ms, and the last report of a transfer carries the full count. A retried transfer rereads its content from the start and reports bytes from zero again, so `BytesTransferred` **goes backwards** mid-asset — a progress bar has to follow it down rather than assume it only rises.
 
-Cancelling the run throws `OperationCanceledException`, as it does everywhere else in the SDK, but every asset gets its ending report first: a `CancelledError` on the stage it had reached, carrying the bytes that had moved.
+Cancelling the run throws `OperationCanceledException`, as it does everywhere else in the SDK, and sends no final report. Any asset without a `Completed` or failure report by then was stopped by the cancellation.
 
 **The handler must be thread-safe.** Assets transfer in parallel, so up to `MaxConcurrentTransfers` threads report at once and your handler is re-entered. Guard whatever it writes into — a bare `List<T>.Add` loses reports or throws, and an exception thrown in the handler leaves the run.
 

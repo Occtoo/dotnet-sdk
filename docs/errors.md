@@ -29,7 +29,6 @@ OcctooError                        what happened                        what to 
 ├─ ConflictError                   resource state rejects the request   wait or resolve
 ├─ ValidationError                 payload rejected before processing   fix the payload (see Failures)
 ├─ AssetRejectedError              one asset of a batch was refused     read the reason; repeating won't help
-├─ CancelledError                  you cancelled the run                nothing — progress only, see below
 ├─ DataTypeError                   response value does not fit its type update the SDK / report it
 └─ UnexpectedError                 unclassifiable response              investigate
 ```
@@ -129,7 +128,3 @@ Cancellation stays idiomatic .NET: cancelling the `CancellationToken` you passed
 surfaces as `OperationCanceledException`, not as an error result. A *timeout*
 the SDK hit on your behalf, by contrast, is a `TimeoutError` — you asked for the
 operation, and it failed; you did not ask for it to stop.
-
-`CancelledError` never reaches a failure track. It rides the last
-`AssetProgress` of every asset a cancelled `Upload` had not settled; the run
-itself still leaves as `OperationCanceledException`.

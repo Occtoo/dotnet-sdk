@@ -27,13 +27,6 @@ public sealed partial class AssetsClient
     private static readonly TimeSpan MaxHonouredRetryAfter = TimeSpan.FromMinutes(2);
 
     /// <summary>
-    /// Carried on the last report of an asset that had not settled when the
-    /// caller cancelled the run. The run itself still leaves <see cref="Upload"/>
-    /// as an <see cref="OperationCanceledException"/>.
-    /// </summary>
-    private static readonly CancelledError Cancelled = new("The upload run was cancelled.");
-
-    /// <summary>
     /// Uploads assets: creates them, sends their bytes, and completes them.
     /// </summary>
     /// <param name="dataSourceId">The Media data source the assets belong to.</param>
@@ -200,90 +193,70 @@ public sealed partial class AssetsClient
             .Where(asset => initialized.Succeeded.ContainsKey(asset.Key) && !outcomes.ContainsKey(asset.Key))
             .ToList();
 
-        // One tracker per asset, made before transfers start, so a run cut
-        // short can still read how far each of them had got.
-        var trackers = signed.ToDictionary(asset => asset.Key, _ => new TransferTracker(options.Progress));
+        await Parallel.ForEachAsync(
+                signed,
+                new ParallelOptions
+                {
+                    MaxDegreeOfParallelism = options.MaxConcurrentTransfers,
+                    CancellationToken = cancellationToken,
+                },
+                async (asset, token) =>
+                {
+                    var tracker = new TransferTracker(options.Progress);
 
-        try
-        {
-            await Parallel.ForEachAsync(
-                    signed,
-                    new ParallelOptions
-                    {
-                        MaxDegreeOfParallelism = options.MaxConcurrentTransfers,
-                        CancellationToken = cancellationToken,
-                    },
-                    async (asset, token) =>
-                    {
-                        var tracker = trackers[asset.Key];
-
-                        var moved = await TransferWithRetry(
-                                dataSourceId,
-                                asset,
-                                initialized.Succeeded[asset.Key],
-                                lengths[asset.Key],
-                                options,
-                                tracker,
-                                token)
-                            .ConfigureAwait(false);
-
-                        moved.TapError(error => Settle(
-                            outcomes,
-                            options,
+                    var moved = await TransferWithRetry(
+                            dataSourceId,
                             asset,
-                            AssetUploadStage.Transferring,
-                            error,
-                            tracker.Transferred,
-                            lengths[asset.Key]));
-                    })
-                .ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            SettleCancelled(AssetUploadStage.Transferring);
-            throw;
-        }
+                            initialized.Succeeded[asset.Key],
+                            lengths[asset.Key],
+                            options,
+                            tracker,
+                            token)
+                        .ConfigureAwait(false);
+
+                    moved.TapError(error => Settle(
+                        outcomes,
+                        options,
+                        asset,
+                        AssetUploadStage.Transferring,
+                        error,
+                        tracker.Transferred,
+                        lengths[asset.Key]));
+                })
+            .ConfigureAwait(false);
 
         var uploaded = signed.Where(asset => !outcomes.ContainsKey(asset.Key)).ToList();
 
-        try
+        // Occtoo completes at most half of what it initializes, so a full run
+        // needs more than one completion call. The mismatch is the SDK's to
+        // absorb, not the caller's.
+        foreach (var chunk in uploaded.Chunk(MaxAssetsPerCompletion))
         {
-            // Occtoo completes at most half of what it initializes, so a full run
-            // needs more than one completion call. The mismatch is the SDK's to
-            // absorb, not the caller's.
-            foreach (var chunk in uploaded.Chunk(MaxAssetsPerCompletion))
-            {
-                foreach (var asset in chunk)
-                    Report(options, asset, AssetUploadStage.Completing, lengths[asset.Key], lengths[asset.Key], null);
+            foreach (var asset in chunk)
+                Report(options, asset, AssetUploadStage.Completing, lengths[asset.Key], lengths[asset.Key], null);
 
-                var completion = await Complete(
-                        dataSourceId,
-                        [.. chunk.Select(asset => asset.Asset)],
-                        cancellationToken)
-                    .ConfigureAwait(false);
+            var completion = await Complete(
+                    dataSourceId,
+                    [.. chunk.Select(asset => asset.Asset)],
+                    cancellationToken)
+                .ConfigureAwait(false);
 
-                completion.Match(
-                    completed => Record(outcomes, options, chunk, completed, lengths),
-                    error =>
+            completion.Match(
+                completed => Record(outcomes, options, chunk, completed, lengths),
+                error =>
+                {
+                    foreach (var asset in chunk)
                     {
-                        foreach (var asset in chunk)
-                        {
-                            Settle(
-                                outcomes,
-                                options,
-                                asset,
-                                AssetUploadStage.Completing,
-                                error,
-                                lengths[asset.Key],
-                                lengths[asset.Key]);
-                        }
-                    });
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            SettleCancelled(AssetUploadStage.Completing);
-            throw;
+                        Settle(
+                            outcomes,
+                            options,
+                            asset,
+                            AssetUploadStage.Completing,
+                            error,
+                            lengths[asset.Key],
+                            lengths[asset.Key]);
+                    }
+                });
         }
 
         // An asset Occtoo mentioned in neither map still needs an answer, and
@@ -303,27 +276,6 @@ public sealed partial class AssetsClient
         return Result.Success<AssetUploadReport, OcctooError>(new AssetUploadReport(
             dataSourceId,
             [.. assets.Select(asset => outcomes[asset.Key])]));
-
-        // Cancellation leaves the run as an exception, which is the SDK's
-        // contract, but every asset still owes the report that ends it —
-        // otherwise a view rendered from progress sits on its last stage for
-        // good.
-        void SettleCancelled(AssetUploadStage reached)
-        {
-            foreach (var asset in assets.Where(asset => !outcomes.ContainsKey(asset.Key)))
-            {
-                var tracker = trackers.GetValueOrDefault(asset.Key);
-
-                Settle(
-                    outcomes,
-                    options,
-                    asset,
-                    tracker is null ? AssetUploadStage.Initializing : reached,
-                    Cancelled,
-                    tracker?.Transferred ?? 0,
-                    lengths[asset.Key]);
-            }
-        }
     }
 
     private static void Record(
