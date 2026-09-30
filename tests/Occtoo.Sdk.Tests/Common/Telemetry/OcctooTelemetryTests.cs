@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Net;
 using Occtoo.Authentication;
+using Occtoo.Events;
 using Occtoo.Sources;
 using Occtoo.Telemetry;
 using OpenTelemetry.Trace;
@@ -194,5 +195,45 @@ public class OcctooTelemetryTests
 
         stopped.ShouldContain(activity =>
             activity.OperationName == "get source" && (string?)activity.GetTagItem("occtoo.source.id") == "otel-tagged");
+    }
+
+    [Fact]
+    public async Task Batch_spans_carry_the_destination_the_lease_and_the_acknowledgement()
+    {
+        const string destination = "a1e7c0d2-5f3b-4c9e-8d1a-7b6f5e4d3c2b";
+        const string lease = "0199a0c4-3c5e-7d8f-9a1b-2c3d4e5f6a7b";
+
+        var (listener, stopped) = Listen();
+        using (listener)
+        {
+            using var handler = new StubHandler()
+                .Respond(HttpStatusCode.OK, $$"""{ "leaseId": "{{lease}}", "generation": 0, "attempt": 1, "events": [] }""")
+                .Respond(HttpStatusCode.OK, """{ "status": "committed", "committed": "003.00000000000000000001" }""");
+            using var client = new OcctooClient(new HttpClient(handler), new OcctooClientOptions
+            {
+                Credential = OcctooCredential.ApiKey(ApiKey.From("key-1")),
+            });
+
+            var pulled = await client.Events.Batch.Pull(
+                EventDestinationId.From(Guid.Parse(destination)), "otel-worker",
+                cancellationToken: TestContext.Current.CancellationToken);
+            await client.Events.Batch.Acknowledge(
+                pulled.Value.Value.Lease, EventBatchOutcome.Ok, TestContext.Current.CancellationToken);
+        }
+
+        var pull = stopped.Single(activity =>
+            activity.OperationName == "pull event batch"
+            && (string?)activity.GetTagItem("occtoo.event_destination.id") == destination);
+        pull.Kind.ShouldBe(ActivityKind.Client);
+        pull.GetTagItem("occtoo.events.worker_id").ShouldBe("otel-worker");
+        pull.GetTagItem("occtoo.events.lease_id").ShouldBe(lease);
+        pull.GetTagItem("occtoo.events.attempt").ShouldBe(1);
+
+        var acknowledge = stopped.Single(activity =>
+            activity.OperationName == "acknowledge event batch"
+            && (string?)activity.GetTagItem("occtoo.event_destination.id") == destination);
+        acknowledge.GetTagItem("occtoo.events.lease_id").ShouldBe(lease);
+        acknowledge.GetTagItem("occtoo.events.outcome").ShouldBe("ok");
+        acknowledge.GetTagItem("occtoo.events.acknowledgement").ShouldBe("committed");
     }
 }

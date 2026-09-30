@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Occtoo.Applications;
 using Occtoo.Authentication;
 using Occtoo.DependencyInjection;
+using Occtoo.Events;
 using Occtoo.Sources;
 using Shouldly;
 using Xunit;
@@ -184,6 +185,45 @@ public class ResilienceTests
         using var client = Client(handler, FastRetries);
 
         var result = await client.Sources.List(cancellationToken: TestContext.Current.CancellationToken);
+
+        result.IsSuccess.ShouldBeTrue();
+        handler.RequestCount.ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task A_durable_consumer_pull_is_replayed_because_it_resumes_the_workers_own_lease()
+    {
+        using var handler = new StubHandler()
+            .Respond(HttpStatusCode.BadGateway, "{}")
+            .Respond(HttpStatusCode.OK, """
+                { "leaseId": "0199a0c4-3c5e-7d8f-9a1b-2c3d4e5f6a7b", "generation": 1, "attempt": 2, "events": [] }
+                """);
+        using var client = Client(handler, FastRetries);
+
+        var result = await client.Events.Batch.Pull(
+            EventDestinationId.From(Guid.Parse("5b0e2f4a-9c1d-4e8b-a7f3-6d2c1b0a9e8f")),
+            "worker-1",
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        result.IsSuccess.ShouldBeTrue();
+        handler.RequestCount.ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task A_batch_acknowledgement_is_replayed_because_its_generation_fences_it()
+    {
+        using var handler = new StubHandler()
+            .Respond(HttpStatusCode.BadGateway, "{}")
+            .Respond(HttpStatusCode.OK, """{ "status": "stale", "committed": "003.00000000000000184467" }""");
+        using var client = Client(handler, FastRetries);
+
+        var result = await client.Events.Batch.Acknowledge(
+            new EventBatchLease(
+                EventDestinationId.From(Guid.Parse("5b0e2f4a-9c1d-4e8b-a7f3-6d2c1b0a9e8f")),
+                Guid.Parse("0199a0c4-3c5e-7d8f-9a1b-2c3d4e5f6a7b"),
+                Generation: 0),
+            EventBatchOutcome.Ok,
+            TestContext.Current.CancellationToken);
 
         result.IsSuccess.ShouldBeTrue();
         handler.RequestCount.ShouldBe(2);

@@ -1,9 +1,11 @@
-# Events: pull and stream
+# Events: pull, stream, and durable consumers
 
 `client.Events` wraps the Events API — every change in the tenant, delivered as
 [CloudEvents](https://cloudevents.io/): pull retained events page by page
-(`GET /v1/events`), or subscribe to the live Server-Sent Events stream
-(`GET /v1/events/stream`).
+(`GET /v1/events`), subscribe to the live Server-Sent Events stream
+(`GET /v1/events/stream`), or let a durable consumer track the position and
+hand leased batches to competing workers (`client.Events.Batch`, see
+[Durable consumers](#durable-consumers-leased-batches)).
 
 ```csharp
 var page = await client.Events.Pull(new EventQuery
@@ -196,6 +198,103 @@ Two details matter in a real receiver:
 
 During signing-secret rotation the signature header may carry several
 space-separated signatures; the delivery is authentic when any matches.
+
+## Durable consumers: leased batches
+
+Pull and SSE leave the position to the caller — persist a cursor, resume from
+it. A **durable consumer** is an event destination that keeps the position
+server-side instead: any number of stateless workers pull *leased* batches
+from it and acknowledge each one, and Occtoo commits the position as the
+contiguous prefix of acknowledged work. The destination (and its filter) is
+created in Occtoo; `client.Events.Batch` is the worker's side:
+
+```csharp
+var destination = EventDestinationId.From(destinationGuid);
+EventWorkerId worker = $"{Environment.MachineName}-1";
+
+while (!stoppingToken.IsCancellationRequested)
+{
+    var pulled = await client.Events.Batch.Pull(destination, worker, cancellationToken: stoppingToken);
+
+    if (pulled.IsFailure)            { await BackOff(pulled.Error); continue; }
+    if (pulled.Value.HasNoValue)     { await Task.Delay(idle, stoppingToken); continue; } // caught up
+
+    var batch = pulled.Value.Value;
+    var outcome = TryHandle(batch.Events) ? EventBatchOutcome.Ok : EventBatchOutcome.Failed;
+
+    await client.Events.Batch.Acknowledge(batch.Lease, outcome, stoppingToken);
+}
+```
+
+The loop is pull → process → acknowledge, and each step has one rule:
+
+- **Pull** leases up to `EventBatchOptions.Limit` events (1–100, default 20)
+  for `LeaseDuration` (1 s–10 min, default 60 s). Nothing to hand out is not
+  an error: the result is `Maybe.None` — caught up. Expired and failed
+  batches are redelivered before new work.
+- **Process** idempotently. Delivery is at-least-once: a lease that expires
+  before its acknowledgement is handed to another worker, so the same batch
+  can be processed twice. `CloudEvent.Id` is stable across redeliveries —
+  key deduplication on it.
+- **Acknowledge** with the batch's `Lease`: `Ok` commits the batch, `Failed`
+  requeues it at once for redelivery (to any worker). The lease carries the
+  destination it came from, so an acknowledgement cannot land on the wrong
+  durable consumer; a worker that hands processing elsewhere can persist the
+  three lease values and rebuild it there.
+
+### Worker ids
+
+The worker id is required, because the API's default is a trap: a pull from a
+worker that still holds a lease *resumes* that lease (pulling again before
+acknowledging means the previous batch was abandoned), and an omitted id makes
+every anonymous puller one identity — so two workers without ids would hand
+each other's batches back and forth. `EventWorkerId` (at most 200 characters)
+should be:
+
+- **unique per concurrently running loop** — one process running four loops
+  needs four ids;
+- **stable across restarts** — a pod name plus a loop index, say. A restarted
+  worker then resumes its own abandoned lease at once instead of waiting for
+  it to expire.
+
+### Attempts, generations, and stale acknowledgements
+
+`EventBatch.Attempt` counts deliveries: `1` the first time, higher once a
+lease expired, was failed, or was abandoned. A batch that keeps coming back
+holds the committed position behind it forever, so past a threshold park it
+(write it to a dead-letter store) and acknowledge it `Ok` instead of failing
+it again — the example below does exactly that.
+
+Every redelivery also raises the lease's `Generation`, which fences the
+acknowledgement: one for an older generation succeeds with status `Stale` and
+commits nothing. `Stale` is not an error — the worker just no longer owns the
+batch — but a lease that routinely goes stale is shorter than the processing
+it covers; raise `LeaseDuration`. The SDK logs every stale acknowledgement as
+a warning.
+
+`EventBatchAcknowledgement.Committed` is the durable consumer's committed
+position after the acknowledgement — every event up to and including it is
+acknowledged. It stays behind any older batch another worker still holds.
+
+### Failures
+
+| Result | Meaning | What a worker does |
+|---|---|---|
+| `Maybe.None` | Caught up | Wait, pull again |
+| `ConflictError` | The durable consumer is paused (or its stored filter is no longer valid) | Wait for it to be resumed; leased batches can still be acknowledged |
+| `RateLimitError` | The durable consumer's window of leased-but-unacknowledged events is full | Back off; it clears as batches are acknowledged or expire |
+| `ValidationError` | The destination is not a durable consumer, or an option is out of range | Fix the configuration |
+| `NotFoundError` | No such destination (or it was deleted) | Fix the configuration |
+| `ForbiddenError` | The credential lacks `read:events` | Request `OcctooScopes.ReadEvents` — the pull- and SSE-only scopes do not cover durable consumers |
+
+Pull and acknowledge are both safe to send twice, so the client's built-in
+retries cover them like reads: a resent pull resumes the worker's own lease,
+and a resent acknowledgement that already landed reads `Stale`.
+
+A runnable worker service lives at
+[`examples/Occtoo.Sdk.Examples.Events.Batch`](../examples/Occtoo.Sdk.Examples.Events.Batch):
+several competing loops with stable worker ids, parking of batches that keep
+failing, and a back-off per failure type.
 
 ## The exception to the no-throw rule
 

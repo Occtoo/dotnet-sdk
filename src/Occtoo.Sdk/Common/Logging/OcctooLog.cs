@@ -19,7 +19,7 @@ public static class OcctooLogCategories
     /// <summary>The Sources feature — typed ingest.</summary>
     public const string Sources = "Occtoo.Sources";
 
-    /// <summary>The Events feature — pulling and streaming.</summary>
+    /// <summary>The Events feature — pulling, streaming, and durable-consumer batches.</summary>
     public const string Events = "Occtoo.Events";
 
     /// <summary>The Applications feature — application and grant management.</summary>
@@ -127,6 +127,23 @@ internal static partial class OcctooLog
     [LoggerMessage(EventId = 403, Level = LogLevel.Warning,
         Message = "Skipped an event that could not be parsed: {Reason}")]
     internal static partial void EventSkipped(ILogger logger, string reason);
+
+    [LoggerMessage(EventId = 404, Level = LogLevel.Debug,
+        Message = "Pulled {Count} events from durable consumer {DestinationId}: lease {LeaseId}, attempt {Attempt}")]
+    internal static partial void EventBatchPulled(ILogger logger, int count, Guid destinationId, Guid leaseId, int attempt);
+
+    [LoggerMessage(EventId = 405, Level = LogLevel.Trace,
+        Message = "Durable consumer {DestinationId} is caught up")]
+    internal static partial void EventBatchCaughtUp(ILogger logger, Guid destinationId);
+
+    [LoggerMessage(EventId = 406, Level = LogLevel.Debug,
+        Message = "Acknowledged lease {LeaseId} on durable consumer {DestinationId} as {Outcome}; committed through {Committed}")]
+    internal static partial void EventBatchAcknowledged(
+        ILogger logger, Guid leaseId, Guid destinationId, string outcome, string committed);
+
+    [LoggerMessage(EventId = 407, Level = LogLevel.Warning,
+        Message = "Acknowledgement of lease {LeaseId} on durable consumer {DestinationId} was stale and committed nothing: the lease had expired and was handed out again, or was already acknowledged")]
+    internal static partial void EventBatchAcknowledgementStale(ILogger logger, Guid leaseId, Guid destinationId);
 
     // ── Applications (5xx) ─────────────────────────────────────────────────
     // Identity changes are the audit-worthy state changes; reads stay quiet.

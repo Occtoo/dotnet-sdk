@@ -60,6 +60,14 @@ The SDK's job is to know it once, correctly.
   `after` value — bundling the filter into it was considered and rejected as a
   layer of state the API does not have; the pairing rule ("persist the filter
   alongside the cursor") lives in [events.md](events.md) instead.
+- **Durable consumers take a required worker id.** The API accepts an
+  omitted `workerId` and treats every anonymous puller as one identity —
+  and since a pull resumes its caller's outstanding lease, two anonymous
+  workers hand each other's batches back and forth. Requiring
+  `EventWorkerId` costs a single-worker consumer one line and makes that
+  mistake unrepresentable. Batch pull and acknowledge are marked replayable
+  for the retry pipeline: a resent pull resumes the same lease, and the
+  lease generation fences a resent acknowledgement.
 - **The enumerables throw; everything else returns.** `PullAll` and `Stream`
   retry and reconnect internally and throw `OcctooEventsException` only for
   permanent failures — an `IAsyncEnumerable` has no failure track, and
