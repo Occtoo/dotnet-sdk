@@ -17,6 +17,21 @@ public static class OcctooServiceCollectionExtensions
     public const string HttpClientName = "Occtoo";
 
     /// <summary>
+    /// The name of the <see cref="IHttpClientFactory"/> client
+    /// <see cref="AddOcctooClient"/> sends asset uploads on. Configure it to put
+    /// a proxy or your own primary handler in front of blob storage; it
+    /// deliberately carries no Occtoo authentication, and a retrying handler on
+    /// it would replay a stream that has already been read.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="AddKeyedOcctooClient"/> registers its upload client under this
+    /// name plus a suffix unique to that registration, so there is no name to
+    /// configure there — set <see cref="OcctooClientOptions.UploadHttpClient"/>
+    /// to supply the client instead.
+    /// </remarks>
+    public const string UploadHttpClientName = "Occtoo.Uploads";
+
+    /// <summary>
     /// Registers a singleton <see cref="OcctooClient"/> backed by
     /// <see cref="IHttpClientFactory"/>, with authentication in the handler
     /// pipeline.
@@ -53,9 +68,12 @@ public static class OcctooServiceCollectionExtensions
             HttpClientName,
             provider => provider.GetRequiredService<OcctooClientOptions>());
 
+        RegisterUploadHttpClient(services, UploadHttpClientName);
+
         services.AddSingleton(provider => CreateClient(
             provider,
             HttpClientName,
+            UploadHttpClientName,
             provider.GetRequiredService<OcctooClientOptions>()));
 
         return builder;
@@ -96,7 +114,9 @@ public static class OcctooServiceCollectionExtensions
         // whose ToString() collide (two sentinel objects, same-named members of
         // different enums) must not merge into one cumulative pipeline — that
         // would chain both auth handlers and send the wrong tenant's token.
-        var httpClientName = $"{HttpClientName}:{serviceKey}:{Guid.NewGuid():n}";
+        var suffix = $"{serviceKey}:{Guid.NewGuid():n}";
+        var httpClientName = $"{HttpClientName}:{suffix}";
+        var uploadHttpClientName = $"{UploadHttpClientName}:{suffix}";
 
         services.AddKeyedSingleton(serviceKey, (_, _) => BuildOptions(configure));
 
@@ -105,9 +125,12 @@ public static class OcctooServiceCollectionExtensions
             httpClientName,
             provider => provider.GetRequiredKeyedService<OcctooClientOptions>(serviceKey));
 
+        RegisterUploadHttpClient(services, uploadHttpClientName);
+
         services.AddKeyedSingleton(serviceKey, (provider, key) => CreateClient(
             provider,
             httpClientName,
+            uploadHttpClientName,
             provider.GetRequiredKeyedService<OcctooClientOptions>(key)));
 
         return builder;
@@ -152,18 +175,34 @@ public static class OcctooServiceCollectionExtensions
                     ?? (DelegatingHandler)new NoOpHandler();
             });
 
+    /// <summary>
+    /// The transport for asset uploads: no authentication handler, no
+    /// resilience handler, and no total-request timeout.
+    /// </summary>
+    /// <remarks>
+    /// A host that calls <c>ConfigureHttpClientDefaults(builder =&gt;
+    /// builder.AddStandardResilienceHandler())</c> configures every named client,
+    /// this one included, and the standard handler adds both a retry and a
+    /// timeout. Configure resilience per client rather than as a default, reach
+    /// this one by <see cref="UploadHttpClientName"/> and undo it there, or
+    /// supply the transport through <see cref="OcctooClientOptions.UploadHttpClient"/>.
+    /// </remarks>
+    private static void RegisterUploadHttpClient(IServiceCollection services, string httpClientName) =>
+        services.AddHttpClient(httpClientName, httpClient =>
+            httpClient.Timeout = Timeout.InfiniteTimeSpan);
+
     private static OcctooClient CreateClient(
         IServiceProvider provider,
         string httpClientName,
+        string uploadHttpClientName,
         OcctooClientOptions options)
     {
-        var httpClient = provider
-            .GetRequiredService<IHttpClientFactory>()
-            .CreateClient(httpClientName);
+        var factory = provider.GetRequiredService<IHttpClientFactory>();
 
-        return new OcctooClient(httpClient, options with
+        return new OcctooClient(factory.CreateClient(httpClientName), options with
         {
             LoggerFactory = ResolveLoggerFactory(provider, options),
+            UploadHttpClient = options.UploadHttpClient ?? factory.CreateClient(uploadHttpClientName),
         });
     }
 

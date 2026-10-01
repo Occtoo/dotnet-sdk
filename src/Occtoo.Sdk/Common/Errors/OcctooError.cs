@@ -148,6 +148,19 @@ public sealed record ValidationError(
 public sealed record DataTypeError(string Message) : OcctooError(Message);
 
 /// <summary>
+/// One asset of a batch was refused while the call as a whole succeeded — the
+/// asset was never initialized, is already completed, or its blob was not
+/// there to complete from.
+/// </summary>
+/// <remarks>
+/// Occtoo answers these per key with a reason of its own, which is carried here
+/// verbatim. Repeating the same call reproduces the same refusal; what fixes it
+/// depends on the reason.
+/// </remarks>
+/// <param name="Message">Reason for refusing this asset.</param>
+public sealed record AssetRejectedError(string Message) : OcctooError(Message);
+
+/// <summary>
 /// A response the SDK did not expect and cannot classify — an unknown status
 /// code, or a body that does not parse.
 /// </summary>

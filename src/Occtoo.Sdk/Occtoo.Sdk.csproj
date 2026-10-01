@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <PackageId>Occtoo.Sdk</PackageId>
-    <Description>Client library for the Occtoo Ingest and Events APIs.</Description>
+    <Description>Client library for the Occtoo Ingest, Assets and Events APIs.</Description>
     <RootNamespace>Occtoo</RootNamespace>
   </PropertyGroup>
 

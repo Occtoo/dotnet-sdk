@@ -34,6 +34,31 @@ public sealed record OcctooClientOptions
     public TimeSpan Timeout { get; init; } = TimeSpan.FromSeconds(100);
 
     /// <summary>
+    /// The transport asset uploads use. The SDK creates and owns one when this
+    /// is left unset.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Do not give it an Occtoo credential, as a default header or an
+    /// authenticating handler. Uploads go to blob storage, and the signed URL
+    /// is their only authorization.
+    /// </para>
+    /// <para>
+    /// Do not give it a retrying handler. An upload's body is a stream, and a
+    /// handler that replays the request sends an empty one; retries belong to
+    /// <see cref="Assets.AssetsClient.Upload"/>, which reopens the content
+    /// first.
+    /// </para>
+    /// <para>
+    /// A client you supply keeps its own <see cref="HttpClient.Timeout"/>, and
+    /// the .NET default of 100 seconds will cut a large upload short. Set
+    /// <see cref="System.Threading.Timeout.InfiniteTimeSpan"/> and bound the
+    /// transfer with <see cref="Assets.AssetUploadOptions.TransferTimeout"/>.
+    /// </para>
+    /// </remarks>
+    public HttpClient? UploadHttpClient { get; init; }
+
+    /// <summary>
     /// Where the SDK logs. Defaults to no logging. Everything the SDK emits
     /// lives under the <c>Occtoo</c> category prefix
     /// (<see cref="Occtoo.Logging.OcctooLogCategories"/>), so one
