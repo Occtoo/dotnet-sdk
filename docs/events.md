@@ -289,7 +289,8 @@ acknowledged. It stays behind any older batch another worker still holds.
 
 Pull and acknowledge are both safe to send twice, so the client's built-in
 retries cover them like reads: a resent pull resumes the worker's own lease,
-and a resent acknowledgement that already landed reads `Stale`.
+and a resent acknowledgement changes nothing — a resent `Ok` reads `Stale`,
+a resent `Failed` reads `Requeued` again until the batch is handed out anew.
 
 A runnable worker service lives at
 [`examples/Occtoo.Sdk.Examples.Events.Batch`](../examples/Occtoo.Sdk.Examples.Events.Batch):

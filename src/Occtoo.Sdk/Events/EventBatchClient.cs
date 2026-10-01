@@ -185,8 +185,9 @@ public sealed class EventBatchClient
             new AcknowledgeEventBatchDto(lease.LeaseId, lease.Generation, status),
             EventBatchJsonContext.Default.AcknowledgeEventBatchDto);
 
-        // An acknowledgement is fenced by the lease generation: resending one
-        // that already landed reads stale instead of committing twice.
+        // Resending an acknowledgement that already landed changes nothing: a
+        // resent ok finds the lease gone and reads stale, a resent failed
+        // re-expires the already-expired lease and reads requeued.
         request.Options.Set(OcctooResilience.Replayable, true);
 
         return OcctooTransport.Send(_httpClient, _requestTimeout, request, "acknowledge event batch",
