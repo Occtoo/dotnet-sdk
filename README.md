@@ -26,7 +26,9 @@ The official .NET client for [Occtoo](https://www.occtoo.com). One package,
   localized, with parent links for hierarchies.
 - **Events** — react to changes across your tenant, by pulling pages or
   subscribing to a live stream of [CloudEvents](https://cloudevents.io/), with
-  one typed record per event type. Event destinations (webhooks, Azure Service
+  one typed record per event type. Durable consumers track the position for
+  you: competing workers pull leased batches and acknowledge them
+  (`client.Events.Batch`). Event destinations (webhooks, Azure Service
   Bus, Azure Storage Queues) deliver the same envelope: `CloudEvent.Parse`
   types any of them, and `OcctooWebhook.Verify` checks webhook signatures —
   the part every receiver otherwise hand-rolls.
@@ -162,6 +164,7 @@ Runnable samples under [`examples/`](examples), one project per capability:
 | [`Occtoo.Sdk.Examples.Sources.Ingest`](examples/Occtoo.Sdk.Examples.Sources.Ingest) | A hosted worker ingesting typed entries periodically — appsettings, DI, SDK log levels |
 | [`Occtoo.Sdk.Examples.Events.Pull`](examples/Occtoo.Sdk.Examples.Events.Pull) | A paginated event consumer that persists its cursor and resumes across restarts |
 | [`Occtoo.Sdk.Examples.Events.SSE`](examples/Occtoo.Sdk.Examples.Events.SSE) | A live subscription over Server-Sent Events, filtered, with automatic reconnect |
+| [`Occtoo.Sdk.Examples.Events.Batch`](examples/Occtoo.Sdk.Examples.Events.Batch) | Competing workers on a durable consumer: pull leased batches, acknowledge, park poison batches |
 
 With dependency injection:
 
@@ -258,6 +261,8 @@ Occtoo.
 | `GET` | `/v1/events` | Pull a page of events in ascending `sequence` order, by cursor |
 | `GET` | `/v1/events/stream` | Subscribe to a resumable Server-Sent Events stream |
 | `GET` | `/v1/events/metadata` | Inspect the stream's shape — first/latest position, tail cursor, count — without payloads |
+| `POST` | `/v1/event-destinations/{id}/pull` | Lease the next batch from a durable consumer |
+| `POST` | `/v1/event-destinations/{id}/acknowledge` | Commit (`ok`) or requeue (`failed`) a leased batch |
 
 The catalog endpoints (`/v1/event-types`, `/v1/events/schemas/{type}/{version}`)
 are not wrapped: the SDK ships the catalog as types — one sealed record per

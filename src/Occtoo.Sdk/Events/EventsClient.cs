@@ -26,6 +26,11 @@ namespace Occtoo.Events;
 /// the SDK's one deliberate throwing surface.
 /// </para>
 /// <para>
+/// <see cref="Batch"/> is the other consumption model: a durable consumer
+/// tracks the position server-side and hands leased batches to any number of
+/// competing workers, which acknowledge each one.
+/// </para>
+/// <para>
 /// Requires a credential with an events scope — see
 /// <see cref="Authentication.OcctooScopes"/>.
 /// </para>
@@ -43,7 +48,15 @@ public sealed class EventsClient
         _httpClient = httpClient;
         _logger = logger;
         _requestTimeout = requestTimeout;
+        Batch = new EventBatchClient(httpClient, logger, requestTimeout);
     }
+
+    /// <summary>
+    /// Durable consumers — leased batches that competing workers pull and
+    /// acknowledge, with the position tracked by Occtoo rather than a cursor
+    /// the caller persists.
+    /// </summary>
+    public EventBatchClient Batch { get; }
 
     /// <summary>
     /// Reads one page of retained events in ascending sequence order.
