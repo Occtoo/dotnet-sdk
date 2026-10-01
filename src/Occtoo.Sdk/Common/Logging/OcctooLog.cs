@@ -142,7 +142,7 @@ internal static partial class OcctooLog
         ILogger logger, Guid leaseId, Guid destinationId, string outcome, string committed);
 
     [LoggerMessage(EventId = 407, Level = LogLevel.Warning,
-        Message = "Acknowledgement of lease {LeaseId} on durable consumer {DestinationId} was stale and committed nothing: the lease had expired and was handed out again, or was already acknowledged")]
+        Message = "Acknowledgement of lease {LeaseId} on durable consumer {DestinationId} was stale and changed nothing: the lease had expired and was handed out again, or the batch was already acknowledged (possibly by an earlier attempt of this request)")]
     internal static partial void EventBatchAcknowledgementStale(ILogger logger, Guid leaseId, Guid destinationId);
 
     // ── Applications (5xx) ─────────────────────────────────────────────────

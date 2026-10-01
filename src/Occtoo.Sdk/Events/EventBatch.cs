@@ -113,10 +113,12 @@ public enum EventBatchAcknowledgementStatus
     Requeued,
 
     /// <summary>
-    /// Nothing happened: the lease expired and was handed out again, or the
-    /// batch was already acknowledged. The worker no longer owns the batch —
-    /// not an error, but a lease that routinely goes stale is shorter than the
-    /// processing it covers; raise <see cref="EventBatchOptions.LeaseDuration"/>.
+    /// This acknowledgement changed nothing: the lease expired and was handed
+    /// out again, or the batch was already acknowledged — possibly by this
+    /// acknowledgement's own earlier attempt, if its response was lost. The
+    /// worker no longer owns the batch — not an error, but a lease that
+    /// routinely goes stale is shorter than the processing it covers; raise
+    /// <see cref="EventBatchOptions.LeaseDuration"/>.
     /// </summary>
     Stale,
 }
