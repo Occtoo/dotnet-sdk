@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
@@ -20,7 +21,8 @@ namespace Occtoo.Http.Internal;
 /// streaming body, the SSE stream). The typed overloads add what every
 /// resource operation needs on top: a span named after the operation,
 /// API rejections classified into <see cref="OcctooError"/>, and a
-/// source-generated JSON body — or no body, for 202/204 responses.
+/// source-generated JSON body — or no body, for 202/204 responses, or either,
+/// where a 204 means there is nothing to return.
 /// </remarks>
 internal static class OcctooTransport
 {
@@ -63,7 +65,7 @@ internal static class OcctooTransport
     }
 
     /// <summary>Sends a request whose success body deserializes as <typeparamref name="T"/>.</summary>
-    internal static async Task<Result<T, OcctooError>> Send<T>(
+    internal static Task<Result<T, OcctooError>> Send<T>(
         HttpClient httpClient,
         TimeSpan timeout,
         HttpRequestMessage request,
@@ -71,7 +73,40 @@ internal static class OcctooTransport
         JsonTypeInfo<T> responseType,
         CancellationToken cancellationToken,
         IReadOnlyList<KeyValuePair<string, object?>>? tags = null,
-        Func<T, IReadOnlyList<KeyValuePair<string, object?>>>? responseTags = null)
+        Func<T, IReadOnlyList<KeyValuePair<string, object?>>>? responseTags = null) =>
+        Send(httpClient, timeout, request, operation,
+            response => Read(response, operation, responseType, cancellationToken),
+            tags, responseTags, cancellationToken);
+
+    /// <summary>
+    /// Sends a request whose success body deserializes as <typeparamref name="T"/>,
+    /// or is absent: a 204 reads as none (a caught-up pull, say).
+    /// </summary>
+    internal static Task<Result<Maybe<T>, OcctooError>> SendOptional<T>(
+        HttpClient httpClient,
+        TimeSpan timeout,
+        HttpRequestMessage request,
+        string operation,
+        JsonTypeInfo<T> responseType,
+        CancellationToken cancellationToken,
+        IReadOnlyList<KeyValuePair<string, object?>>? tags = null,
+        Func<Maybe<T>, IReadOnlyList<KeyValuePair<string, object?>>>? responseTags = null) =>
+        Send(httpClient, timeout, request, operation,
+            async response => response.StatusCode == HttpStatusCode.NoContent
+                ? Maybe<T>.None
+                : (await Read(response, operation, responseType, cancellationToken).ConfigureAwait(false))
+                    .Map(value => Maybe.From(value)),
+            tags, responseTags, cancellationToken);
+
+    private static async Task<Result<T, OcctooError>> Send<T>(
+        HttpClient httpClient,
+        TimeSpan timeout,
+        HttpRequestMessage request,
+        string operation,
+        Func<HttpResponseMessage, Task<Result<T, OcctooError>>> read,
+        IReadOnlyList<KeyValuePair<string, object?>>? tags,
+        Func<T, IReadOnlyList<KeyValuePair<string, object?>>>? responseTags,
+        CancellationToken cancellationToken)
     {
         using (request)
         {
@@ -83,7 +118,7 @@ internal static class OcctooTransport
                     using (response)
                     {
                         return response.IsSuccessStatusCode
-                            ? await Read(response, operation, responseType, cancellationToken).ConfigureAwait(false)
+                            ? await read(response).ConfigureAwait(false)
                             : await OcctooApiErrors.Classify(response, Describe(operation), cancellationToken).ConfigureAwait(false);
                     }
                 }).ConfigureAwait(false);

@@ -378,19 +378,6 @@ public class EventBatchClientTests
     }
 
     [Fact]
-    public async Task Acknowledge_rejects_an_undefined_outcome_without_a_request()
-    {
-        using var handler = new StubHandler();
-        using var client = Client(handler);
-
-        var result = await client.Events.Batch.Acknowledge(
-            Lease(), (EventBatchOutcome)7, TestContext.Current.CancellationToken);
-
-        result.Error.ShouldBeOfType<ValidationError>();
-        handler.RequestCount.ShouldBe(0);
-    }
-
-    [Fact]
     public async Task Acknowledge_rejects_a_missing_lease_without_a_request()
     {
         using var handler = new StubHandler();

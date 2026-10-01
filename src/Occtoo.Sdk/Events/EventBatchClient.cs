@@ -1,13 +1,8 @@
-using System.Diagnostics;
-using System.Net;
-using System.Net.Http.Json;
-using System.Text.Json;
 using CSharpFunctionalExtensions;
 using Microsoft.Extensions.Logging;
 using Occtoo.Events.Internal;
 using Occtoo.Http.Internal;
 using Occtoo.Logging;
-using Occtoo.Telemetry;
 
 namespace Occtoo.Events;
 
@@ -28,9 +23,11 @@ namespace Occtoo.Events;
 /// <para>
 /// Pull and acknowledge are safe to resend, so the client's retries cover them
 /// like reads: a resent pull resumes the worker's own lease, and a resent
-/// acknowledgement that already landed reads
-/// <see cref="EventBatchAcknowledgementStatus.Stale"/> instead of committing
-/// twice.
+/// acknowledgement that already landed changes nothing — a resent
+/// <see cref="EventBatchOutcome.Ok"/> reads
+/// <see cref="EventBatchAcknowledgementStatus.Stale"/>, a resent
+/// <see cref="EventBatchOutcome.Failed"/> reads
+/// <see cref="EventBatchAcknowledgementStatus.Requeued"/> again.
 /// </para>
 /// <para>
 /// Requires a credential with <see cref="Authentication.OcctooScopes.ReadEvents"/>
@@ -69,7 +66,7 @@ public sealed class EventBatchClient
     /// clears as outstanding batches are acknowledged or expire. A destination
     /// that is not a durable consumer is a <see cref="ValidationError"/>.
     /// </returns>
-    public async Task<Result<Maybe<EventBatch>, OcctooError>> Pull(
+    public Task<Result<Maybe<EventBatch>, OcctooError>> Pull(
         EventDestinationId destinationId,
         EventWorkerId workerId,
         EventBatchOptions? options = null,
@@ -77,73 +74,60 @@ public sealed class EventBatchClient
     {
         options ??= new EventBatchOptions();
 
-        if (options.Validate() is { HasValue: true } invalid)
-            return invalid.Value;
-
-        using var activity = OcctooTelemetry.Source.StartActivity("pull event batch", ActivityKind.Client);
-        activity?.SetTag("occtoo.event_destination.id", destinationId.Value.ToString("D"));
-        activity?.SetTag("occtoo.events.worker_id", workerId.Value);
-        activity?.SetTag("occtoo.events.limit", options.Limit);
-
-        var uri = new QueryString($"v1/event-destinations/{destinationId.Value:D}/pull")
-            .Add("limit", options.Limit)
-            .Add("visibility", options.LeaseSeconds)
-            .Add("workerId", workerId.Value)
-            .ToUri();
-        using var request = new HttpRequestMessage(HttpMethod.Post, uri);
-
-        // A pull from a worker that holds a lease resumes it, so resending a
-        // pull whose response was lost hands back the same batch instead of
-        // leasing a second one.
-        request.Options.Set(OcctooResilience.Replayable, true);
-
-        var outcome = await OcctooTransport
-            .Send(_httpClient, _requestTimeout, request, cancellationToken)
-            .Bind(async Task<Result<Maybe<EventBatch>, OcctooError>> (response) =>
+        return options.Validate()
+            .Bind(() =>
             {
-                using (response)
+                var uri = new QueryString($"v1/event-destinations/{destinationId.Value:D}/pull")
+                    .Add("limit", options.Limit)
+                    .Add("visibility", options.LeaseSeconds)
+                    .Add("workerId", workerId.Value)
+                    .ToUri();
+                var request = OcctooTransport.Request(HttpMethod.Post, uri);
+
+                // A pull from a worker that holds a lease resumes it, so resending a
+                // pull whose response was lost hands back the same batch instead of
+                // leasing a second one.
+                request.Options.Set(OcctooResilience.Replayable, true);
+
+                return OcctooTransport.SendOptional(_httpClient, _requestTimeout, request, "pull event batch",
+                    EventBatchJsonContext.Default.EventBatchDto, cancellationToken,
+                    [
+                        new("occtoo.event_destination.id", destinationId.Value.ToString("D")),
+                        new("occtoo.events.worker_id", workerId.Value),
+                        new("occtoo.events.limit", options.Limit),
+                    ],
+                    pulled => pulled.HasValue
+                        ?
+                        [
+                            new("occtoo.events.count", pulled.Value.Events.Count),
+                            new("occtoo.events.lease_id", pulled.Value.LeaseId.ToString("D")),
+                            new("occtoo.events.attempt", pulled.Value.Attempt),
+                        ]
+                        : [new("occtoo.events.count", 0)]);
+            })
+            // The API throttles a durable consumer whose unacknowledged window
+            // is full; the generic message blames the rate budget.
+            .MapError(error => error is RateLimitError throttled
+                ? throttled with
                 {
-                    if (response.StatusCode == HttpStatusCode.OK)
-                        return await ReadBatch(response, destinationId, cancellationToken).ConfigureAwait(false);
-
-                    if (response.StatusCode == HttpStatusCode.NoContent)
-                        return Maybe<EventBatch>.None;
-
-                    var error = await OcctooApiErrors
-                        .Classify(response, "Pulling an event batch", cancellationToken)
-                        .ConfigureAwait(false);
-
-                    // The API throttles a durable consumer whose unacknowledged
-                    // window is full; the generic message blames the rate budget.
-                    return error is RateLimitError throttled
-                        ? throttled with
-                        {
-                            Message = "Pulling an event batch was throttled: the durable consumer's window of "
-                                      + "unacknowledged events is full, or the tenant request-rate budget is exhausted. "
-                                      + "It clears as outstanding batches are acknowledged or their leases expire.",
-                        }
-                        : error;
+                    Message = "Pulling an event batch was throttled: the durable consumer's window of "
+                              + "unacknowledged events is full, or the tenant request-rate budget is exhausted. "
+                              + "It clears as outstanding batches are acknowledged or their leases expire.",
                 }
-            }).ConfigureAwait(false);
-
-        return outcome
+                : error)
+            .Map(pulled => pulled.Map(dto => ToBatch(dto, destinationId)))
             .Tap(pulled =>
             {
                 if (pulled.HasNoValue)
                 {
-                    activity?.SetTag("occtoo.events.count", 0);
                     OcctooLog.EventBatchCaughtUp(_logger, destinationId.Value);
                     return;
                 }
 
                 var batch = pulled.Value;
-                activity?.SetTag("occtoo.events.count", batch.Events.Count);
-                activity?.SetTag("occtoo.events.lease_id", batch.Lease.LeaseId.ToString("D"));
-                activity?.SetTag("occtoo.events.attempt", batch.Attempt);
                 OcctooLog.EventBatchPulled(
                     _logger, batch.Events.Count, destinationId.Value, batch.Lease.LeaseId, batch.Attempt);
-            })
-            .TapError(error => OcctooTelemetry.Fail(activity, error));
+            });
     }
 
     /// <summary>
@@ -168,22 +152,14 @@ public sealed class EventBatchClient
         if (lease is null)
             return Task.FromResult(Result.Failure<EventBatchAcknowledgement, OcctooError>(new ValidationError("A lease is required.")));
 
-        var status = outcome switch
-        {
-            EventBatchOutcome.Ok => "ok",
-            EventBatchOutcome.Failed => "failed",
-            _ => null,
-        };
-
-        if (status is null)
-            return Task.FromResult(Result.Failure<EventBatchAcknowledgement, OcctooError>(
-                new ValidationError($"{outcome} is not an acknowledgement outcome; use Ok or Failed.")));
-
         var request = OcctooTransport.Request(
             HttpMethod.Post,
             new Uri($"v1/event-destinations/{lease.DestinationId.Value:D}/acknowledge", UriKind.Relative),
-            new AcknowledgeEventBatchDto(lease.LeaseId, lease.Generation, status),
+            new AcknowledgeEventBatchDto(lease.LeaseId, lease.Generation, outcome),
             EventBatchJsonContext.Default.AcknowledgeEventBatchDto);
+
+        // Spans and logs name the outcome the way the wire does: "ok", "failed".
+        var status = outcome.ToString().ToLowerInvariant();
 
         // Resending an acknowledgement that already landed changes nothing: a
         // resent ok finds the lease gone and reads stale, a resent failed
@@ -209,41 +185,18 @@ public sealed class EventBatchClient
             });
     }
 
-    private async Task<Result<Maybe<EventBatch>, OcctooError>> ReadBatch(
-        HttpResponseMessage response,
-        EventDestinationId destinationId,
-        CancellationToken cancellationToken)
+    private EventBatch ToBatch(EventBatchDto dto, EventDestinationId destinationId)
     {
-        EventBatchDto? dto;
-        try
-        {
-            dto = await response.Content
-                .ReadFromJsonAsync(EventBatchJsonContext.Default.EventBatchDto, cancellationToken)
-                .ConfigureAwait(false);
-        }
-        catch (Exception exception) when (exception is JsonException or NotSupportedException)
-        {
-            return new UnexpectedError($"The event batch could not be parsed: {exception.Message}", (int)response.StatusCode);
-        }
-
-        if (dto is null)
-            return new UnexpectedError("The event batch had an empty body.", (int)response.StatusCode);
-
-        // Skipping an unusable envelope matches Pull: acknowledging the batch
-        // still commits past it, and the warning says what was skipped.
+        // Skipping an unusable envelope matches EventsClient.Pull: acknowledging
+        // the batch still commits past it, and the warning says what was skipped.
         var events = new List<CloudEvent>(dto.Events.Count);
         foreach (var envelope in dto.Events)
         {
-            var parsed = EventParser.Parse(envelope);
-            if (parsed.IsSuccess)
-                events.Add(parsed.Value);
-            else
-                OcctooLog.EventSkipped(_logger, parsed.Error.Message);
+            EventParser.Parse(envelope)
+                .Tap(events.Add)
+                .TapError(error => OcctooLog.EventSkipped(_logger, error.Message));
         }
 
-        return Maybe.From(new EventBatch(
-            new EventBatchLease(destinationId, dto.LeaseId, dto.Generation),
-            dto.Attempt,
-            events));
+        return new EventBatch(new EventBatchLease(destinationId, dto.LeaseId, dto.Generation), dto.Attempt, events);
     }
 }

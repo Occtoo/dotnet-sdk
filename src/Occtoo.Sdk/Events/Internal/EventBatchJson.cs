@@ -20,7 +20,13 @@ internal sealed record EventBatchDto
     public required IReadOnlyList<JsonElement> Events { get; init; }
 }
 
-internal sealed record AcknowledgeEventBatchDto(Guid LeaseId, int Generation, string Status);
+internal sealed record AcknowledgeEventBatchDto(
+    Guid LeaseId,
+    int Generation,
+    [property: JsonConverter(typeof(EventBatchOutcomeConverter))] EventBatchOutcome Status);
+
+// The API names outcomes in camelCase: "ok", "failed".
+internal sealed class EventBatchOutcomeConverter() : JsonStringEnumConverter<EventBatchOutcome>(JsonNamingPolicy.CamelCase);
 
 internal sealed record EventBatchAcknowledgementDto
 {

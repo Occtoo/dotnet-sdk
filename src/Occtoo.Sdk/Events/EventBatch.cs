@@ -69,7 +69,7 @@ public sealed record EventBatchOptions
     /// </summary>
     public TimeSpan LeaseDuration { get; init; } = TimeSpan.FromSeconds(60);
 
-    internal Maybe<ValidationError> Validate()
+    internal UnitResult<OcctooError> Validate()
     {
         if (Limit is < 1 or > MaxLimit)
             return new ValidationError($"{nameof(Limit)} must be between 1 and {MaxLimit}.");
@@ -77,7 +77,7 @@ public sealed record EventBatchOptions
         if (LeaseDuration < TimeSpan.FromSeconds(1) || LeaseDuration > MaxLeaseDuration)
             return new ValidationError($"{nameof(LeaseDuration)} must be between one second and {MaxLeaseDuration.TotalMinutes:0} minutes.");
 
-        return Maybe<ValidationError>.None;
+        return UnitResult.Success<OcctooError>();
     }
 
     internal int LeaseSeconds => (int)Math.Ceiling(LeaseDuration.TotalSeconds);
