@@ -2,6 +2,15 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v0.4.0](https://github.com/Occtoo/dotnet-sdk/compare/7218ad1a6db47fec2b888addebec4053fba666b6..v0.4.0) - 2026-10-05
+#### Features
+- (**assets**) upload files into a Media data source (#7) - ([c6dcb4f](https://github.com/Occtoo/dotnet-sdk/commit/c6dcb4f28955dbfaea4334352545c21412a80111)) - Patryk Kuszmar
+- (**events**) durable-consumer batch pull and acknowledge (#8) - ([7002b3f](https://github.com/Occtoo/dotnet-sdk/commit/7002b3f657d37c43041f3112b9392886bde259f9)) - Joel Jansson
+#### Continuous Integration
+- (**release**) send the changelog to Linear as the release notes (#6) - ([7218ad1](https://github.com/Occtoo/dotnet-sdk/commit/7218ad1a6db47fec2b888addebec4053fba666b6)) - Ihor Korotenko
+
+- - -
+
 ## [v0.3.0](https://github.com/Occtoo/dotnet-sdk/compare/b76fde3d9e5ec7bdb6ea3553244e0fe12c91ae8d..v0.3.0) - 2026-09-24
 #### Features
 - ![BREAKING](https://img.shields.io/badge/BREAKING-red) (**applications**) application and source management surfaces (#1) - ([f023d48](https://github.com/Occtoo/dotnet-sdk/commit/f023d4874cc8b953f89139601a0fed06e2a445ac)) - Ihor Korotenko
