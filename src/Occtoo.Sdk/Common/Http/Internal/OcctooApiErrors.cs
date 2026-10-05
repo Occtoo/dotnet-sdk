@@ -60,6 +60,7 @@ internal static class OcctooApiErrors
         var text = problem switch
         {
             { Detail.Length: > 0 } => problem.Detail,
+            { Message.Length: > 0 } => problem.Message,
             { Title.Length: > 0 } => problem.Title,
             _ => $"Occtoo responded {(int)status}.",
         };
@@ -102,13 +103,17 @@ internal static class OcctooApiErrors
 
 /// <summary>
 /// RFC 9457 problem details, covering both the plain and the validation shape
-/// Occtoo returns. Naming comes from the context's Web defaults (camelCase).
+/// Occtoo returns — plus the Events API's <c>{ "message" }</c> error, which
+/// carries its only explanation there. Naming comes from the context's Web
+/// defaults (camelCase).
 /// </summary>
 internal sealed record ProblemDetailsDto
 {
     public string? Title { get; init; }
 
     public string? Detail { get; init; }
+
+    public string? Message { get; init; }
 
     public int Status { get; init; }
 

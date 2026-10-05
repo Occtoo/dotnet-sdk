@@ -121,6 +121,52 @@ public readonly partial struct EndpointId
             : Validation.Ok;
 }
 
+/// <summary>
+/// The id of an event destination — the durable consumer a worker pulls
+/// leased batches from.
+/// </summary>
+[ValueObject<Guid>]
+public readonly partial struct EventDestinationId
+{
+    private static Validation Validate(Guid input) =>
+        input == Guid.Empty ? Validation.Invalid("An event destination id must not be empty.") : Validation.Ok;
+}
+
+/// <summary>
+/// Identifies one worker pulling from a durable consumer: not blank, at most
+/// 200 characters.
+/// </summary>
+/// <remarks>
+/// <para>
+/// Give every concurrently running pull loop its own id. A pull from a worker
+/// that still holds a lease resumes that lease — the API reads it as "the
+/// previous batch was abandoned" — so two loops sharing an id hand each other's
+/// batches back and forth.
+/// </para>
+/// <para>
+/// Keep the id stable across restarts of the same worker (a pod name plus a
+/// loop index, say): a restarted worker then resumes its own abandoned lease
+/// immediately instead of waiting for it to expire.
+/// </para>
+/// </remarks>
+[ValueObject<string>(toPrimitiveCasting: CastOperator.Explicit, fromPrimitiveCasting: CastOperator.None)]
+public readonly partial struct EventWorkerId
+{
+    /// <summary>The API's length ceiling for a worker id.</summary>
+    public const int MaxLength = 200;
+
+    /// <summary>Converts a string through the same validation as <see cref="From"/>.</summary>
+    /// <exception cref="ValueObjectValidationException">The value is invalid.</exception>
+    public static implicit operator EventWorkerId(string value) => From(value);
+
+    private static Validation Validate(string input) => input switch
+    {
+        _ when string.IsNullOrWhiteSpace(input) => Validation.Invalid("An event worker id must not be empty."),
+        { Length: > MaxLength } => Validation.Invalid($"An event worker id must be at most {MaxLength} characters."),
+        _ => Validation.Ok,
+    };
+}
+
 /// <summary>The id of a tenant user.</summary>
 [ValueObject<string>(toPrimitiveCasting: CastOperator.Explicit, fromPrimitiveCasting: CastOperator.None)]
 public readonly partial struct UserId

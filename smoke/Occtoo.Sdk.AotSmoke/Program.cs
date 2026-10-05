@@ -3,7 +3,8 @@
 // dependency sneaks in: value-object construction, the OAuth token exchange
 // (snake_case JSON), FusionCache token storage, ingest request serialization,
 // receipt parsing, problem-details parsing, the asset payloads and their
-// generated filename regex, and one byte transfer. Everything is scripted; no
+// generated filename regex, one byte transfer, and the durable-consumer pull
+// and acknowledge round trip. Everything is scripted; no
 // network is involved. Exit code 0 means the SDK works in this deployment shape.
 
 using System.Net;
@@ -253,6 +254,51 @@ var refused = await client.Assets.Initialize(SourceId.From("media"), [asset]);
 Check("problem details mapped to a ValidationError",
     refused is { IsFailure: true, Error: ValidationError }
     && refused.Error.Message.Contains("Media data sources", StringComparison.Ordinal));
+
+// 6. Durable consumers: the leased batch (source-generated DTO over raw
+//    envelopes, then the typed records), the caught-up 204, and the
+//    acknowledgement round trip (request body, lenient status enum).
+var destinationId = EventDestinationId.From(Guid.Parse("5b0e2f4a-9c1d-4e8b-a7f3-6d2c1b0a9e8f"));
+transport.Enqueue(HttpStatusCode.OK, """
+    {
+      "leaseId": "0199a0c4-3c5e-7d8f-9a1b-2c3d4e5f6a7b",
+      "generation": 2,
+      "attempt": 3,
+      "events": [
+        {
+          "id": "9f4f2c74-6a3e-4a5b-9a2f-3e6f0d1c2b3d",
+          "type": "source_entry.updated",
+          "sequence": "003.00000000000000184467",
+          "data": { "sourceId": "products", "entryKey": "sku-123", "version": 4 }
+        }
+      ]
+    }
+    """);
+transport.Enqueue(HttpStatusCode.NoContent, "");
+transport.Enqueue(HttpStatusCode.OK, """{ "status": "committed", "committed": "003.00000000000000184467" }""");
+
+var leased = await client.Events.Batch.Pull(destinationId, "smoke-worker");
+Check("leased batch parsed into typed records", leased is
+{
+    IsSuccess: true,
+    Value: { HasValue: true, Value: { Attempt: 3, Lease.Generation: 2, Events: [SourceEntryUpdated { EntryKey.Value: "sku-123" }] } },
+});
+
+var caughtUp = await client.Events.Batch.Pull(destinationId, "smoke-worker");
+Check("caught-up pull is an empty result", caughtUp is { IsSuccess: true, Value.HasNoValue: true });
+
+var acknowledged = await client.Events.Batch.Acknowledge(
+    new EventBatchLease(destinationId, Guid.Parse("0199a0c4-3c5e-7d8f-9a1b-2c3d4e5f6a7b"), Generation: 2),
+    EventBatchOutcome.Ok);
+Check("acknowledgement body carries the lease and status", transport.LastBody is { } ack
+    && ack.Contains("\"leaseId\":\"0199a0c4-3c5e-7d8f-9a1b-2c3d4e5f6a7b\"")
+    && ack.Contains("\"generation\":2")
+    && ack.Contains("\"status\":\"ok\""));
+Check("acknowledgement parsed with its status and committed position", acknowledged is
+{
+    IsSuccess: true,
+    Value: { Status: { HasValue: true, Value: EventBatchAcknowledgementStatus.Committed }, Committed.Value: "003.00000000000000184467" },
+});
 
 Console.WriteLine(failures == 0 ? "AOT smoke: OK" : $"AOT smoke: {failures} FAILED");
 return failures == 0 ? 0 : 1;
