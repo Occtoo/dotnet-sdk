@@ -2,6 +2,12 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v0.5.0](https://github.com/Occtoo/dotnet-sdk/compare/a4a013ad23fa55077e9d25884472908607a908bf..v0.5.0) - 2026-10-08
+#### Features
+- (**sources**) delete entries through typed ingest (#9) - ([a4a013a](https://github.com/Occtoo/dotnet-sdk/commit/a4a013ad23fa55077e9d25884472908607a908bf)) - Ihor Korotenko
+
+- - -
+
 ## [v0.4.0](https://github.com/Occtoo/dotnet-sdk/compare/7218ad1a6db47fec2b888addebec4053fba666b6..v0.4.0) - 2026-10-05
 #### Features
 - (**assets**) upload files into a Media data source (#7) - ([c6dcb4f](https://github.com/Occtoo/dotnet-sdk/commit/c6dcb4f28955dbfaea4334352545c21412a80111)) - Patryk Kuszmar
