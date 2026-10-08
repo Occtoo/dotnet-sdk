@@ -22,7 +22,8 @@ internal sealed record IngestRequestBody(IReadOnlyCollection<SourceEntry> Entrie
 
 /// <summary>
 /// Writes one <see cref="SourceEntry"/> in the endpoint's wire shape —
-/// <c>{ "id", "properties": [ { "id", "value", "language"? } ] }</c> — straight
+/// <c>{ "id", "properties": [ { "id", "value", "language"? } ] }</c>, or
+/// <c>{ "id", "delete": true }</c> for a deletion — straight
 /// from the public model, with values as their native JSON types and
 /// <c>language</c> omitted for non-localized properties.
 /// </summary>
@@ -32,6 +33,13 @@ internal sealed class SourceEntryJsonConverter : JsonConverter<SourceEntry>
     {
         writer.WriteStartObject();
         writer.WriteString("id"u8, entry.Id.Value);
+        if (entry.IsDeletion)
+        {
+            writer.WriteBoolean("delete"u8, true);
+            writer.WriteEndObject();
+            return;
+        }
+
         writer.WriteStartArray("properties"u8);
 
         foreach (var property in entry.Properties)

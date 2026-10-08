@@ -319,4 +319,31 @@ public class SourcesClientTests
 
         result.Value.AcceptedEntryCount.ShouldBe(1);
     }
+
+    [Fact]
+    public async Task Deletions_and_upserts_share_one_batch()
+    {
+        using var handler = new StubHandler().Respond(HttpStatusCode.Accepted, AcceptedBody);
+        using var client = Client(handler);
+
+        await client.Sources.IngestEntries(Products, [ChairEntry(), SourceEntry.Delete("sku-obsolete")], TestContext.Current.CancellationToken);
+
+        using var body = JsonDocument.Parse(handler.Requests.Single().Body!);
+        var entries = body.RootElement.GetProperty("entries");
+        entries[0].TryGetProperty("delete", out _).ShouldBeFalse();
+        entries[1].GetRawText().ShouldBe("""{"id":"sku-obsolete","delete":true}""");
+    }
+
+    [Fact]
+    public async Task A_deletion_with_properties_fails_before_the_request()
+    {
+        using var handler = new StubHandler();
+        using var client = Client(handler);
+        var invalid = SourceEntry.Delete("sku-1") with { Properties = [new EntryProperty("name", "chair")] };
+
+        var result = await client.Sources.IngestEntries(Products, [ChairEntry(), invalid], TestContext.Current.CancellationToken);
+
+        result.Error.ShouldBeOfType<ValidationError>().Failures.Keys.ShouldBe(["entries[1].properties"]);
+        handler.RequestCount.ShouldBe(0);
+    }
 }

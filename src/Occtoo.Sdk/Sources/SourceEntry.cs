@@ -24,8 +24,8 @@ public sealed record EntryProperty(PropertyId Id, PropertyValue Value, Maybe<Lan
 }
 
 /// <summary>
-/// One entry to upsert into a source — typed ingest has no delete flag, so every
-/// entry either creates or updates.
+/// One entry in a typed ingest batch: an upsert built with <see cref="WithId"/>,
+/// or a deletion made with <see cref="Delete"/>. Both can share one batch.
 /// </summary>
 /// <param name="Id">The entry's id, unique within the source.</param>
 /// <param name="Properties">The property values to upsert on the entry.</param>
@@ -53,6 +53,12 @@ public sealed record SourceEntry(EntryId Id, IReadOnlyList<EntryProperty> Proper
     /// </param>
     /// <returns>A builder to add properties to.</returns>
     public static SourceEntryBuilder WithId(EntryId id) => new(id);
+
+    /// <summary>An entry that deletes <paramref name="id"/> from the source. It carries no properties.</summary>
+    public static SourceEntry Delete(EntryId id) => new(id, []) { IsDeletion = true };
+
+    /// <summary>Whether this entry deletes rather than upserts. Only <see cref="Delete"/> sets it.</summary>
+    public bool IsDeletion { get; private init; }
 }
 
 /// <summary>
