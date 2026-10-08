@@ -74,6 +74,17 @@ public sealed class SourcesClient
         if (entries is null or { Count: 0 })
             return Task.FromResult(Result.Failure<IngestReceipt, OcctooError>(new ValidationError("At least one entry is required.")));
 
+        // A deletion that gained properties through `with` is the API's 400, caught here.
+        var invalidDeletions = entries
+            .Select((entry, index) => (entry, index))
+            .Where(item => item.entry.IsDeletion && item.entry.Properties.Count > 0)
+            .ToDictionary(
+                item => $"entries[{item.index}].properties",
+                IReadOnlyList<string> (_) => ["Deleted entries cannot carry properties."]);
+        if (invalidDeletions.Count > 0)
+            return Task.FromResult(Result.Failure<IngestReceipt, OcctooError>(
+                new ValidationError("Deleted entries cannot carry properties.", invalidDeletions)));
+
         OcctooLog.Ingesting(_logger, entries.Count, sourceId.Value);
 
         var request = OcctooTransport.Request(

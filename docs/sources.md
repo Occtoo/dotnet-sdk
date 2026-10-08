@@ -91,13 +91,29 @@ Everything returns `Result<IngestReceipt, OcctooError>` — see
 Validation is all-or-nothing: a `400` means nothing was accepted, and
 `ValidationError.Failures` names the offending request paths.
 
+## Deleting entries
+
+`SourceEntry.Delete(id)` deletes an entry. Deletions carry no properties and
+share a batch with upserts:
+
+```csharp
+await client.Sources.IngestEntries("products",
+[
+    SourceEntry.WithId("sku-123").WithDecimal("price", 99m),
+    SourceEntry.Delete("sku-obsolete"),
+]);
+```
+
+Like upserts, deletions are queued: acceptance means the batch passed
+validation, not that the entry is gone yet. An entry id should appear once per
+batch.
+
 ## Batch size
 
 Occtoo recommends at most 1000 entries per request
 (`SourcesClient.RecommendedMaxEntriesPerRequest`). The SDK does not reject
 larger batches — the limit is a recommendation, not a contract — but splitting
-keeps ingestion performing well. Every entry is an upsert; typed ingest has no
-delete flag.
+keeps ingestion performing well.
 
 ## Managing sources and properties
 

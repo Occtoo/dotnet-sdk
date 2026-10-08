@@ -215,7 +215,7 @@ tokens issued by `https://auth.occtoo.com`.
 
 | Method | Path | Purpose |
 |---|---|---|
-| `POST` | `/v1/sources/{sourceId}` | Validate typed JSON entries and queue them for asynchronous processing |
+| `POST` | `/v1/sources/{sourceId}` | Validate typed JSON entries — upserts and deletions — and queue them for asynchronous processing |
 | `GET` `POST` | `/v1/sources` | List (forward-paginated, filtered) and create sources |
 | `GET` `PATCH` `DELETE` | `/v1/sources/{sourceId}` | Read, update, and soft-delete a source |
 | `GET` `PUT` `DELETE` | `/v1/sources/{sourceId}/properties[/{propertyId}]` | List, read, upsert, and delete properties |
