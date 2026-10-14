@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Diagnostics;
 using CSharpFunctionalExtensions;
 using Microsoft.Extensions.Logging;
@@ -70,9 +71,6 @@ public sealed partial class AssetsClient
     private const string UploadLinksRoute = "uploadLinks";
     private const string CompleteRoute = "complete";
 
-    private static readonly IReadOnlyDictionary<AssetKey, IReadOnlyList<EntryProperty>> NoProperties =
-        new Dictionary<AssetKey, IReadOnlyList<EntryProperty>>();
-
     private readonly HttpClient _httpClient;
     private readonly Lazy<HttpClient> _uploadHttpClient;
     private readonly ILogger _logger;
@@ -125,7 +123,7 @@ public sealed partial class AssetsClient
         IReadOnlyDictionary<AssetKey, IReadOnlyList<EntryProperty>>? properties = null,
         CancellationToken cancellationToken = default)
     {
-        properties ??= NoProperties;
+        properties ??= ImmutableDictionary<AssetKey, IReadOnlyList<EntryProperty>>.Empty;
 
         return Validate(assets, MaxAssetsPerInitialize)
             .Bind(() => AssetPropertiesValidator.Validate(assets, properties))
@@ -189,7 +187,7 @@ public sealed partial class AssetsClient
         IReadOnlyDictionary<AssetKey, IReadOnlyList<EntryProperty>>? properties = null,
         CancellationToken cancellationToken = default)
     {
-        properties ??= NoProperties;
+        properties ??= ImmutableDictionary<AssetKey, IReadOnlyList<EntryProperty>>.Empty;
 
         return Validate(assets, MaxAssetsPerOverride)
             .Bind(() => AssetPropertiesValidator.Validate(assets, properties))
