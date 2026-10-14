@@ -24,8 +24,8 @@ public class AssetProgressTests
         await client.Assets.Upload(
             Media,
             [Logo],
-            new AssetUploadOptions { MaxConcurrentTransfers = 1, Progress = progress },
-            TestContext.Current.CancellationToken);
+            options: new AssetUploadOptions { MaxConcurrentTransfers = 1, Progress = progress },
+            cancellationToken: TestContext.Current.CancellationToken);
 
         var stages = progress.For("logo").Select(report => report.Stage).ToList();
 
@@ -48,8 +48,8 @@ public class AssetProgressTests
         await client.Assets.Upload(
             Media,
             [Logo],
-            new AssetUploadOptions { MaxConcurrentTransfers = 1, Progress = progress },
-            TestContext.Current.CancellationToken);
+            options: new AssetUploadOptions { MaxConcurrentTransfers = 1, Progress = progress },
+            cancellationToken: TestContext.Current.CancellationToken);
 
         var transferring = progress.For("logo")
             .Where(report => report.Stage == AssetUploadStage.Transferring)
@@ -73,8 +73,8 @@ public class AssetProgressTests
         await client.Assets.Upload(
             Media,
             [Logo],
-            new AssetUploadOptions { MaxConcurrentTransfers = 1, Progress = progress },
-            TestContext.Current.CancellationToken);
+            options: new AssetUploadOptions { MaxConcurrentTransfers = 1, Progress = progress },
+            cancellationToken: TestContext.Current.CancellationToken);
 
         var failures = progress.For("logo").Where(report => report.Failure.HasValue).ToList();
 
@@ -104,8 +104,8 @@ public class AssetProgressTests
         var result = await client.Assets.Upload(
             Media,
             assets,
-            new AssetUploadOptions { MaxConcurrentTransfers = 4, Progress = progress },
-            TestContext.Current.CancellationToken);
+            options: new AssetUploadOptions { MaxConcurrentTransfers = 4, Progress = progress },
+            cancellationToken: TestContext.Current.CancellationToken);
 
         result.Value.AllCompleted.ShouldBeTrue();
 
@@ -135,8 +135,8 @@ public class AssetProgressTests
         await client.Assets.Upload(
             Media,
             [Logo],
-            new AssetUploadOptions { MaxConcurrentTransfers = 1, Progress = progress },
-            TestContext.Current.CancellationToken);
+            options: new AssetUploadOptions { MaxConcurrentTransfers = 1, Progress = progress },
+            cancellationToken: TestContext.Current.CancellationToken);
 
         var transferring = progress.For("logo")
             .Where(report => report.Stage == AssetUploadStage.Transferring)
@@ -167,8 +167,8 @@ public class AssetProgressTests
         await client.Assets.Upload(
             Media,
             [Logo],
-            new AssetUploadOptions { MaxConcurrentTransfers = 1, Progress = progress },
-            TestContext.Current.CancellationToken);
+            options: new AssetUploadOptions { MaxConcurrentTransfers = 1, Progress = progress },
+            cancellationToken: TestContext.Current.CancellationToken);
 
         var terminal = progress.For("logo")[^1];
         terminal.Stage.ShouldBe(AssetUploadStage.Completing);
@@ -188,8 +188,8 @@ public class AssetProgressTests
         var result = await client.Assets.Upload(
             Media,
             [Logo],
-            new AssetUploadOptions { MaxConcurrentTransfers = 1 },
-            TestContext.Current.CancellationToken);
+            options: new AssetUploadOptions { MaxConcurrentTransfers = 1 },
+            cancellationToken: TestContext.Current.CancellationToken);
 
         result.Value.AllCompleted.ShouldBeTrue();
     }

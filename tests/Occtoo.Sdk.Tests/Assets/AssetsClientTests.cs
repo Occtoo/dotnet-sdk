@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text.Json;
 using Occtoo.Assets;
+using Occtoo.Sources;
 using Shouldly;
 using Xunit;
 using static Occtoo.Sdk.Tests.Assets.AssetsTestSetup;
@@ -15,7 +16,7 @@ public class AssetsClientTests
         using var api = new StubHandler().Respond(HttpStatusCode.OK, InitializedBody);
         using var client = Client(api);
 
-        var result = await client.Assets.Initialize(Media, [Logo], default, TestContext.Current.CancellationToken);
+        var result = await client.Assets.Initialize(Media, [Logo], cancellationToken: TestContext.Current.CancellationToken);
 
         result.IsSuccess.ShouldBeTrue();
         var link = result.Value.Succeeded[AssetKey.From("logo")];
@@ -42,7 +43,7 @@ public class AssetsClientTests
         using var client = Client(api);
         var folder = FolderId.From(Guid.Parse("2f1d4a3c-0000-4000-8000-000000000001"));
 
-        await client.Assets.Initialize(Media, [Logo], folder, TestContext.Current.CancellationToken);
+        await client.Assets.Initialize(Media, [Logo], folder, cancellationToken: TestContext.Current.CancellationToken);
 
         using var body = JsonDocument.Parse(api.Requests.Single().Body!);
         body.RootElement.GetProperty("folderId").GetGuid().ShouldBe(folder.Value);
@@ -61,12 +62,114 @@ public class AssetsClientTests
         using var api = new StubHandler().Respond(HttpStatusCode.OK, partial);
         using var client = Client(api);
 
-        var result = await client.Assets.Initialize(Media, [Logo], default, TestContext.Current.CancellationToken);
+        var result = await client.Assets.Initialize(Media, [Logo], cancellationToken: TestContext.Current.CancellationToken);
 
         result.Value.Succeeded.ShouldBeEmpty();
         result.Value.Failed[AssetKey.From("logo")].ShouldBe("Asset already completed");
         result.Value.AllSucceeded.ShouldBeFalse();
         result.Value.Find(AssetKey.From("logo")).HasValue.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task Override_puts_the_assets_and_their_properties_on_the_assets_route()
+    {
+        using var api = new StubHandler().Respond(HttpStatusCode.OK, InitializedBody);
+        using var client = Client(api);
+
+        var result = await client.Assets.Override(
+            Media,
+            [Logo],
+            properties: new Dictionary<AssetKey, IReadOnlyList<EntryProperty>>
+            {
+                [Logo.Key] =
+                [
+                    new EntryProperty("alt", "Company logo"),
+                    new EntryProperty("photographer", PropertyValue.Clear),
+                    new EntryProperty("title", PropertyValue.Clear, LanguageCode.From("sv")),
+                ],
+            },
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        result.Value.Succeeded[AssetKey.From("logo")].Url.ShouldBe(new Uri(UploadUrl));
+
+        var request = api.Requests.Single();
+        request.Method.ShouldBe(HttpMethod.Put);
+        request.RequestUri!.ToString().ShouldBe("https://api.occtoo.com/v1/assets/media");
+        request.Body.ShouldBe(
+            """{"folderId":null,"assets":[{"entryKey":"logo","filename":"logo.png","properties":[{"id":"alt","value":"Company logo"},{"id":"photographer","value":null},{"id":"title","value":null,"language":"sv"}]}]}""");
+    }
+
+    [Fact]
+    public async Task Override_sends_the_folder_for_keys_it_creates()
+    {
+        using var api = new StubHandler().Respond(HttpStatusCode.OK, InitializedBody);
+        using var client = Client(api);
+        var folder = FolderId.From(Guid.Parse("2f1d4a3c-0000-4000-8000-000000000001"));
+
+        await client.Assets.Override(Media, [Logo], folder, cancellationToken: TestContext.Current.CancellationToken);
+
+        api.Requests.Single().Body.ShouldBe(
+            """{"folderId":"2f1d4a3c-0000-4000-8000-000000000001","assets":[{"entryKey":"logo","filename":"logo.png"}]}""");
+    }
+
+    [Fact]
+    public async Task Replace_overrides_transfers_and_completes()
+    {
+        using var api = new StubHandler()
+            .Respond(HttpStatusCode.OK, InitializedBody)
+            .Respond(HttpStatusCode.OK, CompletedBody);
+        using var blob = new StubHandler().RespondCreated();
+        using var client = Client(api, blob);
+
+        var result = await client.Assets.Replace(
+            Media,
+            [AssetUpload.FromBytes("logo", "logo.png", "12345"u8.ToArray())],
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        result.Value.AllCompleted.ShouldBeTrue();
+        api.Requests.Select(request => (request.Method, request.RequestUri!.AbsolutePath))
+            .ShouldBe([(HttpMethod.Put, "/v1/assets/media"), (HttpMethod.Post, "/v1/assets/media/complete")]);
+        blob.RequestCount.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task Replace_sends_the_folder_on_override()
+    {
+        using var api = new StubHandler()
+            .Respond(HttpStatusCode.OK, InitializedBody)
+            .Respond(HttpStatusCode.OK, CompletedBody);
+        using var blob = new StubHandler().RespondCreated();
+        using var client = Client(api, blob);
+        var folder = FolderId.From(Guid.Parse("2f1d4a3c-0000-4000-8000-000000000001"));
+
+        await client.Assets.Replace(
+            Media,
+            [AssetUpload.FromBytes("logo", "logo.png", "12345"u8.ToArray())],
+            folder,
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        using var body = JsonDocument.Parse(api.Requests[0].Body!);
+        body.RootElement.GetProperty("folderId").GetGuid().ShouldBe(folder.Value);
+    }
+
+    [Fact]
+    public async Task Upload_sends_the_folder_on_initialize()
+    {
+        using var api = new StubHandler()
+            .Respond(HttpStatusCode.OK, InitializedBody)
+            .Respond(HttpStatusCode.OK, CompletedBody);
+        using var blob = new StubHandler().RespondCreated();
+        using var client = Client(api, blob);
+        var folder = FolderId.From(Guid.Parse("2f1d4a3c-0000-4000-8000-000000000001"));
+
+        await client.Assets.Upload(
+            Media,
+            [AssetUpload.FromBytes("logo", "logo.png", "12345"u8.ToArray())],
+            folder,
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        using var body = JsonDocument.Parse(api.Requests[0].Body!);
+        body.RootElement.GetProperty("folderId").GetGuid().ShouldBe(folder.Value);
     }
 
     [Fact]
@@ -200,7 +303,7 @@ public class AssetsClientTests
         using var api = new StubHandler().Respond(HttpStatusCode.BadRequest, RejectedBody);
         using var client = Client(api);
 
-        var result = await client.Assets.Initialize(Media, [Logo], default, TestContext.Current.CancellationToken);
+        var result = await client.Assets.Initialize(Media, [Logo], cancellationToken: TestContext.Current.CancellationToken);
 
         var error = result.Error.ShouldBeOfType<ValidationError>();
         error.Message.ShouldContain("Media data sources");
@@ -218,7 +321,7 @@ public class AssetsClientTests
         using var api = new StubHandler().Respond(status, RejectedBody);
         using var client = Client(api);
 
-        var result = await client.Assets.Initialize(Media, [Logo], default, TestContext.Current.CancellationToken);
+        var result = await client.Assets.Initialize(Media, [Logo], cancellationToken: TestContext.Current.CancellationToken);
 
         result.Error.ShouldBeOfType(expected);
     }
@@ -237,7 +340,7 @@ public class AssetsClientTests
         using var api = new StubHandler().Respond(HttpStatusCode.Conflict, missing);
         using var client = Client(api);
 
-        var result = await client.Assets.Initialize(Media, [Logo], default, TestContext.Current.CancellationToken);
+        var result = await client.Assets.Initialize(Media, [Logo], cancellationToken: TestContext.Current.CancellationToken);
 
         result.Error.ShouldBeOfType<ConflictError>().Message.ShouldContain("does not exist");
     }
@@ -253,7 +356,7 @@ public class AssetsClientTests
         });
         using var client = Client(api);
 
-        var result = await client.Assets.Initialize(Media, [Logo], default, TestContext.Current.CancellationToken);
+        var result = await client.Assets.Initialize(Media, [Logo], cancellationToken: TestContext.Current.CancellationToken);
 
         var error = result.Error.ShouldBeOfType<RateLimitError>();
         error.ShouldBeAssignableTo<TransientError>();
@@ -266,7 +369,7 @@ public class AssetsClientTests
         using var api = new StubHandler();
         using var client = Client(api);
 
-        var result = await client.Assets.Initialize(Media, [], default, TestContext.Current.CancellationToken);
+        var result = await client.Assets.Initialize(Media, [], cancellationToken: TestContext.Current.CancellationToken);
 
         result.Error.ShouldBeOfType<ValidationError>();
         api.RequestCount.ShouldBe(0);
@@ -283,9 +386,37 @@ public class AssetsClientTests
             .Select(index => new Asset(AssetKey.From($"asset_{index}"), AssetFilename.From("logo.png")))
             .ToList();
 
-        var result = await client.Assets.Initialize(Media, assets, default, TestContext.Current.CancellationToken);
+        var result = await client.Assets.Initialize(Media, assets, cancellationToken: TestContext.Current.CancellationToken);
 
         result.Error.ShouldBeOfType<ValidationError>().Message.ShouldContain("100");
+        api.RequestCount.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task More_than_the_override_ceiling_is_refused_by_Override_and_Replace_without_a_round_trip()
+    {
+        using var api = new StubHandler();
+        using var client = Client(api);
+
+        var count = AssetsClient.MaxAssetsPerOverride + 1;
+        List<Asset> assets =
+        [
+            .. Enumerable
+                .Range(0, count)
+                .Select(index => new Asset(AssetKey.From($"asset_{index}"), AssetFilename.From("logo.png"))),
+        ];
+        List<AssetUpload> uploads =
+        [
+            .. Enumerable
+                .Range(0, count)
+                .Select(index => AssetUpload.FromBytes($"asset_{index}", "logo.png", "12345"u8.ToArray())),
+        ];
+
+        (await client.Assets.Override(Media, assets, cancellationToken: TestContext.Current.CancellationToken))
+            .Error.ShouldBeOfType<ValidationError>();
+        (await client.Assets.Replace(Media, uploads, cancellationToken: TestContext.Current.CancellationToken))
+            .Error.ShouldBeOfType<ValidationError>();
+
         api.RequestCount.ShouldBe(0);
     }
 
@@ -322,6 +453,7 @@ public class AssetsClientTests
 
         using var api = new StubHandler()
             .Respond(HttpStatusCode.OK, nothing)
+            .Respond(HttpStatusCode.OK, nothing)
             .Respond(HttpStatusCode.OK, """{ "completed": {}, "failed": {} }""")
             .Respond(HttpStatusCode.OK, nothing)
             .Respond(HttpStatusCode.OK, "{}")
@@ -329,11 +461,14 @@ public class AssetsClientTests
         using var client = Client(api);
 
         var hundred = Batch(AssetsClient.MaxAssetsPerInitialize);
+        var overridden = Batch(AssetsClient.MaxAssetsPerOverride);
         var fifty = Batch(AssetsClient.MaxAssetsPerCompletion);
         var fiftyKeys = Batch(AssetsClient.MaxKeysPerRequest).Select(asset => asset.Key).ToList();
 
         // The ceiling is the last accepted value, not the first rejected one.
-        (await client.Assets.Initialize(Media, hundred, default, TestContext.Current.CancellationToken))
+        (await client.Assets.Initialize(Media, hundred, cancellationToken: TestContext.Current.CancellationToken))
+            .IsSuccess.ShouldBeTrue();
+        (await client.Assets.Override(Media, overridden, cancellationToken: TestContext.Current.CancellationToken))
             .IsSuccess.ShouldBeTrue();
         (await client.Assets.Complete(Media, fifty, TestContext.Current.CancellationToken))
             .IsSuccess.ShouldBeTrue();
@@ -344,7 +479,7 @@ public class AssetsClientTests
         (await client.Assets.Delete(Media, fiftyKeys, TestContext.Current.CancellationToken))
             .IsSuccess.ShouldBeTrue();
 
-        api.RequestCount.ShouldBe(5);
+        api.RequestCount.ShouldBe(6);
 
         static List<Asset> Batch(int count) =>
         [
@@ -399,8 +534,7 @@ public class AssetsClientTests
         var result = await client.Assets.Initialize(
             Media,
             [Logo, new Asset(AssetKey.From("LOGO"), AssetFilename.From("logo.png"))],
-            default,
-            TestContext.Current.CancellationToken);
+            cancellationToken: TestContext.Current.CancellationToken);
 
         result.Error.ShouldBeOfType<ValidationError>().Message.ShouldContain("distinct");
         api.RequestCount.ShouldBe(0);
@@ -413,7 +547,7 @@ public class AssetsClientTests
         using var client = Client(api);
 
         var result = await client.Assets.Initialize(
-            Media, null!, default, TestContext.Current.CancellationToken);
+            Media, null!, cancellationToken: TestContext.Current.CancellationToken);
 
         result.Error.ShouldBeOfType<ValidationError>();
         api.RequestCount.ShouldBe(0);

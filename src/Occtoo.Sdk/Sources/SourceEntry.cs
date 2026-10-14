@@ -3,7 +3,8 @@ using CSharpFunctionalExtensions;
 namespace Occtoo.Sources;
 
 /// <summary>
-/// One property value on a <see cref="SourceEntry"/>.
+/// One property value on a <see cref="SourceEntry"/> or an
+/// <see cref="Occtoo.Assets.AssetUpload"/>.
 /// </summary>
 /// <param name="Id">The source property the value belongs to.</param>
 /// <param name="Value">The typed value.</param>
@@ -64,79 +65,15 @@ public sealed record SourceEntry(EntryId Id, IReadOnlyList<EntryProperty> Proper
 /// <summary>
 /// Builds a <see cref="SourceEntry"/> fluently. Converts implicitly, so a
 /// finished builder can be passed wherever an entry is expected without calling
-/// <see cref="Build"/>.
+/// <see cref="Build"/>. The typed <c>With*</c> methods come from
+/// <see cref="EntryPropertyBuilderExtensions"/>.
 /// </summary>
-/// <remarks>
-/// Every method takes the value-object types — <see cref="PropertyId"/>,
-/// <see cref="LanguageCode"/> — which convert implicitly from strings through
-/// their validation, throwing <see cref="Vogen.ValueObjectValidationException"/>
-/// for invalid input: the same construction-time contract as the value objects
-/// themselves.
-/// </remarks>
-public sealed class SourceEntryBuilder
+public sealed class SourceEntryBuilder : IEntryPropertyBuilder<SourceEntryBuilder>
 {
     private readonly EntryId _id;
     private readonly List<EntryProperty> _properties = [];
 
     internal SourceEntryBuilder(EntryId id) => _id = id;
-
-    /// <summary>Adds a <c>Text</c> value.</summary>
-    /// <param name="propertyId">The source property.</param>
-    /// <param name="value">The text.</param>
-    /// <returns>The builder, for chaining.</returns>
-    public SourceEntryBuilder WithText(PropertyId propertyId, string value) =>
-        WithProperty(new(propertyId, PropertyValue.Text(value)));
-
-    /// <summary>Adds a <c>LocalizedText</c> value.</summary>
-    /// <param name="propertyId">The source property.</param>
-    /// <param name="value">The text.</param>
-    /// <param name="language">The language, such as <c>en</c>.</param>
-    /// <returns>The builder, for chaining.</returns>
-    public SourceEntryBuilder WithLocalizedText(PropertyId propertyId, string value, LanguageCode language) =>
-        WithProperty(new(propertyId, PropertyValue.Text(value), language));
-
-    /// <summary>Adds an <c>Integer</c> value.</summary>
-    /// <param name="propertyId">The source property.</param>
-    /// <param name="value">The number.</param>
-    /// <returns>The builder, for chaining.</returns>
-    public SourceEntryBuilder WithInteger(PropertyId propertyId, long value) =>
-        WithProperty(new(propertyId, PropertyValue.Integer(value)));
-
-    /// <summary>Adds a <c>Decimal</c> value.</summary>
-    /// <param name="propertyId">The source property.</param>
-    /// <param name="value">The number.</param>
-    /// <returns>The builder, for chaining.</returns>
-    public SourceEntryBuilder WithDecimal(PropertyId propertyId, decimal value) =>
-        WithProperty(new(propertyId, PropertyValue.Decimal(value)));
-
-    /// <summary>Adds a <c>Boolean</c> value.</summary>
-    /// <param name="propertyId">The source property.</param>
-    /// <param name="value">The flag.</param>
-    /// <returns>The builder, for chaining.</returns>
-    public SourceEntryBuilder WithBoolean(PropertyId propertyId, bool value) =>
-        WithProperty(new(propertyId, PropertyValue.Boolean(value)));
-
-    /// <summary>Adds a <c>Timestamp</c> value.</summary>
-    /// <param name="propertyId">The source property.</param>
-    /// <param name="value">The timestamp.</param>
-    /// <returns>The builder, for chaining.</returns>
-    public SourceEntryBuilder WithTimestamp(PropertyId propertyId, DateTimeOffset value) =>
-        WithProperty(new(propertyId, PropertyValue.Timestamp(value)));
-
-    /// <summary>Adds a <c>List</c> value.</summary>
-    /// <param name="propertyId">The source property.</param>
-    /// <param name="items">The elements.</param>
-    /// <returns>The builder, for chaining.</returns>
-    public SourceEntryBuilder WithList(PropertyId propertyId, params IReadOnlyList<string> items) =>
-        WithProperty(new(propertyId, PropertyValue.List(items)));
-
-    /// <summary>Adds a <c>LocalizedList</c> value.</summary>
-    /// <param name="propertyId">The source property.</param>
-    /// <param name="items">The elements.</param>
-    /// <param name="language">The language, such as <c>en</c>.</param>
-    /// <returns>The builder, for chaining.</returns>
-    public SourceEntryBuilder WithLocalizedList(PropertyId propertyId, IReadOnlyList<string> items, LanguageCode language) =>
-        WithProperty(new(propertyId, PropertyValue.List(items), language));
 
     /// <summary>Clears a configured property by storing an empty value.</summary>
     /// <param name="propertyId">The source property.</param>
@@ -145,11 +82,11 @@ public sealed class SourceEntryBuilder
         WithProperty(new(propertyId, PropertyValue.Clear));
 
     /// <summary>Adds an already-built property value.</summary>
-    /// <param name="property">The property value.</param>
+    /// <param name="value">The property value.</param>
     /// <returns>The builder, for chaining.</returns>
-    public SourceEntryBuilder WithProperty(EntryProperty property)
+    public SourceEntryBuilder WithProperty(EntryProperty value)
     {
-        _properties.Add(property);
+        _properties.Add(value);
         return this;
     }
 

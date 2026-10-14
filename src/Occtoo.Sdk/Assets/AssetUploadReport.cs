@@ -27,7 +27,8 @@ public sealed record AssetUploadOutcome(
 /// <remarks>
 /// A returned report means the run itself went through; individual assets may
 /// still have failed. A failed <c>Result</c> from
-/// <see cref="AssetsClient.Upload"/> means the run could not proceed at all —
+/// <see cref="AssetsClient.Upload"/> or <see cref="AssetsClient.Replace"/>
+/// means the run could not proceed at all —
 /// nothing was uploaded.
 /// </remarks>
 /// <param name="DataSourceId">The data source the assets were uploaded into.</param>

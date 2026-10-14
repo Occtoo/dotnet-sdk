@@ -1,6 +1,7 @@
 using System.Net;
 using Microsoft.Extensions.DependencyInjection;
 using Occtoo.Applications;
+using Occtoo.Assets;
 using Occtoo.Authentication;
 using Occtoo.DependencyInjection;
 using Occtoo.Events;
@@ -224,6 +225,47 @@ public class ResilienceTests
                 Generation: 0),
             EventBatchOutcome.Ok,
             TestContext.Current.CancellationToken);
+
+        result.IsSuccess.ShouldBeTrue();
+        handler.RequestCount.ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task An_asset_initialize_is_not_replayed_after_an_ambiguous_failure()
+    {
+        using var handler = new StubHandler()
+            .Respond(HttpStatusCode.BadGateway, "{}")
+            .Respond(HttpStatusCode.OK, "{}");
+        using var client = Client(handler, FastRetries);
+
+        var result = await client.Assets.Initialize(
+            SourceId.From("media"),
+            [new Asset(AssetKey.From("logo"), AssetFilename.From("logo.png"))],
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        result.Error.ShouldBeOfType<ServerError>();
+        handler.RequestCount.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task An_asset_override_is_replayed_because_it_adds_or_replaces()
+    {
+        using var handler = new StubHandler()
+            .Respond(HttpStatusCode.BadGateway, "{}")
+            .Respond(HttpStatusCode.OK, """
+                {
+                  "initialized": {
+                    "logo": { "uploadUrl": "https://tenant.blob.core.windows.net/media/logo.png?sig=abc", "expiresAt": "2099-01-01T00:00:00+00:00" }
+                  },
+                  "failed": {}
+                }
+                """);
+        using var client = Client(handler, FastRetries);
+
+        var result = await client.Assets.Override(
+            SourceId.From("media"),
+            [new Asset(AssetKey.From("logo"), AssetFilename.From("logo.png"))],
+            cancellationToken: TestContext.Current.CancellationToken);
 
         result.IsSuccess.ShouldBeTrue();
         handler.RequestCount.ShouldBe(2);

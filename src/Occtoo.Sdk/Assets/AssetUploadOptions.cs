@@ -3,16 +3,10 @@ using CSharpFunctionalExtensions;
 namespace Occtoo.Assets;
 
 /// <summary>
-/// Configures one call to <see cref="AssetsClient.Upload"/>.
+/// Configures one call to <see cref="AssetsClient.Upload"/> or <see cref="AssetsClient.Replace"/>.
 /// </summary>
 public sealed record AssetUploadOptions
 {
-    /// <summary>
-    /// The folder the entries land in. Omitted means the data source's root
-    /// folder.
-    /// </summary>
-    public Maybe<FolderId> FolderId { get; init; }
-
     /// <summary>
     /// Where each asset's progress is reported, for a caller rendering the run
     /// while it happens.

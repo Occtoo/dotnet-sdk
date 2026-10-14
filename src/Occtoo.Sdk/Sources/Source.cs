@@ -57,11 +57,14 @@ public sealed record SourceProperty(
     Maybe<Delimiter> Delimiter,
     Maybe<SourcePropertyState> State);
 
-/// <summary>A new generic source.</summary>
+/// <summary>A new source.</summary>
 public sealed record CreateSource(SourceId Id, string Name)
 {
     /// <summary>A free-text description.</summary>
     public Maybe<string> Description { get; init; } = Maybe<string>.None;
+
+    /// <summary>The kind of source.</summary>
+    public SourceType Type { get; init; } = SourceType.Generic;
 }
 
 /// <summary>

@@ -90,7 +90,21 @@ public class SourceManagementTests
         var request = handler.Requests.Single();
         request.Method.ShouldBe(HttpMethod.Post);
         request.RequestUri!.AbsoluteUri.ShouldBe("https://api.occtoo.com/v1/sources");
-        request.Body.ShouldBe("""{"id":"products","name":"Products","description":"Catalog"}""");
+        request.Body.ShouldBe("""{"id":"products","name":"Products","description":"Catalog","type":"Generic"}""");
+    }
+
+    [Fact]
+    public async Task Create_sends_the_type_when_given()
+    {
+        using var handler = new StubHandler().Respond(HttpStatusCode.Created, SourceBody);
+        using var client = Client(handler);
+
+        var result = await client.Sources.Create(
+            new CreateSource(Products, "Products") { Type = SourceType.Media },
+            TestContext.Current.CancellationToken);
+
+        result.Value.Type.ShouldBe(SourceType.Media);
+        handler.Requests.Single().Body.ShouldBe("""{"id":"products","name":"Products","type":"Media"}""");
     }
 
     [Fact]

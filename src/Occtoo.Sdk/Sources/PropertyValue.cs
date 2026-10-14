@@ -8,8 +8,9 @@ namespace Occtoo.Sources;
 /// <para>
 /// Each case serializes to its native JSON type, and Occtoo validates it against
 /// the source property's configured type (<c>Text</c>, <c>Integer</c>,
-/// <c>Boolean</c>, ...). For properties the source does not know yet, the type
-/// is inferred from the value.
+/// <c>Boolean</c>, ...). For a property the source doesn't have yet, typed
+/// ingest infers the type from the value; an asset upload refuses it, so
+/// create the property first.
 /// </para>
 /// <para>
 /// Build values with the factory methods, or lean on the implicit conversions:
@@ -64,9 +65,10 @@ public abstract record PropertyValue
     public static PropertyValue List(params IReadOnlyList<string> items) => new ListValue(items);
 
     /// <summary>
-    /// Clears a configured property by storing an empty value. Serialized as
-    /// JSON <c>null</c>. Occtoo cannot infer a type from this, so it only
-    /// applies to properties the source already knows.
+    /// Clears a configured property, serialized as JSON <c>null</c>. Occtoo
+    /// cannot infer a type from this, so it only applies to properties the
+    /// source already knows. With a language, it clears that language only;
+    /// without one, it clears a property that isn't localized.
     /// </summary>
     public static PropertyValue Clear { get; } = new ClearValue();
 

@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using CSharpFunctionalExtensions;
 using Microsoft.Extensions.Logging;
+using Occtoo.Assets.Internal;
 using Occtoo.Http.Internal;
 using Occtoo.Logging;
 using Occtoo.Sources;
@@ -31,6 +32,7 @@ public sealed partial class AssetsClient
     /// </summary>
     /// <param name="dataSourceId">The Media data source the assets belong to.</param>
     /// <param name="assets">What to upload. At least one, at most <see cref="MaxAssetsPerInitialize"/>, with distinct keys.</param>
+    /// <param name="folderId">The folder the entries land in; the root folder when omitted.</param>
     /// <param name="options">How to run the upload; the defaults are fine.</param>
     /// <param name="cancellationToken">Cancels the run.</param>
     /// <returns>
@@ -49,9 +51,15 @@ public sealed partial class AssetsClient
     /// re-sign also needs content that can be opened again.
     /// </para>
     /// <para>
-    /// Re-running a failed asset is safe: initializing a key that already
-    /// exists signs a fresh link for it. Replacing the file of an asset that
-    /// completed means deleting it first.
+    /// Each asset's <see cref="AssetUpload.Properties"/> are sent when it is
+    /// initialized, and Occtoo checks them there; one bad value fails the run
+    /// before any bytes are sent.
+    /// </para>
+    /// <para>
+    /// Initializing a key that already exists fails the whole call with a
+    /// <see cref="ConflictError"/> naming the keys; use <see cref="Replace"/>
+    /// for those. An asset Occtoo refused while initializing already has an
+    /// entry, so replace it too.
     /// </para>
     /// </remarks>
     /// <example>
@@ -59,30 +67,95 @@ public sealed partial class AssetsClient
     /// var report = await client.Assets.Upload(
     ///     SourceId.From("media"),
     ///     [
-    ///         AssetUpload.FromFile("logo_1", "files/logo.png"),
+    ///         AssetUpload.FromFile("logo_1", "files/logo.png")
+    ///             .WithText("alt", "Company logo"),
     ///         AssetUpload.FromFile("note_1", "files/note.txt"),
     ///     ],
-    ///     new AssetUploadOptions { Progress = dashboard });
+    ///     options: new AssetUploadOptions { Progress = dashboard });
     /// </code>
     /// </example>
-    public async Task<Result<AssetUploadReport, OcctooError>> Upload(
+    public Task<Result<AssetUploadReport, OcctooError>> Upload(
         SourceId dataSourceId,
         IReadOnlyCollection<AssetUpload> assets,
+        Maybe<FolderId> folderId = default,
         AssetUploadOptions? options = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        Execute(
+            UploadOperation,
+            MaxAssetsPerInitialize,
+            dataSourceId,
+            assets,
+            options ?? new(),
+            () => Initialize(
+                dataSourceId,
+                [.. assets.Select(asset => asset.Asset)],
+                folderId,
+                PropertiesOf(assets),
+                cancellationToken),
+            cancellationToken);
+
+    /// <summary>
+    /// Adds or replaces assets: overrides them, sends their bytes, and
+    /// completes them. A key with no asset is created; one that has an asset
+    /// gets the new file.
+    /// </summary>
+    /// <param name="dataSourceId">The Media data source the assets belong to.</param>
+    /// <param name="assets">
+    /// What to add or replace. At least one, at most
+    /// <see cref="MaxAssetsPerOverride"/>, with distinct keys.
+    /// </param>
+    /// <param name="folderId">
+    /// The folder a created entry lands in; the root folder when omitted. An
+    /// existing entry keeps its folder.
+    /// </param>
+    /// <param name="options">How to run it; the defaults are fine.</param>
+    /// <param name="cancellationToken">Cancels the run.</param>
+    /// <returns>
+    /// A report like <see cref="Upload"/>'s. Its
+    /// <see cref="AssetUploadStage.Initializing"/> stage is the override.
+    /// </returns>
+    public Task<Result<AssetUploadReport, OcctooError>> Replace(
+        SourceId dataSourceId,
+        IReadOnlyCollection<AssetUpload> assets,
+        Maybe<FolderId> folderId = default,
+        AssetUploadOptions? options = null,
+        CancellationToken cancellationToken = default) =>
+        Execute(
+            ReplaceOperation,
+            MaxAssetsPerOverride,
+            dataSourceId,
+            assets,
+            options ?? new(),
+            () => Override(
+                dataSourceId,
+                [.. assets.Select(asset => asset.Asset)],
+                folderId,
+                PropertiesOf(assets),
+                cancellationToken),
+            cancellationToken);
+
+    /// <summary>
+    /// The run behind <see cref="Upload"/> and <see cref="Replace"/>, which
+    /// differ only in the call that signs the links.
+    /// </summary>
+    private async Task<Result<AssetUploadReport, OcctooError>> Execute(
+        string operation,
+        int ceiling,
+        SourceId dataSourceId,
+        IReadOnlyCollection<AssetUpload> assets,
+        AssetUploadOptions options,
+        Func<Task<Result<AssetBatch<AssetUploadLink>, OcctooError>>> sign,
+        CancellationToken cancellationToken)
     {
-        options ??= new();
+        var planned = Plan(assets, options, ceiling);
 
-        var planned = Plan(assets, options);
-
-        using var activity = OcctooTelemetry.Source.StartActivity(
-            "upload assets", ActivityKind.Client);
+        using var activity = OcctooTelemetry.Source.StartActivity(operation, ActivityKind.Client);
         activity?.SetTag("occtoo.source.id", dataSourceId.Value);
         activity?.SetTag("occtoo.assets.count", assets?.Count ?? 0);
 
         var outcome = await planned
             .Match(
-                lengths => Run(dataSourceId, assets, lengths, options, cancellationToken),
+                lengths => Run(dataSourceId, assets!, lengths, options, sign, cancellationToken),
                 error => Task.FromResult(Result.Failure<AssetUploadReport, OcctooError>(error)))
             .ConfigureAwait(false);
 
@@ -110,10 +183,16 @@ public sealed partial class AssetsClient
     /// </summary>
     private static Result<Dictionary<AssetKey, long>, OcctooError> Plan(
         IReadOnlyCollection<AssetUpload>? assets,
-        AssetUploadOptions options) =>
+        AssetUploadOptions options,
+        int ceiling) =>
         options.Validate()
-            .Bind(() => Validate(assets?.Select(asset => asset.Asset).ToList(), MaxAssetsPerInitialize, "uploaded"))
+            .Bind(() => Validate(assets?.Select(asset => asset.Asset).ToList(), ceiling))
+            .Bind(() => AssetPropertiesValidator.Validate([.. assets!.Select(asset => asset.Asset)], PropertiesOf(assets!)))
             .Bind(() => Lengths(assets!));
+
+    private static Dictionary<AssetKey, IReadOnlyList<EntryProperty>> PropertiesOf(
+        IReadOnlyCollection<AssetUpload> assets) =>
+        assets.ToDictionary(asset => asset.Key, asset => asset.Properties);
 
     private static Result<Dictionary<AssetKey, long>, OcctooError> Lengths(IReadOnlyCollection<AssetUpload> assets)
     {
@@ -138,16 +217,13 @@ public sealed partial class AssetsClient
         IReadOnlyCollection<AssetUpload> assets,
         Dictionary<AssetKey, long> lengths,
         AssetUploadOptions options,
+        Func<Task<Result<AssetBatch<AssetUploadLink>, OcctooError>>> sign,
         CancellationToken cancellationToken)
     {
         foreach (var asset in assets)
             Report(options, asset, AssetUploadStage.Initializing, 0, lengths[asset.Key], null);
 
-        return Initialize(
-                dataSourceId,
-                [.. assets.Select(asset => asset.Asset)],
-                options.FolderId,
-                cancellationToken)
+        return sign()
             // A run that cannot start still owes every asset the report that
             // ends it: a view rendered from progress would otherwise leave the
             // whole batch sitting at "initializing" for good.
