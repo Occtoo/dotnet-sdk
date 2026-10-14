@@ -133,7 +133,7 @@ public sealed partial class AssetsClient
                     AssetsUri(dataSourceId),
                     new InitializeAssetsRequestDto(
                         folderId.HasValue ? folderId.Value.Value : (Guid?)null,
-                        ToDtos(assets, properties)),
+                        ToEnrichedDtos(assets, properties)),
                     AssetsJsonContext.Default.InitializeAssetsRequestDto),
                 assets,
                 InitializeOperation,
@@ -198,7 +198,7 @@ public sealed partial class AssetsClient
                     AssetsUri(dataSourceId),
                     new InitializeAssetsRequestDto(
                         folderId.HasValue ? folderId.Value.Value : (Guid?)null,
-                        ToDtos(assets, properties)),
+                        ToEnrichedDtos(assets, properties)),
                     AssetsJsonContext.Default.InitializeAssetsRequestDto);
 
                 // Idempotent: sending it twice ends the same as sending it once.
@@ -532,17 +532,14 @@ public sealed partial class AssetsClient
     private static UnexpectedError UnknownKey(string key) =>
         new($"Occtoo answered about the asset key '{key}', which is not a key this SDK can represent.");
 
-    private static List<AssetDto> ToDtos(IReadOnlyCollection<Asset> assets) =>
-        [.. assets.Select(asset => new AssetDto(asset.Key.Value, asset.Filename.Value))];
+    private static AssetDto ToDto(Asset asset) => new(asset.Key.Value, asset.Filename.Value);
 
-    private static List<InitializeAssetDto> ToDtos(
+    private static List<AssetDto> ToDtos(IReadOnlyCollection<Asset> assets) => [.. assets.Select(ToDto)];
+
+    private static List<InitializeAssetDto> ToEnrichedDtos(
         IReadOnlyCollection<Asset> assets,
         IReadOnlyDictionary<AssetKey, IReadOnlyList<EntryProperty>> properties) =>
-        [
-            .. assets.Select(asset => new InitializeAssetDto(
-                new AssetDto(asset.Key.Value, asset.Filename.Value),
-                properties.TryGetValue(asset.Key, out var values) ? values : [])),
-        ];
+        [.. assets.Select(asset => new InitializeAssetDto(ToDto(asset), properties.GetValueOrDefault(asset.Key) ?? []))];
 
     private static List<KeyValuePair<string, object?>> Tags(
         SourceId dataSourceId,
