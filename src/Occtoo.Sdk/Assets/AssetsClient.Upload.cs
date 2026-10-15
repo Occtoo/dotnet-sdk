@@ -86,12 +86,7 @@ public sealed partial class AssetsClient
             dataSourceId,
             assets,
             options ?? new(),
-            () => Initialize(
-                dataSourceId,
-                [.. assets.Select(asset => asset.Asset)],
-                folderId,
-                PropertiesOf(assets),
-                cancellationToken),
+            () => Initialize(dataSourceId, [.. assets.Select(asset => asset.Initialization)], folderId, cancellationToken),
             cancellationToken);
 
     /// <summary>
@@ -126,12 +121,7 @@ public sealed partial class AssetsClient
             dataSourceId,
             assets,
             options ?? new(),
-            () => Override(
-                dataSourceId,
-                [.. assets.Select(asset => asset.Asset)],
-                folderId,
-                PropertiesOf(assets),
-                cancellationToken),
+            () => Override(dataSourceId, [.. assets.Select(asset => asset.Initialization)], folderId, cancellationToken),
             cancellationToken);
 
     /// <summary>
@@ -187,12 +177,7 @@ public sealed partial class AssetsClient
         int ceiling) =>
         options.Validate()
             .Bind(() => Validate(assets?.Select(asset => asset.Asset).ToList(), ceiling))
-            .Bind(() => AssetPropertiesValidator.Validate([.. assets!.Select(asset => asset.Asset)], PropertiesOf(assets!)))
             .Bind(() => Lengths(assets!));
-
-    private static Dictionary<AssetKey, IReadOnlyList<EntryProperty>> PropertiesOf(
-        IReadOnlyCollection<AssetUpload> assets) =>
-        assets.ToDictionary(asset => asset.Key, asset => asset.Properties);
 
     private static Result<Dictionary<AssetKey, long>, OcctooError> Lengths(IReadOnlyCollection<AssetUpload> assets)
     {

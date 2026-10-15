@@ -34,7 +34,7 @@ public class AssetPropertiesTests
             .WithCleared("photographer");
 
         await client.Assets.Initialize(
-            Media, [chair.Asset], properties: PropertiesOf(chair), cancellationToken: TestContext.Current.CancellationToken);
+            Media, [Initialization(chair)], cancellationToken: TestContext.Current.CancellationToken);
 
         api.Requests.Single().Body.ShouldBe(
             """{"folderId":null,"assets":[{"entryKey":"chair","filename":"chair.jpg","properties":[{"id":"sku","value":"CH-001"},{"id":"title","value":"Blue chair","language":"en"},{"id":"title","value":"Blauer Stuhl","language":"de"},{"id":"tags","value":["summer","outdoor"]},{"id":"features","value":["stackable"],"language":"en"},{"id":"features","value":null,"language":"de"},{"id":"width","value":42},{"id":"price","value":1299.5},{"id":"ok","value":true},{"id":"shot","value":"2026-09-30T10:00:00+02:00"},{"id":"photographer","value":null}]}]}""");
@@ -181,23 +181,6 @@ public class AssetPropertiesTests
     }
 
     [Fact]
-    public async Task Properties_for_a_key_not_in_the_call_are_refused_without_a_round_trip()
-    {
-        using var api = new StubHandler();
-        using var client = Client(api);
-        AssetUpload lamp = Lamp.WithText("sku", "LA-001");
-
-        var result = await client.Assets.Initialize(
-            Media,
-            [Chair.Build().Asset],
-            properties: new Dictionary<AssetKey, IReadOnlyList<EntryProperty>> { [lamp.Key] = lamp.Properties },
-            cancellationToken: TestContext.Current.CancellationToken);
-
-        result.Error.ShouldBeOfType<ValidationError>().Failures.Keys.ShouldBe(["properties[lamp]"]);
-        api.RequestCount.ShouldBe(0);
-    }
-
-    [Fact]
     public async Task A_null_property_list_is_refused_under_its_index_without_a_round_trip()
     {
         var error = await Refused(Lamp, Chair.Build() with { Properties = null! });
@@ -241,7 +224,7 @@ public class AssetPropertiesTests
         AssetUpload chair = Chair.WithText("sku", "CH-001");
 
         var result = await client.Assets.Initialize(
-            Media, [chair.Asset], properties: PropertiesOf(chair), cancellationToken: TestContext.Current.CancellationToken);
+            Media, [Initialization(chair)], cancellationToken: TestContext.Current.CancellationToken);
 
         var error = result.Error.ShouldBeOfType<ValidationError>();
         error.Failures["assets[0].properties[0].value"].Single().ShouldContain("Integer");
@@ -255,10 +238,7 @@ public class AssetPropertiesTests
         using var client = Client(api);
 
         var result = await client.Assets.Initialize(
-            Media,
-            [.. uploads.Select(upload => upload.Asset)],
-            properties: PropertiesOf(uploads),
-            cancellationToken: TestContext.Current.CancellationToken);
+            Media, [.. uploads.Select(Initialization)], cancellationToken: TestContext.Current.CancellationToken);
 
         result.IsSuccess.ShouldBeTrue();
         using var body = JsonDocument.Parse(api.Requests.Single().Body!);
@@ -271,20 +251,12 @@ public class AssetPropertiesTests
         using var client = Client(api);
 
         var result = await client.Assets.Initialize(
-            Media,
-            [.. uploads.Select(upload => upload.Asset)],
-            properties: PropertiesOf(uploads),
-            cancellationToken: TestContext.Current.CancellationToken);
+            Media, [.. uploads.Select(Initialization)], cancellationToken: TestContext.Current.CancellationToken);
 
         api.RequestCount.ShouldBe(0);
         return result.Error.ShouldBeOfType<ValidationError>();
     }
 
-    // An upload with no properties is left out of the dictionary, exercising
-    // the "no entry means none" path alongside the populated one.
-    private static Dictionary<AssetKey, IReadOnlyList<EntryProperty>> PropertiesOf(
-        params IReadOnlyList<AssetUpload> uploads) =>
-        uploads
-            .Where(upload => upload.Properties is not { Count: 0 })
-            .ToDictionary(upload => upload.Key, upload => upload.Properties);
+    private static AssetInitialization Initialization(AssetUpload upload) =>
+        new(upload.Asset) { Properties = upload.Properties };
 }

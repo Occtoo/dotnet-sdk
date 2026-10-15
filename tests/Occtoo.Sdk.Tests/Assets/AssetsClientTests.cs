@@ -78,16 +78,17 @@ public class AssetsClientTests
 
         var result = await client.Assets.Override(
             Media,
-            [Logo],
-            properties: new Dictionary<AssetKey, IReadOnlyList<EntryProperty>>
-            {
-                [Logo.Key] =
-                [
-                    new EntryProperty("alt", "Company logo"),
-                    new EntryProperty("photographer", PropertyValue.Clear),
-                    new EntryProperty("title", PropertyValue.Clear, LanguageCode.From("sv")),
-                ],
-            },
+            [
+                new AssetInitialization(Logo)
+                {
+                    Properties =
+                    [
+                        new EntryProperty("alt", "Company logo"),
+                        new EntryProperty("photographer", PropertyValue.Clear),
+                        new EntryProperty("title", PropertyValue.Clear, LanguageCode.From("sv")),
+                    ],
+                },
+            ],
             cancellationToken: TestContext.Current.CancellationToken);
 
         result.Value.Succeeded[AssetKey.From("logo")].Url.ShouldBe(new Uri(UploadUrl));
@@ -381,10 +382,12 @@ public class AssetsClientTests
         using var api = new StubHandler();
         using var client = Client(api);
 
-        var assets = Enumerable
-            .Range(0, AssetsClient.MaxAssetsPerInitialize + 1)
-            .Select(index => new Asset(AssetKey.From($"asset_{index}"), AssetFilename.From("logo.png")))
-            .ToList();
+        List<AssetInitialization> assets =
+        [
+            .. Enumerable
+                .Range(0, AssetsClient.MaxAssetsPerInitialize + 1)
+                .Select(index => new Asset(AssetKey.From($"asset_{index}"), AssetFilename.From("logo.png"))),
+        ];
 
         var result = await client.Assets.Initialize(Media, assets, cancellationToken: TestContext.Current.CancellationToken);
 
@@ -399,7 +402,7 @@ public class AssetsClientTests
         using var client = Client(api);
 
         var count = AssetsClient.MaxAssetsPerOverride + 1;
-        List<Asset> assets =
+        List<AssetInitialization> assets =
         [
             .. Enumerable
                 .Range(0, count)
@@ -466,9 +469,9 @@ public class AssetsClientTests
         var fiftyKeys = Batch(AssetsClient.MaxKeysPerRequest).Select(asset => asset.Key).ToList();
 
         // The ceiling is the last accepted value, not the first rejected one.
-        (await client.Assets.Initialize(Media, hundred, cancellationToken: TestContext.Current.CancellationToken))
+        (await client.Assets.Initialize(Media, [.. hundred], cancellationToken: TestContext.Current.CancellationToken))
             .IsSuccess.ShouldBeTrue();
-        (await client.Assets.Override(Media, overridden, cancellationToken: TestContext.Current.CancellationToken))
+        (await client.Assets.Override(Media, [.. overridden], cancellationToken: TestContext.Current.CancellationToken))
             .IsSuccess.ShouldBeTrue();
         (await client.Assets.Complete(Media, fifty, TestContext.Current.CancellationToken))
             .IsSuccess.ShouldBeTrue();

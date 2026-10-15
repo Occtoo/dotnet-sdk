@@ -17,7 +17,7 @@ internal sealed record AssetDto(string EntryKey, string Filename);
 /// One asset in the initialize body: what identifies it, and the property
 /// values its entry should be created with.
 /// </summary>
-internal sealed record InitializeAssetDto(AssetDto Asset, IReadOnlyList<EntryProperty> Properties);
+internal sealed record InitializeAssetDto(string EntryKey, string Filename, IReadOnlyList<EntryProperty> Properties);
 
 /// <summary>
 /// The body of <c>POST /v1/assets/{dataSourceId}</c> and
@@ -35,8 +35,8 @@ internal sealed class InitializeAssetJsonConverter : JsonConverter<InitializeAss
     public override void Write(Utf8JsonWriter writer, InitializeAssetDto asset, JsonSerializerOptions options)
     {
         writer.WriteStartObject();
-        writer.WriteString("entryKey"u8, asset.Asset.EntryKey);
-        writer.WriteString("filename"u8, asset.Asset.Filename);
+        writer.WriteString("entryKey"u8, asset.EntryKey);
+        writer.WriteString("filename"u8, asset.Filename);
 
         if (asset.Properties.Count > 0)
         {

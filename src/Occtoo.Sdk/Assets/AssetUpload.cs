@@ -24,6 +24,8 @@ public sealed record AssetUpload(AssetKey Key, AssetFilename Filename, AssetCont
     /// <summary>The key and filename on their own, as the API calls take them.</summary>
     public Asset Asset => new(Key, Filename);
 
+    internal AssetInitialization Initialization => new(Asset) { Properties = Properties };
+
     /// <summary>
     /// The property values set on the asset's entry. Empty unless added with
     /// the <c>With*</c> methods on the builder the <c>From*</c> methods return.

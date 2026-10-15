@@ -37,9 +37,10 @@ Requires a tenant-level application credential with `write:media`, `write:source
 | `AssetKey` | The asset's key within that data source — also the id of the entry the upload creates |
 | `AssetFilename` | The name the file is stored under |
 | `FolderId` | Optional; the folder new entries land in, root when omitted |
-| `Asset` | A key and a filename together, which is what every call takes |
+| `Asset` | A key and a filename together, which is what `Complete` and `RefreshUploadLinks` take |
+| `AssetInitialization` | An `Asset` plus its property values, which is what `Initialize` and `Override` take |
 | `AssetUpload` | An `Asset` plus its bytes and property values, which is what `Upload` and `Replace` take |
-| `EntryProperty` | One typed property value (from `Occtoo.Sources`), which is what `AssetUpload.Properties` holds |
+| `EntryProperty` | One typed property value (from `Occtoo.Sources`), which is what `AssetInitialization.Properties` and `AssetUpload.Properties` hold |
 
 `AssetKey` allows **letters, digits, `_` and `-` only**, up to 256 characters. That is stricter than `EntryId`, and it is the rule people trip over first: `note.txt` is not a valid key, `note_1` is. A filename is up to 200 characters, must name a file rather than a path, must not start or end with a space or a dot, and must not contain `..`.
 
@@ -94,19 +95,16 @@ await client.Assets.Upload(
 
 The builder converts to an `AssetUpload` implicitly, so it can go straight into the list, or call `Build()` to get the upload itself.
 
-`Initialize` takes the same values as a dictionary by key:
+`Initialize` and `Override` take each asset together with its values, as an `AssetInitialization`. A plain `Asset` converts to one with no values:
 
 ```csharp
 await client.Assets.Initialize(
     dataSourceId,
-    [chair, lamp],
-    properties: new Dictionary<AssetKey, IReadOnlyList<EntryProperty>>
-    {
-        [chair.Key] = [new EntryProperty("sku", "CH-001")],
-    });
+    [
+        new AssetInitialization(chair) { Properties = [new EntryProperty("sku", "CH-001")] },
+        lamp,
+    ]);
 ```
-
-An asset with no entry in the dictionary gets no properties, and a key that isn't one of the call's assets is refused.
 
 **Every property must already exist on the data source.** `Initialize` and `Override` don't create properties, and one the data source doesn't have is refused. Create the data source and its properties once, before the first upload:
 
@@ -126,7 +124,7 @@ await client.Sources.Create(new CreateSource(media, "Product media") { Type = So
 
 **The value must match the property's type.** `WithInteger` goes to an `Integer` property, `WithLocalizedText` to a `LocalizedText` one, and so on. A property with no type takes plain text (`WithText`). List items are joined with the property's delimiter, so an item can't contain it. Nothing is inferred, unlike typed ingest. A `decimal` is stored as a double; see [sources.md](sources.md#the-model) for the rounding caveat.
 
-`WithCleared` empties a property: `.WithCleared("width")`. A localized property is cleared per language, several in one call: `.WithCleared("title", "sv", "de")`. A clear without a language on a localized property is refused. A `null` text isn't refused: it goes out as `null` too, and clears the property. In the `Initialize` or `Override` dictionary, use `PropertyValue.Clear`, with a language for a localized property. A clear only matters on an asset that already exists; on a new one it's the same as leaving the property out.
+`WithCleared` empties a property: `.WithCleared("width")`. A localized property is cleared per language, several in one call: `.WithCleared("title", "sv", "de")`. A clear without a language on a localized property is refused. A `null` text isn't refused: it goes out as `null` too, and clears the property. In an `AssetInitialization`, use `PropertyValue.Clear`, with a language for a localized property. A clear only matters on an asset that already exists; on a new one it's the same as leaving the property out.
 
 The values go to Occtoo as rows, one per id and language, the same rows typed ingest sends:
 
@@ -138,7 +136,7 @@ The values go to Occtoo as rows, one per id and language, the same rows typed in
 ]
 ```
 
-The SDK refuses two things before sending, as a `ValidationError` on the call's own `Result`: a `properties` key that isn't one of the call's assets (`properties[{key}]`), and a `null` property list (`assets[{i}].properties`).
+The SDK refuses a `null` property list before sending, as a `ValidationError` on the call's own `Result` keyed `assets[{i}].properties`.
 
 Occtoo checks the values, the same way for assets and typed ingest: a property the data source doesn't have, a value that doesn't match its type, a reserved or invalid id, a list item containing the delimiter, an empty localized value, a language on a number, boolean or timestamp, localized and plain values for one id, the same id and language twice, a clear without a language on a localized property.
 
@@ -162,7 +160,7 @@ await client.Assets.Replace(
 
 An existing entry stays where it is, folder included. Its old file is deleted before the call returns, and the asset is pending until the new file completes. Properties you send are set, `WithCleared` empties one, and ones you leave out keep their value. A key with no asset is created the way `Upload` creates it, in `folderId` or the root folder; `folderId` never moves an existing entry. Occtoo checks every asset before it deletes any file, so one bad asset fails the whole call and nothing changes. Only the `Override` step gets resent automatically after an ambiguous failure; the transfer and completion don't. A pending asset can be replaced too. If the transfer or completion fails, the asset is left pending with no file; run `Replace` again to finish it. If `Override` fails after deleting the old file, the entry can read as completed with no file; if the error survives the SDK's retries, send the same call again.
 
-`Override` is the primitive underneath, `PUT /v1/assets/{dataSourceId}`. It takes `Asset`s, an optional folder and an optional property dictionary like `Initialize`, and returns links to finish with `Transfer` and `Complete`. `Initialize` is the `POST` on the same route and stays create-only.
+`Override` is the primitive underneath, `PUT /v1/assets/{dataSourceId}`. It takes `AssetInitialization`s and an optional folder like `Initialize`, and returns links to finish with `Transfer` and `Complete`. `Initialize` is the `POST` on the same route and stays create-only.
 
 The public URL comes from the filename. The same filename keeps the URL, and the CDN can serve the old file until its cache expires; a new filename gets a new URL. An asset first uploaded in Studio gets a new URL either way.
 

@@ -1,4 +1,3 @@
-using System.Collections.Immutable;
 using System.Diagnostics;
 using CSharpFunctionalExtensions;
 using Microsoft.Extensions.Logging;
@@ -93,14 +92,12 @@ public sealed partial class AssetsClient
     /// signs a link to upload each one's bytes to.
     /// </summary>
     /// <param name="dataSourceId">The Media data source the assets belong to.</param>
-    /// <param name="assets">The assets to create. At least one, at most <see cref="MaxAssetsPerInitialize"/>, with distinct keys.</param>
-    /// <param name="folderId">The folder the entries land in; the root folder when omitted.</param>
-    /// <param name="properties">
-    /// The property values each asset's entry is created with, by asset key.
-    /// An asset with no entry here gets none, and so does every asset when
-    /// this is omitted. A key that isn't in <paramref name="assets"/> is
-    /// refused.
+    /// <param name="assets">
+    /// The assets to create, each with the property values its entry is
+    /// created with. At least one, at most <see cref="MaxAssetsPerInitialize"/>,
+    /// with distinct keys.
     /// </param>
+    /// <param name="folderId">The folder the entries land in; the root folder when omitted.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
     /// <returns>
     /// A link for each asset Occtoo signed, and Occtoo's reason for each one it
@@ -118,29 +115,21 @@ public sealed partial class AssetsClient
     /// </remarks>
     public Task<Result<AssetBatch<AssetUploadLink>, OcctooError>> Initialize(
         SourceId dataSourceId,
-        IReadOnlyCollection<Asset> assets,
+        IReadOnlyCollection<AssetInitialization> assets,
         Maybe<FolderId> folderId = default,
-        IReadOnlyDictionary<AssetKey, IReadOnlyList<EntryProperty>>? properties = null,
-        CancellationToken cancellationToken = default)
-    {
-        properties ??= ImmutableDictionary<AssetKey, IReadOnlyList<EntryProperty>>.Empty;
-
-        return Validate(assets, MaxAssetsPerInitialize)
-            .Bind(() => AssetPropertiesValidator.Validate(assets, properties))
+        CancellationToken cancellationToken = default) =>
+        Validate(assets, MaxAssetsPerInitialize)
             .Bind(() => SendForLinks(
                 OcctooTransport.Request(
                     HttpMethod.Post,
                     AssetsUri(dataSourceId),
-                    new InitializeAssetsRequestDto(
-                        folderId.HasValue ? folderId.Value.Value : (Guid?)null,
-                        ToEnrichedDtos(assets, properties)),
+                    ToInitializationRequest(assets, folderId),
                     AssetsJsonContext.Default.InitializeAssetsRequestDto),
-                assets,
+                [.. assets.Select(asset => asset.Asset)],
                 InitializeOperation,
                 dataSourceId,
                 folderId,
                 cancellationToken));
-    }
 
     /// <summary>
     /// Adds or replaces assets, and signs a link to upload each one's new bytes
@@ -151,18 +140,14 @@ public sealed partial class AssetsClient
     /// <param name="dataSourceId">The Media data source the assets belong to.</param>
     /// <param name="assets">
     /// The assets to add or replace, each under the filename its new file is
-    /// stored as. At least one, at most <see cref="MaxAssetsPerOverride"/>,
-    /// with distinct keys.
+    /// stored as, with the property values to set.
+    /// <see cref="PropertyValue.Clear"/> empties a property, or one language
+    /// of a localized one, and a property left out keeps its value. At least
+    /// one, at most <see cref="MaxAssetsPerOverride"/>, with distinct keys.
     /// </param>
     /// <param name="folderId">
     /// The folder a created entry lands in; the root folder when omitted. An
     /// existing entry keeps its folder.
-    /// </param>
-    /// <param name="properties">
-    /// Property values to set, by asset key. <see cref="PropertyValue.Clear"/>
-    /// empties a property, or one language of a localized one. A property left
-    /// out keeps its value, and so does every property of an asset with no
-    /// entry here. A key that isn't in <paramref name="assets"/> is refused.
     /// </param>
     /// <param name="cancellationToken">Cancels the request.</param>
     /// <returns>
@@ -182,31 +167,29 @@ public sealed partial class AssetsClient
     /// </remarks>
     public Task<Result<AssetBatch<AssetUploadLink>, OcctooError>> Override(
         SourceId dataSourceId,
-        IReadOnlyCollection<Asset> assets,
+        IReadOnlyCollection<AssetInitialization> assets,
         Maybe<FolderId> folderId = default,
-        IReadOnlyDictionary<AssetKey, IReadOnlyList<EntryProperty>>? properties = null,
-        CancellationToken cancellationToken = default)
-    {
-        properties ??= ImmutableDictionary<AssetKey, IReadOnlyList<EntryProperty>>.Empty;
-
-        return Validate(assets, MaxAssetsPerOverride)
-            .Bind(() => AssetPropertiesValidator.Validate(assets, properties))
+        CancellationToken cancellationToken = default) =>
+        Validate(assets, MaxAssetsPerOverride)
             .Bind(() =>
             {
                 var request = OcctooTransport.Request(
                     HttpMethod.Put,
                     AssetsUri(dataSourceId),
-                    new InitializeAssetsRequestDto(
-                        folderId.HasValue ? folderId.Value.Value : (Guid?)null,
-                        ToEnrichedDtos(assets, properties)),
+                    ToInitializationRequest(assets, folderId),
                     AssetsJsonContext.Default.InitializeAssetsRequestDto);
 
                 // Idempotent: sending it twice ends the same as sending it once.
                 request.Options.Set(OcctooResilience.Replayable, true);
 
-                return SendForLinks(request, assets, OverrideOperation, dataSourceId, folderId, cancellationToken);
+                return SendForLinks(
+                    request,
+                    [.. assets.Select(asset => asset.Asset)],
+                    OverrideOperation,
+                    dataSourceId,
+                    folderId,
+                    cancellationToken);
             });
-    }
 
     /// <summary>
     /// Signs a fresh link for assets that are already initialized — for a link
@@ -536,10 +519,17 @@ public sealed partial class AssetsClient
 
     private static List<AssetDto> ToDtos(IReadOnlyCollection<Asset> assets) => [.. assets.Select(ToDto)];
 
-    private static List<InitializeAssetDto> ToEnrichedDtos(
-        IReadOnlyCollection<Asset> assets,
-        IReadOnlyDictionary<AssetKey, IReadOnlyList<EntryProperty>> properties) =>
-        [.. assets.Select(asset => new InitializeAssetDto(ToDto(asset), properties.GetValueOrDefault(asset.Key) ?? []))];
+    private static InitializeAssetsRequestDto ToInitializationRequest(
+        IReadOnlyCollection<AssetInitialization> assets,
+        Maybe<FolderId> folderId) =>
+        new(
+            folderId.HasValue ? folderId.Value.Value : null,
+            [
+                .. assets.Select(asset => new InitializeAssetDto(
+                    asset.Asset.Key.Value,
+                    asset.Asset.Filename.Value,
+                    asset.Properties)),
+            ]);
 
     private static List<KeyValuePair<string, object?>> Tags(
         SourceId dataSourceId,
@@ -585,6 +575,28 @@ public sealed partial class AssetsClient
                 new ValidationError("Asset keys must be distinct within a call; Occtoo compares them ignoring case."),
             _ => UnitResult.Success<OcctooError>(),
         };
+
+    // The batch checks first, then each asset's property list; Occtoo checks
+    // the values themselves.
+    private static UnitResult<OcctooError> Validate(
+        IReadOnlyCollection<AssetInitialization>? assets,
+        int ceiling) =>
+        Validate(assets?.Select(asset => asset.Asset).ToList(), ceiling)
+            .Bind(() => ValidateProperties(assets!));
+
+    private static UnitResult<OcctooError> ValidateProperties(IReadOnlyCollection<AssetInitialization> assets)
+    {
+        var failures = assets
+            .Select((asset, index) => (asset, index))
+            .Where(item => item.asset.Properties is null)
+            .ToDictionary(
+                item => $"assets[{item.index}].properties",
+                _ => (IReadOnlyList<string>)["The property list must not be null."]);
+
+        return failures.Count == 0
+            ? UnitResult.Success<OcctooError>()
+            : new ValidationError("Some asset properties are invalid; see Failures.", failures);
+    }
 
     // The key lists compare exactly, because that is how Occtoo compares them
     // here: rejecting a pair that differs only in case would refuse a call the
