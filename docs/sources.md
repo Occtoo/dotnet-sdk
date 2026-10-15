@@ -37,7 +37,7 @@ converts implicitly from a string *through the same validation*, so the example
 above compiles from literals while `"english"` as a language or a 300-character
 property id still fails at the call site, before any round trip.
 
-The `With*` methods are extensions over `IEntryPropertyBuilder<TSelf>`, shared with `AssetUpload` — see [assets.md](assets.md#properties).
+`SourceEntry.WithId` returns an `EntryPropertyBuilder<SourceEntry>`, the same builder `AssetUpload.From*` returns — see [assets.md](assets.md#properties). It converts to a `SourceEntry` implicitly, or through `Build()`.
 
 Values are a closed union, `PropertyValue`, matching exactly what the endpoint
 accepts:

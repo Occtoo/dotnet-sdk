@@ -91,7 +91,7 @@ public class AssetProgressTests
         var assets = Enumerable
             .Range(0, 8)
             .Select(index => AssetUpload.FromBytes(
-                AssetKey.From($"asset_{index}"), AssetFilename.From("logo.png"), "12345"u8.ToArray()))
+                AssetKey.From($"asset_{index}"), AssetFilename.From("logo.png"), "12345"u8.ToArray()).Build())
             .ToList();
         var keys = assets.Select(asset => asset.Key.Value).ToList();
 

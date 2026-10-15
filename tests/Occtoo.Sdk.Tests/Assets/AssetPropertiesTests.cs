@@ -10,9 +10,9 @@ namespace Occtoo.Sdk.Tests.Assets;
 
 public class AssetPropertiesTests
 {
-    private static AssetUpload Chair => AssetUpload.FromBytes("chair", "chair.jpg", "12345"u8.ToArray());
+    private static EntryPropertyBuilder<AssetUpload> Chair => AssetUpload.FromBytes("chair", "chair.jpg", "12345"u8.ToArray());
 
-    private static AssetUpload Lamp => AssetUpload.FromBytes("lamp", "lamp.jpg", "12345"u8.ToArray());
+    private static EntryPropertyBuilder<AssetUpload> Lamp => AssetUpload.FromBytes("lamp", "lamp.jpg", "12345"u8.ToArray());
 
     [Fact]
     public async Task Each_property_is_written_as_a_typed_ingest_row()
@@ -20,7 +20,7 @@ public class AssetPropertiesTests
         using var api = new StubHandler().Respond(HttpStatusCode.OK, Initialized(["chair"]));
         using var client = Client(api);
 
-        var chair = Chair
+        AssetUpload chair = Chair
             .WithText("sku", "CH-001")
             .WithLocalizedText("title", "Blue chair", "en")
             .WithLocalizedText("title", "Blauer Stuhl", "de")
@@ -185,11 +185,11 @@ public class AssetPropertiesTests
     {
         using var api = new StubHandler();
         using var client = Client(api);
-        var lamp = Lamp.WithText("sku", "LA-001");
+        AssetUpload lamp = Lamp.WithText("sku", "LA-001");
 
         var result = await client.Assets.Initialize(
             Media,
-            [Chair.Asset],
+            [Chair.Build().Asset],
             properties: new Dictionary<AssetKey, IReadOnlyList<EntryProperty>> { [lamp.Key] = lamp.Properties },
             cancellationToken: TestContext.Current.CancellationToken);
 
@@ -200,7 +200,7 @@ public class AssetPropertiesTests
     [Fact]
     public async Task A_null_property_list_is_refused_under_its_index_without_a_round_trip()
     {
-        var error = await Refused(Lamp, Chair with { Properties = null! });
+        var error = await Refused(Lamp, Chair.Build() with { Properties = null! });
 
         error.Failures.Keys.ShouldBe(["assets[1].properties"]);
     }
@@ -214,7 +214,7 @@ public class AssetPropertiesTests
 
         var result = await client.Assets.Upload(
             Media,
-            [Lamp, Chair with { Properties = null! }],
+            [Lamp, Chair.Build() with { Properties = null! }],
             cancellationToken: TestContext.Current.CancellationToken);
 
         result.Error.ShouldBeOfType<ValidationError>().Failures.Keys.ShouldBe(["assets[1].properties"]);
@@ -238,7 +238,7 @@ public class AssetPropertiesTests
 
         using var api = new StubHandler().Respond(HttpStatusCode.BadRequest, problem);
         using var client = Client(api);
-        var chair = Chair.WithText("sku", "CH-001");
+        AssetUpload chair = Chair.WithText("sku", "CH-001");
 
         var result = await client.Assets.Initialize(
             Media, [chair.Asset], properties: PropertiesOf(chair), cancellationToken: TestContext.Current.CancellationToken);

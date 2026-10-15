@@ -139,12 +139,12 @@ internal static class FileMetadataExtensions
 {
     /// <summary>
     /// Writes the file's metadata onto an asset upload or an ingest entry
-    /// alike: both builders share the typed <c>With*</c> methods. A value the
-    /// source system doesn't have goes out cleared; on a new asset that's the
-    /// same as leaving it out.
+    /// alike: both use the same builder. A value the source system doesn't
+    /// have goes out cleared; on a new asset that's the same as leaving it out.
     /// </summary>
-    public static TSelf WithMetadata<TSelf>(this TSelf builder, FileMetadata metadata)
-        where TSelf : IEntryPropertyBuilder<TSelf>
+    public static EntryPropertyBuilder<TResult> WithMetadata<TResult>(
+        this EntryPropertyBuilder<TResult> builder,
+        FileMetadata metadata)
     {
         var described = builder
             .WithLocalizedText("title", metadata.TitleEn, "en")

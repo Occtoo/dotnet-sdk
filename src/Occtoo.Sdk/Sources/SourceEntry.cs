@@ -53,48 +53,12 @@ public sealed record SourceEntry(EntryId Id, IReadOnlyList<EntryProperty> Proper
     /// and is validated on the way in.
     /// </param>
     /// <returns>A builder to add properties to.</returns>
-    public static SourceEntryBuilder WithId(EntryId id) => new(id);
+    public static EntryPropertyBuilder<SourceEntry> WithId(EntryId id) =>
+        new(properties => new SourceEntry(id, properties));
 
     /// <summary>An entry that deletes <paramref name="id"/> from the source. It carries no properties.</summary>
     public static SourceEntry Delete(EntryId id) => new(id, []) { IsDeletion = true };
 
     /// <summary>Whether this entry deletes rather than upserts. Only <see cref="Delete"/> sets it.</summary>
     public bool IsDeletion { get; private init; }
-}
-
-/// <summary>
-/// Builds a <see cref="SourceEntry"/> fluently. Converts implicitly, so a
-/// finished builder can be passed wherever an entry is expected without calling
-/// <see cref="Build"/>. The typed <c>With*</c> methods come from
-/// <see cref="EntryPropertyBuilderExtensions"/>.
-/// </summary>
-public sealed class SourceEntryBuilder : IEntryPropertyBuilder<SourceEntryBuilder>
-{
-    private readonly EntryId _id;
-    private readonly List<EntryProperty> _properties = [];
-
-    internal SourceEntryBuilder(EntryId id) => _id = id;
-
-    /// <summary>Clears a configured property by storing an empty value.</summary>
-    /// <param name="propertyId">The source property.</param>
-    /// <returns>The builder, for chaining.</returns>
-    public SourceEntryBuilder WithCleared(PropertyId propertyId) =>
-        WithProperty(new(propertyId, PropertyValue.Clear));
-
-    /// <summary>Adds an already-built property value.</summary>
-    /// <param name="value">The property value.</param>
-    /// <returns>The builder, for chaining.</returns>
-    public SourceEntryBuilder WithProperty(EntryProperty value)
-    {
-        _properties.Add(value);
-        return this;
-    }
-
-    /// <summary>Finishes the entry.</summary>
-    /// <returns>The built entry.</returns>
-    public SourceEntry Build() => new(_id, [.. _properties]);
-
-    /// <summary>Finishes the entry implicitly.</summary>
-    /// <param name="builder">The builder to finish.</param>
-    public static implicit operator SourceEntry(SourceEntryBuilder builder) => builder.Build();
 }

@@ -77,11 +77,9 @@ outcome.Match(
 
 ## Properties
 
-An asset's entry can carry typed property values from the start, so its values don't need a second write through typed ingest. `AssetUpload` has the same `With*` methods as the ingest builder:
+An asset's entry can carry typed property values from the start, so its values don't need a second write through typed ingest. The `AssetUpload.From*` methods return the same `EntryPropertyBuilder` that `SourceEntry.WithId` does, with the same `With*` methods:
 
 ```csharp
-using Occtoo.Sources;
-
 await client.Assets.Upload(
     SourceId.From("product-media"),
     [
@@ -94,7 +92,7 @@ await client.Assets.Upload(
     ]);
 ```
 
-**`AssetUpload` is immutable.** `With*` returns a new upload and leaves the original unchanged, so keep the result: `upload = upload.WithText(...)`. The ingest builder changes itself in place, so code that ignores the result works there but drops the value here.
+The builder converts to an `AssetUpload` implicitly, so it can go straight into the list, or call `Build()` to get the upload itself.
 
 `Initialize` takes the same values as a dictionary by key:
 

@@ -11,24 +11,22 @@ namespace Occtoo.Assets;
 /// <param name="Content">Where the bytes come from.</param>
 /// <example>
 /// <code>
-/// var upload = AssetUpload.FromFile("chair_blue_01", "files/chair-blue.jpg")
+/// AssetUpload upload = AssetUpload.FromFile("chair_blue_01", "files/chair-blue.jpg")
 ///     .WithLocalizedText("title", "Blue chair", "en")
 ///     .WithText("sku", "CH-001")
 ///     .WithList("tags", "summer", "outdoor");
 /// </code>
-/// The <c>With*</c> methods are extensions in <c>Occtoo.Sources</c>; the file
-/// needs to import that namespace.
+/// The <c>From*</c> methods return an <see cref="EntryPropertyBuilder{TResult}"/>,
+/// which converts to an upload implicitly or through <see cref="EntryPropertyBuilder{TResult}.Build"/>.
 /// </example>
 public sealed record AssetUpload(AssetKey Key, AssetFilename Filename, AssetContent Content)
-    : IEntryPropertyBuilder<AssetUpload>
 {
     /// <summary>The key and filename on their own, as the API calls take them.</summary>
     public Asset Asset => new(Key, Filename);
 
     /// <summary>
     /// The property values set on the asset's entry. Empty unless added with
-    /// <see cref="WithProperty"/> or the typed <c>With*</c> methods in
-    /// <see cref="EntryPropertyBuilderExtensions"/>.
+    /// the <c>With*</c> methods on the builder the <c>From*</c> methods return.
     /// </summary>
     /// <remarks>
     /// Every property must already exist on the data source; create it with
@@ -42,21 +40,17 @@ public sealed record AssetUpload(AssetKey Key, AssetFilename Filename, AssetCont
     /// </remarks>
     public IReadOnlyList<EntryProperty> Properties { get; init; } = [];
 
-    /// <summary>Adds an already-built property value.</summary>
-    /// <param name="value">The property value.</param>
-    /// <returns>
-    /// A copy of the upload with the value added. The upload it was called on
-    /// is unchanged.
-    /// </returns>
-    public AssetUpload WithProperty(EntryProperty value) => this with { Properties = [.. Properties, value] };
-
     /// <summary>
     /// A file on disk, stored under its own name.
     /// </summary>
     /// <param name="key">The key within the data source.</param>
     /// <param name="path">The file to upload.</param>
-    public static AssetUpload FromFile(AssetKey key, string path) =>
-        new(key, AssetFilename.FromPath(path), AssetContent.FromFile(path));
+    /// <returns>A builder to add property values to.</returns>
+    public static EntryPropertyBuilder<AssetUpload> FromFile(AssetKey key, string path) =>
+        new(properties => new AssetUpload(key, AssetFilename.FromPath(path), AssetContent.FromFile(path))
+        {
+            Properties = properties,
+        });
 
     /// <summary>
     /// A file on disk, stored under a name of your choosing.
@@ -64,8 +58,12 @@ public sealed record AssetUpload(AssetKey Key, AssetFilename Filename, AssetCont
     /// <param name="key">The key within the data source.</param>
     /// <param name="filename">The name the file is stored under.</param>
     /// <param name="path">The file to upload.</param>
-    public static AssetUpload FromFile(AssetKey key, AssetFilename filename, string path) =>
-        new(key, filename, AssetContent.FromFile(path));
+    /// <returns>A builder to add property values to.</returns>
+    public static EntryPropertyBuilder<AssetUpload> FromFile(AssetKey key, AssetFilename filename, string path) =>
+        new(properties => new AssetUpload(key, filename, AssetContent.FromFile(path))
+        {
+            Properties = properties,
+        });
 
     /// <summary>
     /// A buffer already in memory.
@@ -73,6 +71,10 @@ public sealed record AssetUpload(AssetKey Key, AssetFilename Filename, AssetCont
     /// <param name="key">The key within the data source.</param>
     /// <param name="filename">The name the file is stored under.</param>
     /// <param name="bytes">The content to upload.</param>
-    public static AssetUpload FromBytes(AssetKey key, AssetFilename filename, ReadOnlyMemory<byte> bytes) =>
-        new(key, filename, AssetContent.FromBytes(bytes));
+    /// <returns>A builder to add property values to.</returns>
+    public static EntryPropertyBuilder<AssetUpload> FromBytes(AssetKey key, AssetFilename filename, ReadOnlyMemory<byte> bytes) =>
+        new(properties => new AssetUpload(key, filename, AssetContent.FromBytes(bytes))
+        {
+            Properties = properties,
+        });
 }
