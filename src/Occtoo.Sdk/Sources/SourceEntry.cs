@@ -82,11 +82,11 @@ public sealed class SourceEntryBuilder : IEntryPropertyBuilder<SourceEntryBuilde
         WithProperty(new(propertyId, PropertyValue.Clear));
 
     /// <summary>Adds an already-built property value.</summary>
-    /// <param name="value">The property value.</param>
+    /// <param name="property">The property value.</param>
     /// <returns>The builder, for chaining.</returns>
-    public SourceEntryBuilder WithProperty(EntryProperty value)
+    public SourceEntryBuilder WithProperty(EntryProperty property)
     {
-        _properties.Add(value);
+        _properties.Add(property);
         return this;
     }
 
