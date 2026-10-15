@@ -14,12 +14,12 @@ public interface IEntryPropertyBuilder<TSelf>
     where TSelf : IEntryPropertyBuilder<TSelf>
 {
     /// <summary>Adds an already-built property value.</summary>
-    /// <param name="property">The property value.</param>
+    /// <param name="value">The property value.</param>
     /// <returns>
     /// The builder with the value added. Keep it — for an immutable builder
     /// such as <see cref="Occtoo.Assets.AssetUpload"/>, it's a new instance.
     /// </returns>
-    TSelf WithProperty(EntryProperty property);
+    TSelf WithProperty(EntryProperty value);
 }
 
 /// <summary>

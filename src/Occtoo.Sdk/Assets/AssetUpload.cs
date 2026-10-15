@@ -43,12 +43,12 @@ public sealed record AssetUpload(AssetKey Key, AssetFilename Filename, AssetCont
     public IReadOnlyList<EntryProperty> Properties { get; init; } = [];
 
     /// <summary>Adds an already-built property value.</summary>
-    /// <param name="property">The property value.</param>
+    /// <param name="value">The property value.</param>
     /// <returns>
     /// A copy of the upload with the value added. The upload it was called on
     /// is unchanged.
     /// </returns>
-    public AssetUpload WithProperty(EntryProperty property) => this with { Properties = [.. Properties, property] };
+    public AssetUpload WithProperty(EntryProperty value) => this with { Properties = [.. Properties, value] };
 
     /// <summary>
     /// A file on disk, stored under its own name.
