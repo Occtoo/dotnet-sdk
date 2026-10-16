@@ -26,7 +26,7 @@ public class AssetUploadTests
         using var client = Client(api, blob);
 
         var result = await client.Assets.Upload(
-            Media, [Logo()], Sequential, TestContext.Current.CancellationToken);
+            Media, [Logo()], options: Sequential, cancellationToken: TestContext.Current.CancellationToken);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.AllCompleted.ShouldBeTrue();
@@ -50,7 +50,7 @@ public class AssetUploadTests
         using var blob = new StubHandler().RespondCreated();
         using var client = Client(api, blob);
 
-        await client.Assets.Upload(Media, [Logo()], Sequential, TestContext.Current.CancellationToken);
+        await client.Assets.Upload(Media, [Logo()], options: Sequential, cancellationToken: TestContext.Current.CancellationToken);
 
         Filenames(api.Requests[0].Body!).ShouldBe(Filenames(api.Requests[1].Body!));
 
@@ -77,7 +77,7 @@ public class AssetUploadTests
         using var client = Client(api, blob);
 
         var result = await client.Assets.Upload(
-            Media, [Logo()], Sequential, TestContext.Current.CancellationToken);
+            Media, [Logo()], options: Sequential, cancellationToken: TestContext.Current.CancellationToken);
 
         var outcome = result.Value.Outcomes.Single();
         outcome.Reached.ShouldBe(AssetUploadStage.Initializing);
@@ -97,7 +97,7 @@ public class AssetUploadTests
         using var client = Client(api, blob);
 
         var result = await client.Assets.Upload(
-            Media, [Logo()], Sequential, TestContext.Current.CancellationToken);
+            Media, [Logo()], options: Sequential, cancellationToken: TestContext.Current.CancellationToken);
 
         var outcome = result.Value.Outcomes.Single();
         outcome.Reached.ShouldBe(AssetUploadStage.Transferring);
@@ -121,7 +121,7 @@ public class AssetUploadTests
         using var client = Client(api, blob);
 
         var result = await client.Assets.Upload(
-            Media, [Logo()], Sequential, TestContext.Current.CancellationToken);
+            Media, [Logo()], options: Sequential, cancellationToken: TestContext.Current.CancellationToken);
 
         var outcome = result.Value.Outcomes.Single();
         outcome.Reached.ShouldBe(AssetUploadStage.Completing);
@@ -140,7 +140,7 @@ public class AssetUploadTests
         using var client = Client(api, blob);
 
         var result = await client.Assets.Upload(
-            Media, [Logo()], Sequential, TestContext.Current.CancellationToken);
+            Media, [Logo()], options: Sequential, cancellationToken: TestContext.Current.CancellationToken);
 
         result.Value.AllCompleted.ShouldBeTrue();
         blob.RequestCount.ShouldBe(2);
@@ -160,7 +160,7 @@ public class AssetUploadTests
         using var client = Client(api, blob);
 
         var result = await client.Assets.Upload(
-            Media, [Logo()], Sequential, TestContext.Current.CancellationToken);
+            Media, [Logo()], options: Sequential, cancellationToken: TestContext.Current.CancellationToken);
 
         result.Value.AllCompleted.ShouldBeTrue();
         api.Requests[1].RequestUri!.ToString().ShouldBe("https://api.occtoo.com/v1/assets/media/uploadLinks");
@@ -179,7 +179,7 @@ public class AssetUploadTests
         using var client = Client(api, blob);
 
         var result = await client.Assets.Upload(
-            Media, [Logo()], Sequential, TestContext.Current.CancellationToken);
+            Media, [Logo()], options: Sequential, cancellationToken: TestContext.Current.CancellationToken);
 
         result.Value.AllCompleted.ShouldBeTrue();
 
@@ -200,7 +200,7 @@ public class AssetUploadTests
         using var client = Client(api, blob);
 
         var result = await client.Assets.Upload(
-            Media, [Logo()], Sequential, TestContext.Current.CancellationToken);
+            Media, [Logo()], options: Sequential, cancellationToken: TestContext.Current.CancellationToken);
 
         // The expiry is the local clock's opinion. It tried to re-sign, could
         // not, and sent the bytes to the old link anyway — which storage
@@ -227,8 +227,8 @@ public class AssetUploadTests
         var result = await client.Assets.Upload(
             Media,
             [Logo()],
-            new AssetUploadOptions { MaxConcurrentTransfers = 1, Progress = progress },
-            TestContext.Current.CancellationToken);
+            options: new AssetUploadOptions { MaxConcurrentTransfers = 1, Progress = progress },
+            cancellationToken: TestContext.Current.CancellationToken);
 
         // The clock was right, the pre-emptive re-sign failed, and the 403 the
         // link earned still had a re-sign behind it.
@@ -264,8 +264,8 @@ public class AssetUploadTests
             Media,
             [new AssetUpload(AssetKey.From("logo"), AssetFilename.From("logo.png"),
                 AssetContent.FromStream(unseekable, 5))],
-            Sequential,
-            TestContext.Current.CancellationToken);
+            options: Sequential,
+            cancellationToken: TestContext.Current.CancellationToken);
 
         // The failure is transient and an attempt is left, but the bytes are
         // gone: a second PUT would send an empty body.
@@ -285,8 +285,8 @@ public class AssetUploadTests
         var result = await client.Assets.Upload(
             Media,
             [Logo("logo"), Logo("note_1")],
-            new AssetUploadOptions { MaxConcurrentTransfers = 1, Progress = progress },
-            TestContext.Current.CancellationToken);
+            options: new AssetUploadOptions { MaxConcurrentTransfers = 1, Progress = progress },
+            cancellationToken: TestContext.Current.CancellationToken);
 
         result.IsFailure.ShouldBeTrue();
 
@@ -314,7 +314,7 @@ public class AssetUploadTests
         using var client = Client(api, blob);
 
         await Should.ThrowAsync<OperationCanceledException>(async () =>
-            await client.Assets.Upload(Media, [Logo()], Sequential, cancelled.Token));
+            await client.Assets.Upload(Media, [Logo()], options: Sequential, cancellationToken: cancelled.Token));
     }
 
     [Fact]
@@ -331,7 +331,7 @@ public class AssetUploadTests
         using var client = Client(api, blob);
 
         var result = await client.Assets.Upload(
-            Media, assets, Sequential, TestContext.Current.CancellationToken);
+            Media, assets, options: Sequential, cancellationToken: TestContext.Current.CancellationToken);
 
         result.Value.AllCompleted.ShouldBeTrue();
         api.RequestCount.ShouldBe(3);
@@ -354,8 +354,8 @@ public class AssetUploadTests
         using var client = Client(api, blob);
 
         var result = await client.Assets.Upload(
-            Media, assets, new AssetUploadOptions { MaxConcurrentTransfers = 4 },
-            TestContext.Current.CancellationToken);
+            Media, assets, options: new AssetUploadOptions { MaxConcurrentTransfers = 4 },
+            cancellationToken: TestContext.Current.CancellationToken);
 
         result.Value.Outcomes.Select(outcome => outcome.Key.Value).ShouldBe(keys);
     }
@@ -368,7 +368,7 @@ public class AssetUploadTests
         using var client = Client(api, blob);
 
         var result = await client.Assets.Upload(
-            Media, [Logo()], Sequential, TestContext.Current.CancellationToken);
+            Media, [Logo()], options: Sequential, cancellationToken: TestContext.Current.CancellationToken);
 
         result.IsFailure.ShouldBeTrue();
         result.Error.ShouldBeOfType<ConflictError>();
@@ -386,7 +386,7 @@ public class AssetUploadTests
             AssetKey.From("logo"), Path.Combine(Path.GetTempPath(), "occtoo-sdk-does-not-exist.txt"));
 
         var result = await client.Assets.Upload(
-            Media, [missing], Sequential, TestContext.Current.CancellationToken);
+            Media, [missing], options: Sequential, cancellationToken: TestContext.Current.CancellationToken);
 
         result.Error.ShouldBeOfType<ValidationError>().Message.ShouldContain("logo");
         api.RequestCount.ShouldBe(0);
@@ -403,8 +403,8 @@ public class AssetUploadTests
         var result = await client.Assets.Upload(
             Media,
             [Logo()],
-            new AssetUploadOptions { MaxConcurrentTransfers = 0 },
-            TestContext.Current.CancellationToken);
+            options: new AssetUploadOptions { MaxConcurrentTransfers = 0 },
+            cancellationToken: TestContext.Current.CancellationToken);
 
         result.Error.ShouldBeOfType<ValidationError>();
         api.RequestCount.ShouldBe(0);

@@ -57,7 +57,7 @@ internal sealed record SourcePropertyDto
         Enums.Read<SourcePropertyState>(State));
 }
 
-internal sealed record CreateSourceDto(string Id, string Name, string? Description);
+internal sealed record CreateSourceDto(string Id, string Name, string? Description, SourceType Type);
 
 internal sealed record UpdateSourceDto(string? Name, string? Description);
 

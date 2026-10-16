@@ -106,7 +106,7 @@ var upload = await client.Assets.Upload(
         AssetUpload.FromFile("logo_1", "files/logo.png"),
         AssetUpload.FromFile("note_1", "files/note.txt"),
     ],
-    new AssetUploadOptions { Progress = dashboard });   // your own IProgress<AssetProgress>
+    options: new AssetUploadOptions { Progress = dashboard });   // your own IProgress<AssetProgress>
 ```
 
 Every operation returns `Result<T, OcctooError>`
@@ -162,6 +162,7 @@ Runnable samples under [`examples/`](examples), one project per capability:
 |---|---|
 | [`Occtoo.Sdk.Examples.Auth`](examples/Occtoo.Sdk.Examples.Auth) | Every auth flow, one file each: client credentials, API key, device login |
 | [`Occtoo.Sdk.Examples.Sources.Ingest`](examples/Occtoo.Sdk.Examples.Sources.Ingest) | A hosted worker ingesting typed entries periodically — appsettings, DI, SDK log levels |
+| [`Occtoo.Sdk.Examples.Assets.Sync`](examples/Occtoo.Sdk.Examples.Assets.Sync) | A hosted worker turning file events into a Media data source: Upload for an added file, Replace for an updated one, typed ingest for a metadata-only change, Delete for a removed one |
 | [`Occtoo.Sdk.Examples.Events.Pull`](examples/Occtoo.Sdk.Examples.Events.Pull) | A paginated event consumer that persists its cursor and resumes across restarts |
 | [`Occtoo.Sdk.Examples.Events.SSE`](examples/Occtoo.Sdk.Examples.Events.SSE) | A live subscription over Server-Sent Events, filtered, with automatic reconnect |
 | [`Occtoo.Sdk.Examples.Events.Batch`](examples/Occtoo.Sdk.Examples.Events.Batch) | Competing workers on a durable consumer: pull leased batches, acknowledge, park poison batches |
@@ -229,6 +230,7 @@ Requires the `write:sources` scope. The legacy string-based import
 | Method | Path | Purpose |
 |---|---|---|
 | `POST` | `/v1/assets/{dataSourceId}` | Create assets in a Media data source and sign an upload link per key |
+| `PUT` | `/v1/assets/{dataSourceId}` | Add or replace assets and sign an upload link per key |
 | `POST` | `/v1/assets/{dataSourceId}/uploadLinks` | Sign a fresh link for assets that are already initialized |
 | `POST` | `/v1/assets/{dataSourceId}/complete` | Read each uploaded blob back and create the file |
 | `GET` `DELETE` | `/v1/assets/{dataSourceId}?key=…` | Read or delete up to 50 assets by key |

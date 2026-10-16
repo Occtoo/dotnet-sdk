@@ -80,7 +80,8 @@ logs a Warning under `Occtoo.Http`. Non-transient errors are never retried:
 replaying a `ValidationError` reproduces it.
 
 Only requests that are safe to send twice are replayed after an ambiguous
-failure — reads, and ingest, whose entries are upserts. A `5xx`, timeout or
+failure — reads, ingest (whose entries are upserts), and asset `Override`
+(which adds or replaces). A `5xx`, timeout or
 dropped connection on any other write (creating an application, updating one
 under an etag, deleting) may hide a change that was committed, so it surfaces
 as its `TransientError` instead: replaying would turn a successful create into
@@ -93,7 +94,8 @@ Notes on individual types:
 - **`RateLimitError.RetryAfter`** is a `Maybe<TimeSpan>` from the `Retry-After`
   header. Honour it when present; otherwise back off exponentially.
 - **`ValidationError.Failures`** carries Occtoo's validation messages keyed by
-  request path (`entries[0].properties[1].value`), straight from the RFC 9457
+  request path (`entries[0].properties[1].value` for ingest,
+  `assets[0].properties[1].value` for an asset), straight from the RFC 9457
   problem details body. Occtoo validates all-or-nothing, so nothing was accepted.
 - **`AuthenticationError.ErrorCode`** is the OAuth `error` code
   (`invalid_client`, `access_denied`, ...) when an authorization server supplied

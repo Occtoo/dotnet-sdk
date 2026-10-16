@@ -140,8 +140,9 @@ public sealed class SourcesClient
             .MapResponse(dto => dto.ToModel());
 
     /// <summary>
-    /// Creates a generic source. Requires a grant for all sources
-    /// (<c>sources</c>), not just the new id.
+    /// Creates a source, generic unless <see cref="CreateSource.Type"/> says
+    /// otherwise. Requires a grant for all sources (<c>sources</c>), not just
+    /// the new id.
     /// </summary>
     public Task<Result<Source, OcctooError>> Create(
         CreateSource source,
@@ -153,7 +154,11 @@ public sealed class SourcesClient
         if (string.IsNullOrWhiteSpace(source.Name))
             return Task.FromResult(Result.Failure<Source, OcctooError>(new ValidationError("A source name is required.")));
 
-        var body = new CreateSourceDto(source.Id.Value, source.Name, source.Description.GetValueOrDefault());
+        var body = new CreateSourceDto(
+            source.Id.Value,
+            source.Name,
+            source.Description.GetValueOrDefault(),
+            source.Type);
         return OcctooTransport.Send(_httpClient, _requestTimeout,
                 OcctooTransport.Request(HttpMethod.Post, new Uri("v1/sources", UriKind.Relative), body,
                     SourcesJsonContext.Default.CreateSourceDto),

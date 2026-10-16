@@ -1,17 +1,55 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Occtoo.Sources;
+using Occtoo.Sources.Internal;
 
 namespace Occtoo.Assets.Internal;
 
 // The wire shapes of the asset endpoints. Plain DTOs through a source-generated
-// context: the payloads are a handful of short strings per asset, so a
-// hand-written converter would buy nothing (see docs/conventions.md).
+// context, except the asset entries in the initialize body: their properties
+// scale with user data and PropertyValue has no declarative spelling, so a
+// converter writes them (see docs/conventions.md).
 
 /// <summary>One asset in a request body.</summary>
 internal sealed record AssetDto(string EntryKey, string Filename);
 
-/// <summary>The body of <c>POST /v1/assets/{dataSourceId}</c>.</summary>
-internal sealed record InitializeAssetsRequestDto(Guid? FolderId, IReadOnlyList<AssetDto> Assets);
+/// <summary>
+/// One asset in the initialize body: what identifies it, and the property
+/// values its entry should be created with.
+/// </summary>
+internal sealed record InitializeAssetDto(string EntryKey, string Filename, IReadOnlyList<EntryProperty> Properties);
+
+/// <summary>
+/// The body of <c>POST /v1/assets/{dataSourceId}</c> and
+/// <c>PUT /v1/assets/{dataSourceId}</c>.
+/// </summary>
+internal sealed record InitializeAssetsRequestDto(Guid? FolderId, IReadOnlyList<InitializeAssetDto> Assets);
+
+/// <summary>
+/// Writes one asset in the initialize body: <c>entryKey</c>, <c>filename</c>
+/// and, when it has any, <c>properties</c> — the same rows typed ingest
+/// sends.
+/// </summary>
+internal sealed class InitializeAssetJsonConverter : JsonConverter<InitializeAssetDto>
+{
+    public override void Write(Utf8JsonWriter writer, InitializeAssetDto asset, JsonSerializerOptions options)
+    {
+        writer.WriteStartObject();
+        writer.WriteString("entryKey"u8, asset.EntryKey);
+        writer.WriteString("filename"u8, asset.Filename);
+
+        if (asset.Properties.Count > 0)
+        {
+            writer.WritePropertyName("properties"u8);
+            SourceEntryJsonConverter.WriteProperties(writer, asset.Properties);
+        }
+
+        writer.WriteEndObject();
+    }
+
+    public override InitializeAssetDto Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        throw new NotSupportedException("Assets are only written, never read.");
+}
 
 /// <summary>The body of the <c>complete</c> and <c>uploadLinks</c> calls.</summary>
 internal sealed record AssetsRequestDto(IReadOnlyList<AssetDto> Assets);
@@ -74,7 +112,7 @@ internal sealed record AssetStateDto
 /// Source-generated serialization for the asset payloads, so the SDK stays
 /// usable under trimming and native AOT.
 /// </summary>
-[JsonSourceGenerationOptions(JsonSerializerDefaults.Web)]
+[JsonSourceGenerationOptions(JsonSerializerDefaults.Web, Converters = [typeof(InitializeAssetJsonConverter)])]
 [JsonSerializable(typeof(InitializeAssetsRequestDto))]
 [JsonSerializable(typeof(AssetsRequestDto))]
 [JsonSerializable(typeof(InitializedAssetsDto))]

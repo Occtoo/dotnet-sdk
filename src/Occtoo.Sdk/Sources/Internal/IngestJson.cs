@@ -40,9 +40,20 @@ internal sealed class SourceEntryJsonConverter : JsonConverter<SourceEntry>
             return;
         }
 
-        writer.WriteStartArray("properties"u8);
+        writer.WritePropertyName("properties"u8);
+        WriteProperties(writer, entry.Properties);
+        writer.WriteEndObject();
+    }
 
-        foreach (var property in entry.Properties)
+    /// <summary>
+    /// Writes property values as the array of rows typed ingest and the asset
+    /// endpoints both take: <c>[ { "id", "value", "language"? } ]</c>.
+    /// </summary>
+    internal static void WriteProperties(Utf8JsonWriter writer, IReadOnlyList<EntryProperty> properties)
+    {
+        writer.WriteStartArray();
+
+        foreach (var property in properties)
         {
             writer.WriteStartObject();
             writer.WriteString("id"u8, property.Id.Value);
@@ -54,7 +65,6 @@ internal sealed class SourceEntryJsonConverter : JsonConverter<SourceEntry>
         }
 
         writer.WriteEndArray();
-        writer.WriteEndObject();
     }
 
     /// <summary>

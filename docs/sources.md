@@ -37,6 +37,8 @@ converts implicitly from a string *through the same validation*, so the example
 above compiles from literals while `"english"` as a language or a 300-character
 property id still fails at the call site, before any round trip.
 
+`SourceEntry.WithId` returns an `EntryPropertyBuilder<SourceEntry>`, the same builder `AssetUpload.From*` returns — see [assets.md](assets.md#properties). It converts to a `SourceEntry` implicitly, or through `Build()`.
+
 Values are a closed union, `PropertyValue`, matching exactly what the endpoint
 accepts:
 
@@ -49,6 +51,9 @@ accepts:
 | `PropertyValue.Timestamp(when)` | ISO 8601 string | `Timestamp` |
 | `PropertyValue.List("a", "b")` | array of strings | `List` / `LocalizedList` |
 | `PropertyValue.Clear` | `null` | clears a configured property |
+
+Occtoo stores a `Decimal` property as a double, so a decimal beyond double
+precision is rounded.
 
 Implicit conversions cover the common cases, so `new EntryProperty(id, "text")`
 and `new EntryProperty(id, 100.5m)` also work. The builder
@@ -129,6 +134,8 @@ await client.Sources.Create(new CreateSource("products", "Products"))
         new UpsertSourceProperty("Tags") { Type = SourcePropertyType.List, Delimiter = Delimiter.From(",") }));
 ```
 
+`CreateSource.Type` sets the kind of source, `Generic` when left out; asset uploads need `SourceType.Media`.
+
 `Update` changes only the fields you set (an empty `Description` clears it),
 and `Delete` *accepts* a soft deletion — the cleanup runs afterwards. Property
 writes follow the same rule: absent fields keep their values, list types need
@@ -137,6 +144,8 @@ other types must not have one — `UpsertProperty` returns a `ValidationError`
 before the request, and a type change may reindex asynchronously, during which the
 property reports `SourcePropertyState.Updating` (`Deleting` after a delete is
 accepted).
+
+A property id `UpsertProperty` creates must start with a lowercase letter, then lowercase letters, digits, `_` or `-`; `PropertyId` lowercases but doesn't check the first character. Creating a property with a type also reindexes, so it's `Updating` and a second `UpsertProperty` on it answers `409` until it's `Active` again. Asset uploads write only to properties that already exist, so a Media data source's properties are created here before its first upload — see [assets.md](assets.md#properties).
 
 `List` and `ListProperties` page forward the same way the applications
 surface does — see [applications.md](applications.md#listing) for cursors

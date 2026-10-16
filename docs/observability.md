@@ -78,7 +78,9 @@ spans when it is not:
 | `acknowledge event batch` | Client | `occtoo.event_destination.id`, `occtoo.events.lease_id`, `occtoo.events.outcome` (`ok`, `failed`), `occtoo.events.acknowledgement` (`committed`, `requeued`, `stale`) |
 | `list sources`, `get source`, `create source`, … | Client | one span per management operation, named after it; `occtoo.source.id`, `occtoo.property.id`, `occtoo.application.id`, `occtoo.page.limit` where they apply |
 | `upload assets` | Client | `occtoo.source.id`, `occtoo.assets.count`, `occtoo.assets.completed`, `occtoo.assets.failed` |
+| `replace assets` | Client | `occtoo.source.id`, `occtoo.assets.count`, `occtoo.assets.completed`, `occtoo.assets.failed` |
 | `initialize assets` | Client | `occtoo.source.id`, `occtoo.assets.count`, `occtoo.folder.id` (when given), `occtoo.assets.signed`, `occtoo.assets.refused` |
+| `override assets` | Client | `occtoo.source.id`, `occtoo.assets.count`, `occtoo.folder.id` (when given), `occtoo.assets.signed`, `occtoo.assets.refused` |
 | `refresh asset upload links` | Client | `occtoo.source.id`, `occtoo.assets.count`, `occtoo.assets.signed`, `occtoo.assets.refused` |
 | `transfer asset` | Client | `occtoo.assets.key`, `occtoo.assets.bytes` |
 | `complete assets` | Client | `occtoo.source.id`, `occtoo.assets.count`, `occtoo.assets.completed`, `occtoo.assets.failed` |

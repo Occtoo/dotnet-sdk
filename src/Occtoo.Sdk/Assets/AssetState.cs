@@ -6,10 +6,11 @@ namespace Occtoo.Assets;
 public enum AssetStatus
 {
     /// <summary>
-    /// The asset exists and is waiting for its bytes. This covers the whole
-    /// window from initializing until completion has been accounted for — the
-    /// transfer goes straight to storage, so nothing in between is visible to
-    /// Occtoo.
+    /// The asset exists but has no file yet, from
+    /// <see cref="AssetsClient.Initialize"/> or <see cref="AssetsClient.Override"/>
+    /// until Occtoo has analysed the file. The transfer goes straight to
+    /// storage, so Occtoo doesn't see it, and the analysis can run on for a
+    /// while after <see cref="AssetsClient.Complete"/>.
     /// </summary>
     Initialized,
 
@@ -25,9 +26,11 @@ public enum AssetStatus
 /// </summary>
 /// <remarks>
 /// Everything but the status is filled in once a file exists, so an asset that
-/// is still <see cref="AssetStatus.Initialized"/> carries nothing else. The
-/// status trails a successful completion by one event hop — read it to recover
-/// state you lost, not to confirm an upload you just finished.
+/// is still <see cref="AssetStatus.Initialized"/> carries nothing else. Right
+/// after <see cref="AssetsClient.Complete"/> an asset can still read
+/// <see cref="AssetStatus.Initialized"/> for a while because Occtoo is still
+/// analysing the file; poll <see cref="AssetsClient.GetState"/> if you need it
+/// to read <see cref="AssetStatus.Completed"/>.
 /// </remarks>
 /// <param name="Status">Where the asset stands.</param>
 /// <param name="Filename">The name the file is stored under.</param>

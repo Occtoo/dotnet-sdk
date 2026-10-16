@@ -19,7 +19,8 @@ public enum AssetUploadStage
 }
 
 /// <summary>
-/// One report about an asset's progress through <see cref="AssetsClient.Upload"/>.
+/// One report about an asset's progress through <see cref="AssetsClient.Upload"/>
+/// or <see cref="AssetsClient.Replace"/>.
 /// </summary>
 /// <remarks>
 /// <para>
