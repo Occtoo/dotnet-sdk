@@ -2,6 +2,13 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v0.6.0](https://github.com/Occtoo/dotnet-sdk/compare/8c858418bc9436cf6c09524c184128c555bc9ff1..v0.6.0) - 2026-10-26
+#### Features
+- ![BREAKING](https://img.shields.io/badge/BREAKING-red) (**assets**) set typed properties on assets and add or replace their files (#10) - ([8c85841](https://github.com/Occtoo/dotnet-sdk/commit/8c858418bc9436cf6c09524c184128c555bc9ff1)) - Patryk Kuszmar
+- (**managed-tags**) filter value lists by created and updated time (#11) - ([05ae0fd](https://github.com/Occtoo/dotnet-sdk/commit/05ae0fd8dd4d5159fa81e8fe80011585c0f2530e)) - Joel Jansson
+
+- - -
+
 ## [v0.5.0](https://github.com/Occtoo/dotnet-sdk/compare/a4a013ad23fa55077e9d25884472908607a908bf..v0.5.0) - 2026-10-08
 #### Features
 - (**sources**) delete entries through typed ingest (#9) - ([a4a013a](https://github.com/Occtoo/dotnet-sdk/commit/a4a013ad23fa55077e9d25884472908607a908bf)) - Ihor Korotenko
