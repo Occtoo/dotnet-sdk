@@ -195,7 +195,8 @@ public sealed record ManagedTagListQuery
 }
 
 /// <summary>
-/// Narrows and pages a value listing. Results are ordered by key;
+/// Narrows and pages a value listing. Filters combine with AND; timestamp
+/// bounds are inclusive; results are ordered by key —
 /// <see cref="ManagedTagValue.Order"/> does not affect pagination.
 /// </summary>
 public sealed record ManagedTagValueListQuery
@@ -205,6 +206,18 @@ public sealed record ManagedTagValueListQuery
 
     /// <summary>Only values nested under this key.</summary>
     public Maybe<ManagedTagValueKey> ParentKey { get; init; } = Maybe<ManagedTagValueKey>.None;
+
+    /// <summary>Lower bound on creation time.</summary>
+    public Maybe<DateTimeOffset> CreatedFrom { get; init; } = Maybe<DateTimeOffset>.None;
+
+    /// <summary>Upper bound on creation time.</summary>
+    public Maybe<DateTimeOffset> CreatedTo { get; init; } = Maybe<DateTimeOffset>.None;
+
+    /// <summary>Lower bound on last modification time.</summary>
+    public Maybe<DateTimeOffset> UpdatedFrom { get; init; } = Maybe<DateTimeOffset>.None;
+
+    /// <summary>Upper bound on last modification time.</summary>
+    public Maybe<DateTimeOffset> UpdatedTo { get; init; } = Maybe<DateTimeOffset>.None;
 
     /// <summary>Where to read and how much.</summary>
     public PageRequest Page { get; init; } = new();

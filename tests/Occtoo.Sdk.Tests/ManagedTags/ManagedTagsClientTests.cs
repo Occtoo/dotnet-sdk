@@ -130,6 +130,32 @@ public class ManagedTagsClientTests
     }
 
     [Fact]
+    public async Task ListValues_carries_every_filter()
+    {
+        using var handler = new StubHandler().Respond(HttpStatusCode.OK, $$"""
+            { "items": [{{ValueBody}}], "after": null, "totalCount": null }
+            """);
+        using var client = Client(handler);
+
+        var result = await client.ManagedTags.ListValues(Colors, new ManagedTagValueListQuery
+        {
+            Key = "bl",
+            ParentKey = ManagedTagValueKey.From("cool"),
+            CreatedFrom = DateTimeOffset.Parse("2026-08-01T00:00:00Z", null),
+            CreatedTo = DateTimeOffset.Parse("2026-08-31T00:00:00Z", null),
+            UpdatedFrom = DateTimeOffset.Parse("2026-09-01T00:00:00+02:00", null),
+            UpdatedTo = DateTimeOffset.Parse("2026-09-30T00:00:00Z", null),
+            Page = new PageRequest { Limit = 10 },
+        }, TestContext.Current.CancellationToken);
+
+        result.Value.Items.ShouldHaveSingleItem().Key.Value.ShouldBe("blue");
+        handler.Requests.Single().RequestUri!.AbsoluteUri.ShouldBe(
+            "https://api.occtoo.com/v1/managed-tags/6f1c2d3e-4a5b-4c6d-8e7f-9a0b1c2d3e4f/values?key=bl&parentKey=cool"
+            + "&createdFrom=2026-08-01T00%3A00%3A00.0000000Z&createdTo=2026-08-31T00%3A00%3A00.0000000Z"
+            + "&updatedFrom=2026-08-31T22%3A00%3A00.0000000Z&updatedTo=2026-09-30T00%3A00%3A00.0000000Z&limit=10");
+    }
+
+    [Fact]
     public async Task A_text_tag_value_maps_to_text_content()
     {
         using var handler = new StubHandler().Respond(HttpStatusCode.OK, """

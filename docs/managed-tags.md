@@ -60,6 +60,7 @@ know reads as absent, like every enum in a response.
 ## Listing
 
 Tag lists filter by name substring, `Type`, `ParentId`, and inclusive
-created/updated windows; value lists by key substring (case-sensitive) and
-exact `ParentKey`. Both page forward like every management surface — see
+created/updated windows; value lists by key substring (case-sensitive),
+exact `ParentKey`, and the same inclusive created/updated windows. Both
+page forward like every management surface — see
 [applications.md](applications.md#listing) for cursors and the paging loop.

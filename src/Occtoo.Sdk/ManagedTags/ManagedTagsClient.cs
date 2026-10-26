@@ -124,6 +124,10 @@ public sealed class ManagedTagsClient
         var uri = new QueryString($"v1/managed-tags/{managedTagId.Value:D}/values")
             .Add("key", query.Key)
             .Add("parentKey", query.ParentKey.Map(key => key.Value))
+            .Add("createdFrom", query.CreatedFrom)
+            .Add("createdTo", query.CreatedTo)
+            .Add("updatedFrom", query.UpdatedFrom)
+            .Add("updatedTo", query.UpdatedTo)
             .Add(query.Page)
             .ToUri();
 
