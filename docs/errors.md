@@ -86,8 +86,10 @@ dropped connection on any other write (creating an application, updating one
 under an etag, deleting) may hide a change that was committed, so it surfaces
 as its `TransientError` instead: replaying would turn a successful create into
 a `ConflictError` and lose its one-time client secret. Check the resource
-before trying again. A `429` is resent for every request — it was refused
-before anything was processed.
+before trying again. The image conversion create request and `Convert` aren't
+replayed either: a `504` from `Convert` means the conversion ran over 25
+seconds, which a resend is likely to repeat. A `429` is resent for every
+request — it was refused before anything was processed.
 
 Notes on individual types:
 
@@ -103,10 +105,11 @@ Notes on individual types:
 - **`AssetRejectedError`** is one asset of a batch refused while the call as a
   whole succeeded — it carries Occtoo's own reason for that key. It appears in
   an `AssetUploadReport`; see [assets.md](assets.md).
-- **Blob storage failures** are not Occtoo responses, so they name the asset and
+- **Blob storage failures** are not Occtoo responses, so they name the file and
   carry storage's `x-ms-error-code` and `x-ms-request-id` instead of a
-  `traceId`. They still land on the same types: an expired upload link is an
-  `AuthenticationError`, a busy account a `RateLimitError`.
+  `traceId`. They cover asset transfers and image conversion uploads alike, and
+  land on the same types: an expired upload link is an `AuthenticationError`, a
+  busy account a `RateLimitError`.
 - Messages embed Occtoo's `requestId`/`traceId` when the response carried one —
   that is what a support ticket needs.
 

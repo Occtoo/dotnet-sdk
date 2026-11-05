@@ -20,6 +20,9 @@ The official .NET client for [Occtoo](https://www.occtoo.com). One package,
 - **Assets** — upload files into a Media data source. One call creates the
   assets, moves the bytes straight to storage, and completes them — reporting
   progress per file and telling you exactly which ones made it.
+- **Image conversions** — upload an image once and convert it as often as you
+  need: resized, padded or cropped, re-encoded as JPEG, PNG or WebP, and
+  handed back as a temporary download link.
 - **Applications** — the tenant's machine-to-machine applications and their
   grants, with the access catalog as the vocabulary.
 - **Managed tags** — controlled vocabularies and their values, plain or
@@ -34,8 +37,8 @@ The official .NET client for [Occtoo](https://www.occtoo.com). One package,
   the part every receiver otherwise hand-rolls.
 
 > [!IMPORTANT]
-> **Status: pre-alpha.** Authentication, typed ingest, assets and events are
-> implemented and tested. Expect breaking changes until `1.0`.
+> **Status: pre-alpha.** Authentication, typed ingest, assets, image conversions
+> and events are implemented and tested. Expect breaking changes until `1.0`.
 
 ## Getting started
 
@@ -109,6 +112,19 @@ var upload = await client.Assets.Upload(
     options: new AssetUploadOptions { Progress = dashboard });   // your own IProgress<AssetProgress>
 ```
 
+And converting images — upload the original once, then convert it as often as
+you need, each conversion returning a fresh download link:
+
+```csharp
+using Occtoo.ImageConversions;
+
+var thumbnail = new ImageConversionParameters(
+    ImageConversionMode.Fit, TargetSize: 400, AspectRatio: "1:1", ImageOutputFormat.Webp, Quality: 80);
+
+var image = await client.ImageConversions.Upload(AssetContent.FromFile("files/shoe.tif"), "shoe.tif")
+    .Bind(id => client.ImageConversions.Convert(id, thumbnail));
+```
+
 Every operation returns `Result<T, OcctooError>`
 ([CSharpFunctionalExtensions](https://github.com/vkhorikov/CSharpFunctionalExtensions))
 — expected failures come back as values, not exceptions; throwing is reserved
@@ -154,7 +170,7 @@ single-flight under concurrency, and recovery from a revoked token are handled
 for you. Full guides: [docs/authentication.md](docs/authentication.md) ·
 [docs/sources.md](docs/sources.md) · [docs/applications.md](docs/applications.md) ·
 [docs/managed-tags.md](docs/managed-tags.md) · [docs/assets.md](docs/assets.md) ·
-[docs/events.md](docs/events.md).
+[docs/image-conversions.md](docs/image-conversions.md) · [docs/events.md](docs/events.md).
 
 Runnable samples under [`examples/`](examples), one project per capability:
 
@@ -238,6 +254,16 @@ Requires the `write:sources` scope. The legacy string-based import
 Requires `write:media`, `write:sources` or `import-datasource`. The bytes go
 straight to Azure Blob Storage against a signed URL and never pass through
 Occtoo.
+
+### Image conversions
+
+| Method | Path | Purpose |
+|---|---|---|
+| `POST` | `/v1/image-conversions` | Sign a link to upload an image to convert |
+| `POST` | `/v1/image-conversions/{id}/convert` | Convert the uploaded image and return a temporary download link |
+
+Requires `write:media`. The original's bytes go straight to Azure Blob Storage
+against a signed URL and never pass through Occtoo.
 
 ### Applications
 

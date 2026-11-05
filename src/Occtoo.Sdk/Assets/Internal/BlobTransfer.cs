@@ -9,7 +9,7 @@ using Occtoo.Http.Internal;
 namespace Occtoo.Assets.Internal;
 
 /// <summary>
-/// The one request that moves an asset's bytes: a single <c>Put Blob</c>
+/// The one request that moves an upload's bytes: a single <c>Put Blob</c>
 /// against the signed URL Occtoo handed out.
 /// </summary>
 /// <remarks>
@@ -95,7 +95,7 @@ internal static class BlobTransfer
 
     /// <summary>
     /// A failure with no response behind it. The transport names Occtoo in its
-    /// message, which is the wrong service here, so the asset and the storage
+    /// message, which is the wrong service here, so the file and the storage
     /// host are named instead.
     /// </summary>
     private static OcctooError Unreachable(OcctooError error, Uri url, string filename) => error switch

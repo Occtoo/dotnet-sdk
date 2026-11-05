@@ -11,6 +11,7 @@ Occtoo lives at [docs.occtoo.com](https://docs.occtoo.com).
 | [sources.md](sources.md) | Typed ingest: the entry model, value objects, and the receipt | plus source and property management
 | [events.md](events.md) | Typed events: pattern matching, the filter builder, cursors, the SSE stream, and durable-consumer batches |
 | [assets.md](assets.md) | Asset uploads: the upload, properties, replacing a file, the steps underneath, and progress |
+| [image-conversions.md](image-conversions.md) | Image conversions: uploading an original once, the conversion parameters, link lifetimes, and failures |
 | [errors.md](errors.md) | The `Result`/`OcctooError` model and how to branch on it |
 | [observability.md](observability.md) | Logging categories and levels, and OpenTelemetry tracing |
 | [conventions.md](conventions.md) | How the repository is organised and why — layout, targets, packaging, CI, dependency policy |

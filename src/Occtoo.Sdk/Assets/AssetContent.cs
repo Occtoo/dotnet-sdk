@@ -5,7 +5,7 @@ using Occtoo.Assets.Internal;
 namespace Occtoo.Assets;
 
 /// <summary>
-/// Where an asset's bytes come from.
+/// Where the bytes of an upload come from, for an asset or an image to convert.
 /// </summary>
 /// <remarks>
 /// <para>
