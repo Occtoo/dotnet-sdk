@@ -70,6 +70,38 @@ A family base expands to all its members — `OfType<SourceEntryEvent>()` matche
 every `source_entry.*` type. For grammar the builder does not model,
 `EventFilter.Raw("...")` sends an expression verbatim.
 
+### Endpoint safe names and API versions
+
+Use `WithEndpointName` to filter `DestinationEntryUpdated`,
+`DestinationEntryDeleted`, or their `DestinationEntryEvent` family by endpoint
+safe name. Combine it with `WithDestination` to scope names to one destination:
+
+```csharp
+var filter = EventFilter.OfType<DestinationEntryEvent>(e => e
+    .WithDestination("destination-id")
+    .WithEndpointName("products", "categories"));
+
+// (type eq "destination_entry.deleted" or type eq "destination_entry.updated")
+//   and destinationId eq "destination-id"
+//   and (endpoint eq "products" or endpoint eq "categories")
+```
+
+Values within one condition use `or`; chained conditions use `and`. Safe-name
+matching is exact and case-sensitive. The filter above can match the same
+endpoint safe names across API versions. Add `WithApiVersionName("2", "3")`
+to restrict it to those version numbers, or `WithApiVersion` to filter by
+API-version IDs.
+
+`WithEndpoint` continues to filter by endpoint ID. Endpoint lifecycle events
+(`EndpointCreated`, `EndpointUpdated`, and `EndpointDeleted`) support that
+ID filter, but do not support `WithEndpointName`.
+
+Only events processed after endpoint filtering was enabled can match an
+`endpoint` condition. Older events are not backfilled, even when their payload
+already contains `Endpoint`. Updating the SDK does not change this. Existing
+SDK versions can send the same expression with `EventFilter.Raw` once the
+backend supports it.
+
 ## Managed tag lists and values
 
 The SDK maps all six managed-tag events to records:

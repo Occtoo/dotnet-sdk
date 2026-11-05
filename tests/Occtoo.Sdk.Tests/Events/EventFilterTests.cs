@@ -80,6 +80,73 @@ public class EventFilterTests
     }
 
     [Fact]
+    public void Filters_destination_entry_updates_by_endpoint_safe_name()
+    {
+        EventFilter.OfType<DestinationEntryUpdated>(e => e.WithEndpointName("products")).ToString()
+            .ShouldBe("""type eq "destination_entry.updated" and endpoint eq "products" """.TrimEnd());
+    }
+
+    [Fact]
+    public void Filters_destination_entry_deletions_by_multiple_endpoint_safe_names()
+    {
+        EventFilter.OfType<DestinationEntryDeleted>(e => e.WithEndpointName("products", "categories")).ToString()
+            .ShouldBe("""type eq "destination_entry.deleted" and (endpoint eq "products" or endpoint eq "categories")""");
+    }
+
+    [Fact]
+    public void Scopes_endpoint_names_to_a_destination_across_api_versions()
+    {
+        EventFilter.OfType<DestinationEntryEvent>(e => e
+                .WithDestination("destination-id")
+                .WithEndpointName("products", "categories"))
+            .ToString()
+            .ShouldBe(
+                """(type eq "destination_entry.deleted" or type eq "destination_entry.updated") and destinationId eq "destination-id" and (endpoint eq "products" or endpoint eq "categories")""");
+    }
+
+    [Fact]
+    public void Combines_endpoint_names_with_multiple_api_version_numbers()
+    {
+        EventFilter.OfType<DestinationEntryUpdated>(e => e
+                .WithEndpointName("products")
+                .WithApiVersionName("2", "3"))
+            .ToString()
+            .ShouldBe(
+                """type eq "destination_entry.updated" and endpoint eq "products" and (apiVersion eq "2" or apiVersion eq "3")""");
+    }
+
+    [Fact]
+    public void Preserves_endpoint_name_case_and_escapes_quotes_and_backslashes()
+    {
+        EventFilter.OfType<DestinationEntryUpdated>(e => e.WithEndpointName("""Products "quoted" \ name"""))
+            .ToString()
+            .ShouldBe("""type eq "destination_entry.updated" and endpoint eq "Products \"quoted\" \\ name" """.TrimEnd());
+    }
+
+    [Fact]
+    public void Endpoint_id_filters_keep_their_existing_meaning()
+    {
+        EventFilter.OfType<DestinationEntryUpdated>(e => e.WithEndpoint("endpoint-id")).ToString()
+            .ShouldBe("""type eq "destination_entry.updated" and endpointId eq "endpoint-id" """.TrimEnd());
+        EventFilter.OfType<EndpointCreated>(e => e.WithEndpoint("endpoint-id")).ToString()
+            .ShouldBe("""type eq "endpoint.created" and endpointId eq "endpoint-id" """.TrimEnd());
+    }
+
+    [Theory]
+    [InlineData(typeof(EndpointEvent))]
+    [InlineData(typeof(EndpointCreated))]
+    [InlineData(typeof(EndpointUpdated))]
+    [InlineData(typeof(EndpointDeleted))]
+    [InlineData(typeof(DestinationEvent))]
+    [InlineData(typeof(SourceEntryUpdated))]
+    public void Endpoint_name_condition_rejects_types_without_the_capability(Type eventType)
+    {
+        var method = typeof(EventFilterConditions).GetMethod(nameof(EventFilterConditions.WithEndpointName))!;
+
+        Should.Throw<ArgumentException>(() => method.MakeGenericMethod(eventType));
+    }
+
+    [Fact]
     public void Raw_filters_pass_through_verbatim()
     {
         EventFilter.Raw("""type eq "source.created" and sourceId eq "x" """).ToString()

@@ -20,9 +20,9 @@ public sealed record DestinationStopped(DestinationId DestinationId) : Destinati
 public sealed record DestinationDeleted(DestinationId DestinationId) : DestinationEvent(DestinationId);
 
 /// <summary>
-/// Any <c>destination_entry.*</c> event. <c>ApiVersion</c> and <c>Endpoint</c>
-/// are the display names behind their ids; <c>Version</c> is the entry's
-/// monotonic version.
+/// Any <c>destination_entry.*</c> event. <c>ApiVersion</c> is the destination
+/// API version number as a string; <c>Endpoint</c> is the endpoint's safe name.
+/// <c>Version</c> is the entry's monotonic version.
 /// </summary>
 public abstract record DestinationEntryEvent(
     DestinationId DestinationId,
@@ -32,7 +32,7 @@ public abstract record DestinationEntryEvent(
     string Endpoint,
     string EntryId,
     long Version)
-    : CloudEvent, IFilterableByDestination, IFilterableByEndpoint, IFilterableByApiVersion;
+    : CloudEvent, IFilterableByDestination, IFilterableByEndpoint, IFilterableByEndpointName, IFilterableByApiVersion;
 
 /// <summary>
 /// An entry was written to a destination endpoint. <c>Values</c> holds the
