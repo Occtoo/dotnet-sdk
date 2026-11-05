@@ -308,7 +308,7 @@ public class EventParserTests
                   "id": "c0ffee00-0000-0000-0000-00000000000a",
                   "type": "{{name}}",
                   "sequence": "0000000000000012",
-                  "data": {}
+                  "data": { "managedTagId": "42f3cce5-a2b8-4cf9-9c2e-8c07a2ced339" }
                 }
                 """);
 
