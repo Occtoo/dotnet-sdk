@@ -123,6 +123,18 @@ public readonly struct EventTypeConditions<T>
 /// </summary>
 public static class EventFilterConditions
 {
+    /// <summary>Matches events for any of the given managed tag lists.</summary>
+    public static EventTypeConditions<T> WithManagedTag<T>(
+        this EventTypeConditions<T> conditions, params IReadOnlyList<ManagedTags.ManagedTagId> managedTags)
+        where T : CloudEvent, IFilterableByManagedTag =>
+        conditions.With("managedTagId", [.. managedTags.Select(id => id.Value.ToString("D"))]);
+
+    /// <summary>Matches complete, case-sensitive envelope subjects, such as a managed tag value key.</summary>
+    public static EventTypeConditions<T> WithSubject<T>(
+        this EventTypeConditions<T> conditions, params IReadOnlyList<string> subjects)
+        where T : CloudEvent =>
+        conditions.With("subject", subjects);
+
     /// <summary>Matches events for any of the given sources.</summary>
     public static EventTypeConditions<T> WithSource<T>(
         this EventTypeConditions<T> conditions, params IReadOnlyList<Sources.SourceId> sources)
