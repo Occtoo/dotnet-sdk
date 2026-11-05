@@ -1,5 +1,7 @@
 using System.Text.Json;
 using CSharpFunctionalExtensions;
+using Occtoo.Http.Internal;
+using Occtoo.ManagedTags;
 using Occtoo.Sources;
 
 namespace Occtoo.Events.Internal;
@@ -11,7 +13,7 @@ namespace Occtoo.Events.Internal;
 /// mapping stays lenient — an unknown type or a missing optional field never
 /// fails the whole page.
 /// </summary>
-internal static class EventParser
+internal static partial class EventParser
 {
     /// <summary>
     /// Parses one CloudEvents envelope. Returns a failure only when the
@@ -130,6 +132,32 @@ internal static class EventParser
         "endpoint.created" => new EndpointCreated(DestinationIdOf(data), ApiVersionIdOf(data), GetString(data, "apiVersion") ?? "", EndpointIdOf(data)),
         "endpoint.updated" => new EndpointUpdated(DestinationIdOf(data), ApiVersionIdOf(data), GetString(data, "apiVersion") ?? "", EndpointIdOf(data)),
         "endpoint.deleted" => new EndpointDeleted(DestinationIdOf(data), ApiVersionIdOf(data), GetString(data, "apiVersion") ?? "", EndpointIdOf(data)),
+        "managed_tag_list.created" => new ManagedTagListCreated(
+            ManagedTagIdOf(data), GetString(data, "displayName") ?? "",
+            Enums.Read<ManagedTagType>(GetString(data, "type")),
+            DateTimeOffsetOf(data, "createdAt"), DateTimeOffsetOf(data, "lastModifiedAt"),
+            MaybeGuid(data, "parentId").Map(ManagedTagId.From),
+            MaybeGuid(data, "createdBy"), MaybeGuid(data, "updatedBy")),
+        "managed_tag_list.updated" => new ManagedTagListUpdated(
+            ManagedTagIdOf(data), GetString(data, "displayName") ?? "",
+            Enums.Read<ManagedTagType>(GetString(data, "type")),
+            DateTimeOffsetOf(data, "createdAt"), DateTimeOffsetOf(data, "lastModifiedAt"),
+            MaybeGuid(data, "parentId").Map(ManagedTagId.From),
+            MaybeGuid(data, "createdBy"), MaybeGuid(data, "updatedBy")),
+        "managed_tag_list.deleted" => new ManagedTagListDeleted(ManagedTagIdOf(data)),
+        "managed_tag_value.added" => new ManagedTagValueAdded(
+            ManagedTagIdOf(data), GetString(data, "key") ?? "",
+            ManagedTagContent(data), DoubleOf(data, "order"), MaybeString(data, "parentKey"),
+            DateTimeOffsetOf(data, "createdAt"), MaybeDateTimeOffset(data, "lastModifiedAt"),
+            MaybeGuid(data, "createdBy").GetValueOrDefault(), MaybeGuid(data, "updatedBy"),
+            ValueTruncatedOf(data)),
+        "managed_tag_value.updated" => new ManagedTagValueUpdated(
+            ManagedTagIdOf(data), GetString(data, "key") ?? "",
+            ManagedTagContent(data), DoubleOf(data, "order"), MaybeString(data, "parentKey"),
+            DateTimeOffsetOf(data, "createdAt"), MaybeDateTimeOffset(data, "lastModifiedAt"),
+            MaybeGuid(data, "createdBy").GetValueOrDefault(), MaybeGuid(data, "updatedBy"),
+            ValueTruncatedOf(data)),
+        "managed_tag_value.deleted" => new ManagedTagValueDeleted(ManagedTagIdOf(data), GetString(data, "key") ?? ""),
         "user.created" => new UserCreated(UserIdOf(data), MaybeString(data, "email"), MaybeString(data, "firstName"), MaybeString(data, "lastName")),
         "user.updated" => new UserUpdated(UserIdOf(data), MaybeString(data, "email"), MaybeString(data, "firstName"), MaybeString(data, "lastName")),
         "user.deleted" => new UserDeleted(UserIdOf(data), MaybeString(data, "email"), MaybeString(data, "firstName"), MaybeString(data, "lastName")),

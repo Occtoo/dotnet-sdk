@@ -14,6 +14,7 @@ using Occtoo.Assets;
 using Occtoo.Authentication;
 using Occtoo.Events;
 using Occtoo.Http;
+using Occtoo.ManagedTags;
 using Occtoo.Sources;
 
 var failures = 0;
@@ -137,6 +138,30 @@ var filter = EventFilter
     .ToString();
 Check("event filter renders the grammar",
     filter == """type eq "source_entry.added" and sourceId eq "products" """.TrimEnd());
+
+// Managed-tag value content and enum parsing must also survive trimming.
+var managedTagEvent = CloudEvent.Parse("""
+    { "type":"managed_tag_value.updated", "sequence":"003.00000000000000184467",
+      "data": { "managedTagId":"42f3cce5-a2b8-4cf9-9c2e-8c07a2ced339", "key":"blue",
+        "value":{"en":"Blue","sv":"Blå"}, "order":2.5, "createdAt":"2026-11-05T09:15:12Z",
+        "createdBy":"c157d71e-b930-4eae-9c3d-23a8de1a1cbc", "valueTruncated":false } }
+    """);
+Check("managed tag translations parsed without reflection",
+    managedTagEvent.IsSuccess && managedTagEvent.Value is ManagedTagValueUpdated
+    { Content.HasValue: true, Content.Value: ManagedTagValueContent.LocalizedValue localized }
+    && localized.Translations["sv"] == "Blå");
+var managedTagListEvent = CloudEvent.Parse("""
+    { "type":"managed_tag_list.created", "sequence":"003.00000000000000184468",
+      "data": { "managedTagId":"42f3cce5-a2b8-4cf9-9c2e-8c07a2ced339", "displayName":"Colours",
+        "type":"LocalizedText", "createdAt":"2026-11-05T09:15:12Z", "lastModifiedAt":"2026-11-05T09:15:12Z" } }
+    """);
+Check("managed tag list kind parsed under AOT",
+    managedTagListEvent.IsSuccess && managedTagListEvent.Value is ManagedTagListCreated
+    { TagType.HasValue: true, TagType.Value: ManagedTagType.LocalizedText });
+Check("managed tag family filters render under AOT",
+    EventFilter.OfType<ManagedTagValueEvent>(e => e.WithManagedTag(
+            ManagedTagId.From(Guid.Parse("42f3cce5-a2b8-4cf9-9c2e-8c07a2ced339"))).WithSubject("blue"))
+        .ToString() == """(type eq "managed_tag_value.added" or type eq "managed_tag_value.deleted" or type eq "managed_tag_value.updated") and managedTagId eq "42f3cce5-a2b8-4cf9-9c2e-8c07a2ced339" and subject eq "blue" """.TrimEnd());
 
 // 4. Destinations: standalone parsing and webhook signature verification.
 const string webhookBody = """
