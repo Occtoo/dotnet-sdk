@@ -134,6 +134,9 @@ public interface IFilterableByDestination;
 /// <summary>The event type accepts an <c>endpointId</c> filter.</summary>
 public interface IFilterableByEndpoint;
 
+/// <summary>The event type accepts an <c>endpoint</c> safe-name filter.</summary>
+public interface IFilterableByEndpointName;
+
 /// <summary>The event type accepts <c>apiVersionId</c>/<c>apiVersion</c> filters.</summary>
 public interface IFilterableByApiVersion;
 
