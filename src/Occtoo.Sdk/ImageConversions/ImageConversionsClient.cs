@@ -151,8 +151,8 @@ public sealed class ImageConversionsClient
                 _requestTimeout,
                 OcctooTransport.Request(
                     HttpMethod.Post,
-                    new ($"v1/image-conversions/{id.Value:D}/convert", UriKind.Relative),
-                    new (new (
+                    new($"v1/image-conversions/{id.Value:D}/convert", UriKind.Relative),
+                    new(new(
                         parameters.Mode,
                         parameters.TargetSize,
                         parameters.AspectRatio.Value,
@@ -179,7 +179,7 @@ public sealed class ImageConversionsClient
                 OcctooTransport.Request(
                     HttpMethod.Post,
                     ImageConversionsUri,
-                    new (filename.Value),
+                    new(filename.Value),
                     ImageConversionsJsonContext.Default.RequestImageConversionDto),
                 RequestOperation,
                 ImageConversionsJsonContext.Default.ImageConversionCreatedDto,
