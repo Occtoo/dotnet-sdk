@@ -34,8 +34,8 @@ public sealed record OcctooClientOptions
     public TimeSpan Timeout { get; init; } = TimeSpan.FromSeconds(100);
 
     /// <summary>
-    /// The transport asset uploads use. The SDK creates and owns one when this
-    /// is left unset.
+    /// The transport asset and image uploads use. The SDK creates and owns one
+    /// when this is left unset.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -54,6 +54,8 @@ public sealed record OcctooClientOptions
     /// the .NET default of 100 seconds will cut a large upload short. Set
     /// <see cref="System.Threading.Timeout.InfiniteTimeSpan"/> and bound the
     /// transfer with <see cref="Assets.AssetUploadOptions.TransferTimeout"/>.
+    /// An image upload is bounded by the cancellation token you pass to
+    /// <see cref="ImageConversions.ImageConversionsClient.Upload"/>.
     /// </para>
     /// </remarks>
     public HttpClient? UploadHttpClient { get; init; }

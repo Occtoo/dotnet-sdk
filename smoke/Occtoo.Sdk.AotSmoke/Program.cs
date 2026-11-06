@@ -3,9 +3,10 @@
 // dependency sneaks in: value-object construction, the OAuth token exchange
 // (snake_case JSON), FusionCache token storage, ingest request serialization,
 // receipt parsing, problem-details parsing, the asset payloads and their
-// generated filename regex, one byte transfer, and the durable-consumer pull
-// and acknowledge round trip. Everything is scripted; no
-// network is involved. Exit code 0 means the SDK works in this deployment shape.
+// generated filename regex, one byte transfer, the durable-consumer pull
+// and acknowledge round trip, and an image upload and conversion. Everything
+// is scripted; no network is involved. Exit code 0 means the SDK works in this
+// deployment shape.
 
 using System.Net;
 using System.Text;
@@ -14,6 +15,7 @@ using Occtoo.Assets;
 using Occtoo.Authentication;
 using Occtoo.Events;
 using Occtoo.Http;
+using Occtoo.ImageConversions;
 using Occtoo.ManagedTags;
 using Occtoo.Sources;
 
@@ -324,6 +326,58 @@ Check("acknowledgement parsed with its status and committed position", acknowled
     IsSuccess: true,
     Value: { Status: { HasValue: true, Value: EventBatchAcknowledgementStatus.Committed }, Committed.Value: "003.00000000000000184467" },
 });
+
+// 7. Image conversions: the value objects' generated patterns, the create
+//    response, one byte transfer, and the convert payloads with their enums.
+Check("ImageAspectRatio rejects a ratio the API would reject", !ImageAspectRatio.TryFrom("01:1", out _));
+Check("ImageBackground rejects a color the API would reject", !ImageBackground.TryFrom("#FFFFFF", out _));
+
+transport.Enqueue(HttpStatusCode.Created, """
+    {
+      "id": "3f2b6c1e-8a4d-4c7b-9e2f-1a5b6c7d8e9f",
+      "uploadUrl": "https://tenant.blob.core.windows.net/conversions/shoe.tif?sig=abc",
+      "uploadExpiresAt": "2099-01-01T00:00:00Z",
+      "maxFileSize": 33554432
+    }
+    """);
+transport.Enqueue(HttpStatusCode.Created, "");
+
+var uploaded = await client.ImageConversions.Upload(AssetContent.FromBytes("12345"u8.ToArray()), "shoe.tif");
+Check("image conversion created and its id parsed", uploaded is { IsSuccess: true }
+    && uploaded.Value.Value == Guid.Parse("3f2b6c1e-8a4d-4c7b-9e2f-1a5b6c7d8e9f"));
+Check("the image upload is a block blob with no Occtoo credential",
+    transport.LastHeaders.TryGetValue("x-ms-blob-type", out var imageBlobType)
+    && imageBlobType == "BlockBlob"
+    && !transport.LastHeaders.ContainsKey("Authorization")
+    && !transport.LastHeaders.ContainsKey("x-api-key"));
+
+transport.Enqueue(HttpStatusCode.OK, """
+    {
+      "url": "https://tenant.blob.core.windows.net/conversions/shoe.webp?sig=def",
+      "expiresAt": "2099-01-01T01:00:00Z",
+      "filename": "shoe.webp",
+      "contentType": "image/webp",
+      "size": 81234
+    }
+    """);
+
+var converted = await client.ImageConversions.Convert(
+    uploaded.Value,
+    new ImageConversionParameters(ImageConversionMode.FillBackground, 2000, "4:3", ImageOutputFormat.Webp, 80)
+    {
+        PaddingPercent = 5,
+        Background = ImageBackground.From("FFFFFF"),
+    });
+Check("convert body carries the enum names and the value objects as strings", transport.LastBody is { } convert
+    && convert.Contains("\"mode\":\"FillBackground\"")
+    && convert.Contains("\"outputFormat\":\"Webp\"")
+    && convert.Contains("\"aspectRatio\":\"4:3\"")
+    && convert.Contains("\"background\":\"FFFFFF\""));
+Check("converted image parsed", converted is
+{
+    IsSuccess: true,
+    Value: { Filename: "shoe.webp", ContentType: "image/webp", Size: 81234 },
+} && converted.Value.Url.Host == "tenant.blob.core.windows.net");
 
 Console.WriteLine(failures == 0 ? "AOT smoke: OK" : $"AOT smoke: {failures} FAILED");
 return failures == 0 ? 0 : 1;

@@ -86,6 +86,9 @@ spans when it is not:
 | `complete assets` | Client | `occtoo.source.id`, `occtoo.assets.count`, `occtoo.assets.completed`, `occtoo.assets.failed` |
 | `read asset states` | Client | `occtoo.source.id`, `occtoo.assets.count`, `occtoo.assets.found` |
 | `delete assets` | Client | `occtoo.source.id`, `occtoo.assets.count` |
+| `upload image` | Client | `occtoo.image_conversions.id` (once Occtoo has assigned one), `occtoo.image_conversions.bytes` (on success) |
+| `request image conversion` | Client | `occtoo.image_conversions.id` |
+| `convert image` | Client | `occtoo.image_conversions.id` |
 
 A token acquisition triggered mid-request nests under the operation that needed
 it, so a slow ingest that was really a slow token exchange shows up as exactly
@@ -99,3 +102,7 @@ one span is one attempt at sending a file and the key is what an operator
 searches for. `Upload` sends each file through `Transfer`, so a run under
 `upload assets` shows one child per attempt, and a retried file shows as a
 failed span followed by another.
+
+`upload image` covers the whole `ImageConversionsClient.Upload`: its child
+`request image conversion` is the call that signs the upload link, and the
+transfer to blob storage follows it under the same parent.

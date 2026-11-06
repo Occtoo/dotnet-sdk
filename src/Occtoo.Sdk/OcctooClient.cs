@@ -5,6 +5,7 @@ using Occtoo.Authentication;
 using Occtoo.Events;
 using Occtoo.Http;
 using Occtoo.Http.Internal;
+using Occtoo.ImageConversions;
 using Occtoo.Logging;
 using Occtoo.ManagedTags;
 using Occtoo.Sources;
@@ -102,6 +103,7 @@ public sealed class OcctooClient : IDisposable
         Applications = CreateApplications();
         ManagedTags = CreateManagedTags();
         Assets = CreateAssets();
+        ImageConversions = CreateImageConversions();
     }
 
     /// <summary>
@@ -117,8 +119,8 @@ public sealed class OcctooClient : IDisposable
     /// wires this up correctly.
     /// </param>
     /// <param name="options">
-    /// How to reach and authenticate against Occtoo. Asset uploads go through
-    /// <see cref="OcctooClientOptions.UploadHttpClient"/>
+    /// How to reach and authenticate against Occtoo. Asset and image uploads go
+    /// through <see cref="OcctooClientOptions.UploadHttpClient"/>.
     /// </param>
     /// <exception cref="InvalidOperationException"><paramref name="options"/> is incomplete.</exception>
     public OcctooClient(HttpClient httpClient, OcctooClientOptions options)
@@ -131,7 +133,7 @@ public sealed class OcctooClient : IDisposable
         {
             throw new InvalidOperationException(
                 $"{nameof(OcctooClientOptions.UploadHttpClient)} must not be the client Occtoo is called with: "
-                + "asset uploads go to blob storage and must carry no Occtoo credential.");
+                + "uploads go to blob storage and must carry no Occtoo credential.");
         }
 
         Options = options;
@@ -148,6 +150,7 @@ public sealed class OcctooClient : IDisposable
         Applications = CreateApplications();
         ManagedTags = CreateManagedTags();
         Assets = CreateAssets();
+        ImageConversions = CreateImageConversions();
     }
 
     private SourcesClient CreateSources() => new(
@@ -174,6 +177,11 @@ public sealed class OcctooClient : IDisposable
         _httpClient,
         _uploadHttpClient,
         Options.LoggerFactory.CreateLogger(OcctooLogCategories.Assets),
+        Options.Timeout);
+
+    private ImageConversionsClient CreateImageConversions() => new(
+        _httpClient,
+        _uploadHttpClient,
         Options.Timeout);
 
     private static Lazy<HttpClient> UploadTransport(OcctooClientOptions options) =>
@@ -230,6 +238,11 @@ public sealed class OcctooClient : IDisposable
     public AssetsClient Assets { get; }
 
     /// <summary>
+    /// Image conversions: upload an image once and convert it on demand.
+    /// </summary>
+    public ImageConversionsClient ImageConversions { get; }
+
+    /// <summary>
     /// Establishes the credential without calling an API, so a misconfigured
     /// secret surfaces at startup rather than on the first real request.
     /// </summary>
@@ -260,7 +273,8 @@ public sealed class OcctooClient : IDisposable
     internal HttpClient HttpClient => _httpClient;
 
     /// <summary>
-    /// The unauthenticated transport asset uploads use, built on first use.
+    /// The unauthenticated transport asset and image uploads use, built on
+    /// first use.
     /// </summary>
     internal HttpClient UploadHttpClient => _uploadHttpClient.Value;
 

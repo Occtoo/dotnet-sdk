@@ -260,7 +260,25 @@ public sealed partial class AssetsClient
 
         var outcome = await ResolveLength(content)
             .Match(
-                length => BlobTransfer.Put(_uploadHttpClient.Value, link, content, length, options, cancellationToken),
+                length => BlobTransfer
+                    .Put(
+                        _uploadHttpClient.Value,
+                        link.Url,
+                        link.Filename.Value,
+                        content,
+                        length,
+                        options.Timeout,
+                        options.Progress is { } progress
+                            ? transferred => progress.Report(new AssetProgress(
+                                link.Key,
+                                link.Filename,
+                                AssetUploadStage.Transferring,
+                                transferred,
+                                Maybe.From(length),
+                                Maybe<OcctooError>.None))
+                            : null,
+                        cancellationToken)
+                    .Map(() => new AssetTransfer(link.Key, length)),
                 error => Task.FromResult(Result.Failure<AssetTransfer, OcctooError>(error)))
             .ConfigureAwait(false);
 

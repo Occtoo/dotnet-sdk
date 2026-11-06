@@ -3,8 +3,7 @@ namespace Occtoo.Assets;
 /// <summary>What one byte transfer moved.</summary>
 /// <param name="Key">The asset whose bytes moved.</param>
 /// <param name="Bytes">How many bytes were sent.</param>
-/// <param name="Elapsed">How long it took.</param>
-public sealed record AssetTransfer(AssetKey Key, long Bytes, TimeSpan Elapsed);
+public sealed record AssetTransfer(AssetKey Key, long Bytes);
 
 /// <summary>
 /// Configures one call to <see cref="AssetsClient.Transfer"/>.

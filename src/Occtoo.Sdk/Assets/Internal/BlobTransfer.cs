@@ -1,5 +1,4 @@
 using System.Buffers;
-using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
@@ -9,7 +8,7 @@ using Occtoo.Http.Internal;
 namespace Occtoo.Assets.Internal;
 
 /// <summary>
-/// The one request that moves an asset's bytes: a single <c>Put Blob</c>
+/// The one request that moves an upload's bytes: a single <c>Put Blob</c>
 /// against the signed URL Occtoo handed out.
 /// </summary>
 /// <remarks>
@@ -28,39 +27,41 @@ internal static class BlobTransfer
     private const string RequestIdHeader = "x-ms-request-id";
     private const int MaxBodySnippet = 512;
 
-    internal static async Task<Result<AssetTransfer, OcctooError>> Put(
+    internal static async Task<UnitResult<OcctooError>> Put(
         HttpClient httpClient,
-        AssetUploadLink link,
+        Uri url,
+        string filename,
         AssetContent content,
         long length,
-        AssetTransferOptions options,
+        TimeSpan timeout,
+        Action<long>? progress,
         CancellationToken cancellationToken)
     {
         var opened = await content.Open(cancellationToken).ConfigureAwait(false);
 
         return await opened.Match(
-            stream => Send(httpClient, link, stream, length, options, cancellationToken),
-            error => Task.FromResult(Result.Failure<AssetTransfer, OcctooError>(error)))
+            stream => Send(httpClient, url, filename, stream, length, timeout, progress, cancellationToken),
+            error => Task.FromResult(UnitResult.Failure(error)))
             .ConfigureAwait(false);
     }
 
-    private static async Task<Result<AssetTransfer, OcctooError>> Send(
+    private static async Task<UnitResult<OcctooError>> Send(
         HttpClient httpClient,
-        AssetUploadLink link,
+        Uri url,
+        string filename,
         Stream opened,
         long length,
-        AssetTransferOptions options,
+        TimeSpan timeout,
+        Action<long>? progress,
         CancellationToken cancellationToken)
     {
-        var started = Stopwatch.GetTimestamp();
-
         // The stream is disposed with the request: what Open returned is the
         // transfer's to close, and a consumer's own stream came back wrapped.
-        var stream = options.Progress is { } progress
-            ? new ProgressStream(opened, length, transferred => Report(progress, link, length, transferred))
+        var stream = progress is not null
+            ? new ProgressStream(opened, length, progress)
             : opened;
 
-        using var request = new HttpRequestMessage(HttpMethod.Put, link.Url);
+        using var request = new HttpRequestMessage(HttpMethod.Put, url);
         request.Headers.TryAddWithoutValidation(BlobTypeHeader, BlockBlob);
         request.Content = new StreamContent(stream);
         // The stored mime type is Occtoo's reading of the bytes, not this
@@ -70,45 +71,36 @@ internal static class BlobTransfer
         request.Content.Headers.ContentLength = length;
 
         var sent = await OcctooTransport
-            .Send(httpClient, options.Timeout, request, cancellationToken, HttpCompletionOption.ResponseHeadersRead)
+            .Send(httpClient, timeout, request, cancellationToken, HttpCompletionOption.ResponseHeadersRead)
             .ConfigureAwait(false);
 
         return await sent.Match(
-            async Task<Result<AssetTransfer, OcctooError>> (response) =>
+            async Task<UnitResult<OcctooError>> (response) =>
             {
                 using (response)
                 {
                     if (response.IsSuccessStatusCode)
-                        return new AssetTransfer(link.Key, length, Stopwatch.GetElapsedTime(started));
+                        return UnitResult.Success<OcctooError>();
 
                     var body = await ReadSnippet(response, cancellationToken).ConfigureAwait(false);
-                    return Classify(response, link, body);
+                    return Classify(response, filename, body);
                 }
             },
-            error => Task.FromResult(Result.Failure<AssetTransfer, OcctooError>(Unreachable(error, link))))
+            error => Task.FromResult(UnitResult.Failure(Unreachable(error, url, filename))))
             .ConfigureAwait(false);
     }
 
-    private static void Report(IProgress<AssetProgress> progress, AssetUploadLink link, long total, long transferred) =>
-        progress.Report(new AssetProgress(
-            link.Key,
-            link.Filename,
-            AssetUploadStage.Transferring,
-            transferred,
-            Maybe.From(total),
-            Maybe<OcctooError>.None));
-
     /// <summary>
     /// A failure with no response behind it. The transport names Occtoo in its
-    /// message, which is the wrong service here, so the asset and the storage
+    /// message, which is the wrong service here, so the file and the storage
     /// host are named instead.
     /// </summary>
-    private static OcctooError Unreachable(OcctooError error, AssetUploadLink link) => error switch
+    private static OcctooError Unreachable(OcctooError error, Uri url, string filename) => error switch
     {
         NetworkError => new NetworkError(
-            $"Uploading '{link.Filename.Value}' to blob storage failed: {link.Url.Host} could not be reached."),
+            $"Uploading '{filename}' to blob storage failed: {url.Host} could not be reached."),
         TimeoutError => new TimeoutError(
-            $"Uploading '{link.Filename.Value}' to blob storage did not finish within the transfer timeout."),
+            $"Uploading '{filename}' to blob storage did not finish within the transfer timeout."),
         _ => error,
     };
 
@@ -117,9 +109,9 @@ internal static class BlobTransfer
     /// are what a storage support ticket starts from, and they are headers, so
     /// no XML parser is needed to find them.
     /// </summary>
-    private static OcctooError Classify(HttpResponseMessage response, AssetUploadLink link, string body)
+    private static OcctooError Classify(HttpResponseMessage response, string filename, string body)
     {
-        var prefix = $"Uploading '{link.Filename.Value}' to blob storage failed";
+        var prefix = $"Uploading '{filename}' to blob storage failed";
         var detail = Describe(response, body);
 
         return response.StatusCode switch
