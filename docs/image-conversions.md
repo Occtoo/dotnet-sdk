@@ -1,6 +1,6 @@
 # Image conversions
 
-`client.ImageConversions` wraps `/v1/image-conversions`: upload an image once, then convert it as often as you like. Each conversion resizes the original onto a canvas, re-encodes it and returns a temporary download link. Nothing is stored in the tenant's media.
+`client.ImageConversions` wraps `/v1/image-conversions`: upload an image once, then convert it as often as you like. Each conversion resizes the original onto a canvas, re-encodes it and returns a temporary download link.
 
 ```csharp
 var thumbnail = new ImageConversionParameters(

@@ -3,7 +3,6 @@ using System.Text.Json.Serialization;
 
 namespace Occtoo.ImageConversions.Internal;
 
-/// <summary>The body of <c>POST /v1/image-conversions</c>.</summary>
 internal sealed record RequestImageConversionDto(string Filename);
 
 internal sealed record ImageConversionCreatedDto
@@ -15,7 +14,6 @@ internal sealed record ImageConversionCreatedDto
     public long? MaxFileSize { get; init; }
 }
 
-/// <summary>The body of <c>POST /v1/image-conversions/{id}/convert</c>.</summary>
 internal sealed record ConvertImageDto(ImageConversionParametersDto Parameters);
 
 internal sealed record ImageConversionParametersDto(
@@ -40,13 +38,7 @@ internal sealed record ConvertedImageDto
     public long Size { get; init; }
 }
 
-/// <summary>
-/// Source-generated serialization for the image conversion payloads, which
-/// keeps the SDK usable under trimming and native AOT.
-/// </summary>
-[JsonSourceGenerationOptions(
-    JsonSerializerDefaults.Web,
-    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+[JsonSourceGenerationOptions(JsonSerializerDefaults.Web, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     Converters = [typeof(JsonStringEnumConverter<ImageConversionMode>), typeof(JsonStringEnumConverter<ImageOutputFormat>)])]
 [JsonSerializable(typeof(RequestImageConversionDto))]
 [JsonSerializable(typeof(ImageConversionCreatedDto))]

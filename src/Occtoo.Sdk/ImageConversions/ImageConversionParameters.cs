@@ -3,12 +3,7 @@ using CSharpFunctionalExtensions;
 namespace Occtoo.ImageConversions;
 
 /// <summary>
-/// How to convert an uploaded original. Occtoo checks the values. A value it
-/// refuses fails <see cref="ImageConversionsClient.Convert"/> with a
-/// <see cref="ValidationError"/> whose <see cref="ValidationError.Failures"/>
-/// are keyed <c>Parameters.TargetSize</c>, <c>Parameters.PaddingPercent</c>,
-/// <c>Parameters.Quality</c>, <c>Parameters.Mode</c> or
-/// <c>Parameters.OutputFormat</c>.
+/// How to convert an uploaded original.
 /// </summary>
 /// <param name="Mode">How the image is placed on the canvas.</param>
 /// <param name="TargetSize">
@@ -33,7 +28,7 @@ public sealed record ImageConversionParameters(
     public Maybe<int> PaddingPercent { get; init; } = Maybe<int>.None;
 
     /// <summary>
-    /// The color behind transparent areas and padding. Assign
+    /// The color behind transparent areas and padding, such as
     /// <c>ImageBackground.From("FFFFFF")</c>.
     /// </summary>
     public Maybe<ImageBackground> Background { get; init; } = Maybe<ImageBackground>.None;
@@ -74,12 +69,7 @@ public enum ImageConversionMode
 /// <summary>The format of the converted image.</summary>
 public enum ImageOutputFormat
 {
-    /// <summary>JPEG.</summary>
     Jpg,
-
-    /// <summary>PNG.</summary>
     Png,
-
-    /// <summary>WebP.</summary>
     Webp,
 }

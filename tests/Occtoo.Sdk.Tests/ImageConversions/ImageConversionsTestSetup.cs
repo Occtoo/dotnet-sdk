@@ -5,10 +5,6 @@ using Occtoo.ImageConversions;
 
 namespace Occtoo.Sdk.Tests.ImageConversions;
 
-/// <summary>
-/// The scripted responses every image conversion test works from. The
-/// two-transport client is the asset tests' one.
-/// </summary>
 internal static class ImageConversionsTestSetup
 {
     internal const string Id = "3f2b6c1e-8a4d-4c7b-9e2f-1a5b6c7d8e9f";

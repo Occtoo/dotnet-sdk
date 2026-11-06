@@ -9,19 +9,12 @@ using Occtoo.Telemetry;
 namespace Occtoo.ImageConversions;
 
 /// <summary>
-/// The image conversion calls, <c>/v1/image-conversions</c>. Reached through
-/// <see cref="OcctooClient.ImageConversions"/>.
+/// Upload an image once with <see cref="Upload"/>, then call
+/// <see cref="Convert"/> as often as you like.
 /// </summary>
 /// <remarks>
-/// <para>
-/// Upload an image once with <see cref="Upload"/>, then call
-/// <see cref="Convert"/> as often as you like. Each call converts the original
-/// again and returns a fresh download link. Nothing is stored in the tenant's
-/// media. Occtoo deletes the original a day after the upload.
-/// </para>
-/// <para>
-/// The credential needs <see cref="Authentication.OcctooScopes.WriteMedia"/>.
-/// </para>
+/// Occtoo deletes the original a day after the upload. The credential needs
+/// <see cref="Authentication.OcctooScopes.WriteMedia"/>.
 /// </remarks>
 public sealed class ImageConversionsClient
 {
@@ -49,8 +42,7 @@ public sealed class ImageConversionsClient
     }
 
     /// <summary>
-    /// Uploads an image to convert. Occtoo signs an upload link that lasts
-    /// 1 hour, and the bytes go straight to blob storage.
+    /// Uploads an image to convert.
     /// </summary>
     /// <param name="content">The image's bytes.</param>
     /// <param name="filename">The image's filename, such as <c>shoe.tif</c>.</param>
@@ -59,28 +51,21 @@ public sealed class ImageConversionsClient
     /// The id to pass to <see cref="Convert"/>, or why the upload failed:
     /// <list type="bullet">
     /// <item><description>
-    /// <see cref="ValidationError"/>: the content's length is unknown, or the
-    /// content is as large as the maximum Occtoo accepts or larger (the message
-    /// names both sizes). Neither sends any bytes. Also a filename Occtoo
-    /// refuses.
+    /// <see cref="ValidationError"/>: the content's length is unknown, the
+    /// content isn't smaller than the maximum Occtoo accepts, or Occtoo refuses
+    /// the filename.
     /// </description></item>
     /// <item><description>
     /// <see cref="AuthenticationError"/> or <see cref="ForbiddenError"/>: the
-    /// credential is refused, or lacks
-    /// <see cref="Authentication.OcctooScopes.WriteMedia"/>.
+    /// credential is refused or lacks the scope.
     /// </description></item>
     /// <item><description>
     /// <see cref="ServerError"/>: Occtoo failed.
     /// </description></item>
     /// </list>
-    /// A failed transfer to blob storage comes back as an asset transfer's
-    /// does: the message carries storage's error code and request id, and an
-    /// expired upload link is an <see cref="AuthenticationError"/>.
     /// </returns>
     /// <remarks>
-    /// The transfer is one request and isn't retried. After a
-    /// <see cref="TransientError"/>, upload again. The SDK doesn't resend the
-    /// request for the upload link after a <c>5xx</c> or a timeout either.
+    /// Nothing is resent. After a <see cref="TransientError"/>, upload again.
     /// </remarks>
     public async Task<Result<ImageConversionId, OcctooError>> Upload(
         AssetContent content,
@@ -130,20 +115,18 @@ public sealed class ImageConversionsClient
     /// The converted image, or why the conversion failed:
     /// <list type="bullet">
     /// <item><description>
-    /// <see cref="ValidationError"/>: a parameter breaks a rule, with
-    /// <see cref="ValidationError.Failures"/> keyed <c>Parameters.TargetSize</c>,
-    /// <c>Parameters.PaddingPercent</c>, <c>Parameters.Quality</c>,
-    /// <c>Parameters.Mode</c> or <c>Parameters.OutputFormat</c>. Without keys:
-    /// an original that is too large or isn't an image Occtoo can convert.
+    /// <see cref="ValidationError"/>: a parameter Occtoo refuses, keyed in
+    /// <see cref="ValidationError.Failures"/> by its name, such as
+    /// <c>Parameters.TargetSize</c>. Without keys: the original is too large or
+    /// isn't an image Occtoo can convert.
     /// </description></item>
     /// <item><description>
-    /// <see cref="NotFoundError"/>: no original under <paramref name="id"/>:
-    /// unknown, its bytes not uploaded yet, or already deleted.
+    /// <see cref="NotFoundError"/>: the original is unknown, not uploaded yet,
+    /// or already deleted.
     /// </description></item>
     /// <item><description>
     /// <see cref="AuthenticationError"/> or <see cref="ForbiddenError"/>: the
-    /// credential is refused, or lacks
-    /// <see cref="Authentication.OcctooScopes.WriteMedia"/>.
+    /// credential is refused or lacks the scope.
     /// </description></item>
     /// <item><description>
     /// <see cref="ServerError"/>: Occtoo failed, including a <c>504</c> when
@@ -152,9 +135,7 @@ public sealed class ImageConversionsClient
     /// </list>
     /// </returns>
     /// <remarks>
-    /// Every call converts the original again and returns a fresh link that
-    /// lasts 1 hour. The SDK doesn't resend this call after a <c>5xx</c> or a
-    /// timeout.
+    /// Nothing is resent after a <c>5xx</c> or a timeout.
     /// </remarks>
     public async Task<Result<ConvertedImage, OcctooError>> Convert(
         ImageConversionId id,
@@ -170,8 +151,8 @@ public sealed class ImageConversionsClient
                 _requestTimeout,
                 OcctooTransport.Request(
                     HttpMethod.Post,
-                    new Uri($"v1/image-conversions/{id.Value:D}/convert", UriKind.Relative),
-                    new ConvertImageDto(new ImageConversionParametersDto(
+                    new ($"v1/image-conversions/{id.Value:D}/convert", UriKind.Relative),
+                    new (new (
                         parameters.Mode,
                         parameters.TargetSize,
                         parameters.AspectRatio.Value,
@@ -198,7 +179,7 @@ public sealed class ImageConversionsClient
                 OcctooTransport.Request(
                     HttpMethod.Post,
                     ImageConversionsUri,
-                    new RequestImageConversionDto(filename.Value),
+                    new (filename.Value),
                     ImageConversionsJsonContext.Default.RequestImageConversionDto),
                 RequestOperation,
                 ImageConversionsJsonContext.Default.ImageConversionCreatedDto,
