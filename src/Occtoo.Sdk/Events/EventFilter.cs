@@ -123,6 +123,18 @@ public readonly struct EventTypeConditions<T>
 /// </summary>
 public static class EventFilterConditions
 {
+    /// <summary>Matches events for any of the given managed tag lists.</summary>
+    public static EventTypeConditions<T> WithManagedTag<T>(
+        this EventTypeConditions<T> conditions, params IReadOnlyList<ManagedTags.ManagedTagId> managedTags)
+        where T : CloudEvent, IFilterableByManagedTag =>
+        conditions.With("managedTagId", [.. managedTags.Select(id => id.Value.ToString("D"))]);
+
+    /// <summary>Matches complete, case-sensitive envelope subjects, such as a managed tag value key.</summary>
+    public static EventTypeConditions<T> WithSubject<T>(
+        this EventTypeConditions<T> conditions, params IReadOnlyList<string> subjects)
+        where T : CloudEvent =>
+        conditions.With("subject", subjects);
+
     /// <summary>Matches events for any of the given sources.</summary>
     public static EventTypeConditions<T> WithSource<T>(
         this EventTypeConditions<T> conditions, params IReadOnlyList<Sources.SourceId> sources)
@@ -153,11 +165,22 @@ public static class EventFilterConditions
         where T : CloudEvent, IFilterableByDestination =>
         conditions.With("destinationId", [.. destinations.Select(id => id.Value)]);
 
-    /// <summary>Matches events for any of the given endpoints.</summary>
+    /// <summary>Matches events for any of the given endpoints, by id.</summary>
     public static EventTypeConditions<T> WithEndpoint<T>(
         this EventTypeConditions<T> conditions, params IReadOnlyList<EndpointId> endpoints)
         where T : CloudEvent, IFilterableByEndpoint =>
         conditions.With("endpointId", [.. endpoints.Select(id => id.Value)]);
+
+    /// <summary>Matches destination-entry events for any of the given endpoint safe names.</summary>
+    /// <remarks>
+    /// Matching is exact and case-sensitive. Combine with <c>WithDestination</c>
+    /// to scope names to a destination. Only events processed after endpoint
+    /// filtering was enabled can match; older events are not backfilled.
+    /// </remarks>
+    public static EventTypeConditions<T> WithEndpointName<T>(
+        this EventTypeConditions<T> conditions, params IReadOnlyList<string> names)
+        where T : CloudEvent, IFilterableByEndpointName =>
+        conditions.With("endpoint", names);
 
     /// <summary>Matches events for any of the given API versions, by id.</summary>
     public static EventTypeConditions<T> WithApiVersion<T>(

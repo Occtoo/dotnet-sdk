@@ -9,8 +9,8 @@ namespace Occtoo.Events;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Every documented event type has a sealed record (30 of them, grouped under
-/// nine abstract family bases such as <see cref="SourceEntryEvent"/> for
+/// Every documented event type has a sealed record (36 of them, grouped under
+/// eleven abstract family bases such as <see cref="SourceEntryEvent"/> for
 /// coarse matching), and a type this SDK version does not know arrives as
 /// <see cref="UnknownEvent"/> — never silently dropped.
 /// </para>
@@ -134,11 +134,17 @@ public interface IFilterableByDestination;
 /// <summary>The event type accepts an <c>endpointId</c> filter.</summary>
 public interface IFilterableByEndpoint;
 
+/// <summary>The event type accepts an <c>endpoint</c> safe-name filter.</summary>
+public interface IFilterableByEndpointName;
+
 /// <summary>The event type accepts <c>apiVersionId</c>/<c>apiVersion</c> filters.</summary>
 public interface IFilterableByApiVersion;
 
 /// <summary>The event type accepts a <c>userId</c> filter.</summary>
 public interface IFilterableByUser;
+
+/// <summary>The event type accepts a <c>managedTagId</c> filter.</summary>
+public interface IFilterableByManagedTag;
 
 // ── Shared payload shapes ──────────────────────────────────────────────────
 

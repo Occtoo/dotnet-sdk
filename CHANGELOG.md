@@ -2,6 +2,13 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v0.7.0](https://github.com/Occtoo/dotnet-sdk/compare/5acb1402df70209e4296facb6458fea3adb75f90..v0.7.0) - 2026-11-05
+#### Features
+- (**events**) add endpoint safe-name filters (#12) - ([8f5bcac](https://github.com/Occtoo/dotnet-sdk/commit/8f5bcacf5263efc30ffb03310d624acd48e57897)) - Ihor Korotenko
+- (**events**) support managed tag list and value events (#13) - ([5acb140](https://github.com/Occtoo/dotnet-sdk/commit/5acb1402df70209e4296facb6458fea3adb75f90)) - Ihor Korotenko
+
+- - -
+
 ## [v0.6.0](https://github.com/Occtoo/dotnet-sdk/compare/8c858418bc9436cf6c09524c184128c555bc9ff1..v0.6.0) - 2026-10-26
 #### Features
 - ![BREAKING](https://img.shields.io/badge/BREAKING-red) (**assets**) set typed properties on assets and add or replace their files (#10) - ([8c85841](https://github.com/Occtoo/dotnet-sdk/commit/8c858418bc9436cf6c09524c184128c555bc9ff1)) - Patryk Kuszmar

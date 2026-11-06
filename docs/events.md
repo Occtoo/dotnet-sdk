@@ -27,7 +27,7 @@ Requires a credential with an events scope — see
 
 ## The model: one record per event type
 
-Every documented event type is a sealed record — 30 of them, grouped under nine
+Every documented event type is a sealed record — 36 of them, grouped under eleven
 abstract family bases — and the concrete type *is* the event type. Consuming
 events is pattern matching:
 
@@ -69,6 +69,97 @@ var filter = EventFilter
 A family base expands to all its members — `OfType<SourceEntryEvent>()` matches
 every `source_entry.*` type. For grammar the builder does not model,
 `EventFilter.Raw("...")` sends an expression verbatim.
+
+### Endpoint safe names and API versions
+
+Use `WithEndpointName` to filter `DestinationEntryUpdated`,
+`DestinationEntryDeleted`, or their `DestinationEntryEvent` family by endpoint
+safe name. Combine it with `WithDestination` to scope names to one destination:
+
+```csharp
+var filter = EventFilter.OfType<DestinationEntryEvent>(e => e
+    .WithDestination("destination-id")
+    .WithEndpointName("products", "categories"));
+
+// (type eq "destination_entry.deleted" or type eq "destination_entry.updated")
+//   and destinationId eq "destination-id"
+//   and (endpoint eq "products" or endpoint eq "categories")
+```
+
+Values within one condition use `or`; chained conditions use `and`. Safe-name
+matching is exact and case-sensitive. The filter above can match the same
+endpoint safe names across API versions. Add `WithApiVersionName("2", "3")`
+to restrict it to those version numbers, or `WithApiVersion` to filter by
+API-version IDs.
+
+`WithEndpoint` continues to filter by endpoint ID. Endpoint lifecycle events
+(`EndpointCreated`, `EndpointUpdated`, and `EndpointDeleted`) support that
+ID filter, but do not support `WithEndpointName`.
+
+Only events processed after endpoint filtering was enabled can match an
+`endpoint` condition. Older events are not backfilled, even when their payload
+already contains `Endpoint`. Updating the SDK does not change this. Existing
+SDK versions can send the same expression with `EventFilter.Raw` once the
+backend supports it.
+
+## Managed tag lists and values
+
+The SDK maps all six managed-tag events to records:
+
+| Wire type | Record | Family |
+| --- | --- | --- |
+| `managed_tag_list.created` | `ManagedTagListCreated` | `ManagedTagListEvent` |
+| `managed_tag_list.updated` | `ManagedTagListUpdated` | `ManagedTagListEvent` |
+| `managed_tag_list.deleted` | `ManagedTagListDeleted` | `ManagedTagListEvent` |
+| `managed_tag_value.added` | `ManagedTagValueAdded` | `ManagedTagValueEvent` |
+| `managed_tag_value.updated` | `ManagedTagValueUpdated` | `ManagedTagValueEvent` |
+| `managed_tag_value.deleted` | `ManagedTagValueDeleted` | `ManagedTagValueEvent` |
+
+Both families expose `ManagedTagId` from `Occtoo.ManagedTags`. List creation and
+update records contain metadata without values. `TagType` is the list's
+`Maybe<ManagedTagType>`; the inherited `Type` remains the CloudEvent name.
+Unknown future list kinds yield `TagType = None`.
+
+Value records preserve `Key` and `ParentKey` as opaque strings. Addition and
+update records expose `Content` as `Maybe<ManagedTagValueContent>`: pattern match
+on `TextValue` or `LocalizedValue`, just as for managed-tag reads. Localized
+content replaces all stored translations, including removals. Empty text and
+empty translation objects remain present content.
+
+Use `WithManagedTag` to select lists and `WithSubject` to select an exact,
+case-sensitive value key. Include both families when maintaining a copy of
+values:
+
+```csharp
+using Occtoo.Events;
+using Occtoo.ManagedTags;
+
+var tagId = ManagedTagId.From(Guid.Parse("42f3cce5-a2b8-4cf9-9c2e-8c07a2ced339"));
+var filter = EventFilter
+    .OfType<ManagedTagListEvent>(e => e.WithManagedTag(tagId))
+    .OrType<ManagedTagValueEvent>(e => e.WithManagedTag(tagId));
+
+var oneValue = EventFilter.OfType<ManagedTagValueUpdated>(e =>
+    e.WithManagedTag(tagId).WithSubject("blue"));
+```
+
+Deleting a list emits `ManagedTagListDeleted` and updates for detached child
+lists, without individual value deletion events. Changing a list's parent emits
+`ManagedTagListUpdated` and clears value parent keys without individual value
+updates. Discard a deleted list's values and refetch values when its parent
+changes. Direct value deletion still emits `ManagedTagValueDeleted`, plus
+updates for surviving child values whose parent keys were cleared.
+
+When `ValueTruncated` is true, content was omitted because the public event
+exceeded its size budget. Keep your stored content and fetch current state with
+`client.ManagedTags.GetValue(tagId, key)` using `read:cards`. The result may be
+newer than the event, or the value may already be deleted. See
+[managed-tags.md](managed-tags.md) for reads and key validation.
+
+These records work with pull, SSE, durable-consumer batches and
+`CloudEvent.Parse` for webhook or queue messages. Only future changes are
+emitted; there is no backfill. Unchanged writes emit no events. Handle retries
+idempotently and avoid recreating a deleted list from delayed value events.
 
 ## Cursors and checkpointing
 
