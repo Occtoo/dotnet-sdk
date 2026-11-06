@@ -31,9 +31,9 @@ internal sealed record ConvertedImageDto
 
     public DateTimeOffset ExpiresAt { get; init; }
 
-    public string? Filename { get; init; }
+    public string Filename { get; init; } = "";
 
-    public string? ContentType { get; init; }
+    public string ContentType { get; init; } = "";
 
     public long Size { get; init; }
 }

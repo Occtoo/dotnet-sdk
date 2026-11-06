@@ -202,19 +202,10 @@ public sealed class ImageConversionsClient
         return new UploadTarget(id, location, created.MaxFileSize.Value);
     }
 
-    private static Result<ConvertedImage, OcctooError> ToConvertedImage(ConvertedImageDto converted)
-    {
-        if (converted.Url is not { Length: > 0 } url || !Uri.TryCreate(url, UriKind.Absolute, out var location))
-            return new UnexpectedError("Occtoo returned a converted image whose download link isn't a URL.");
-
-        if (converted.Filename is not { Length: > 0 } filename)
-            return new UnexpectedError("Occtoo returned a converted image without a filename.");
-
-        if (converted.ContentType is not { Length: > 0 } contentType)
-            return new UnexpectedError("Occtoo returned a converted image without a content type.");
-
-        return new ConvertedImage(location, converted.ExpiresAt, filename, contentType, converted.Size);
-    }
+    private static Result<ConvertedImage, OcctooError> ToConvertedImage(ConvertedImageDto converted) =>
+        converted.Url is { Length: > 0 } url && Uri.TryCreate(url, UriKind.Absolute, out var location)
+            ? new ConvertedImage(location, converted.ExpiresAt, converted.Filename, converted.ContentType, converted.Size)
+            : new UnexpectedError("Occtoo returned a converted image whose download link isn't a URL.");
 
     private sealed record UploadTarget(ImageConversionId Id, Uri Url, long MaxFileSize);
 }
