@@ -1,5 +1,4 @@
 using System.Buffers;
-using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
@@ -28,7 +27,7 @@ internal static class BlobTransfer
     private const string RequestIdHeader = "x-ms-request-id";
     private const int MaxBodySnippet = 512;
 
-    internal static async Task<Result<TimeSpan, OcctooError>> Put(
+    internal static async Task<UnitResult<OcctooError>> Put(
         HttpClient httpClient,
         Uri url,
         string filename,
@@ -42,11 +41,11 @@ internal static class BlobTransfer
 
         return await opened.Match(
             stream => Send(httpClient, url, filename, stream, length, timeout, progress, cancellationToken),
-            error => Task.FromResult(Result.Failure<TimeSpan, OcctooError>(error)))
+            error => Task.FromResult(UnitResult.Failure(error)))
             .ConfigureAwait(false);
     }
 
-    private static async Task<Result<TimeSpan, OcctooError>> Send(
+    private static async Task<UnitResult<OcctooError>> Send(
         HttpClient httpClient,
         Uri url,
         string filename,
@@ -56,8 +55,6 @@ internal static class BlobTransfer
         Action<long>? progress,
         CancellationToken cancellationToken)
     {
-        var started = Stopwatch.GetTimestamp();
-
         // The stream is disposed with the request: what Open returned is the
         // transfer's to close, and a consumer's own stream came back wrapped.
         var stream = progress is not null
@@ -78,18 +75,18 @@ internal static class BlobTransfer
             .ConfigureAwait(false);
 
         return await sent.Match(
-            async Task<Result<TimeSpan, OcctooError>> (response) =>
+            async Task<UnitResult<OcctooError>> (response) =>
             {
                 using (response)
                 {
                     if (response.IsSuccessStatusCode)
-                        return Stopwatch.GetElapsedTime(started);
+                        return UnitResult.Success<OcctooError>();
 
                     var body = await ReadSnippet(response, cancellationToken).ConfigureAwait(false);
                     return Classify(response, filename, body);
                 }
             },
-            error => Task.FromResult(Result.Failure<TimeSpan, OcctooError>(Unreachable(error, url, filename))))
+            error => Task.FromResult(UnitResult.Failure(Unreachable(error, url, filename))))
             .ConfigureAwait(false);
     }
 

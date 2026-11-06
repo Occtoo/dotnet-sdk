@@ -278,7 +278,7 @@ public sealed partial class AssetsClient
                                 Maybe<OcctooError>.None))
                             : null,
                         cancellationToken)
-                    .Map(elapsed => new AssetTransfer(link.Key, length, elapsed)),
+                    .Map(() => new AssetTransfer(link.Key, length)),
                 error => Task.FromResult(Result.Failure<AssetTransfer, OcctooError>(error)))
             .ConfigureAwait(false);
 
