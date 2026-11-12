@@ -2,6 +2,12 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v0.8.0](https://github.com/Occtoo/dotnet-sdk/compare/3d4b328a6e623a678af76c359d8adcebc3756116..v0.8.0) - 2026-11-12
+#### Features
+- (**image-conversions**) upload an image once and convert it on demand (#14) - ([3d4b328](https://github.com/Occtoo/dotnet-sdk/commit/3d4b328a6e623a678af76c359d8adcebc3756116)) - Patryk Kuszmar
+
+- - -
+
 ## [v0.7.0](https://github.com/Occtoo/dotnet-sdk/compare/5acb1402df70209e4296facb6458fea3adb75f90..v0.7.0) - 2026-11-05
 #### Features
 - (**events**) add endpoint safe-name filters (#12) - ([8f5bcac](https://github.com/Occtoo/dotnet-sdk/commit/8f5bcacf5263efc30ffb03310d624acd48e57897)) - Ihor Korotenko
