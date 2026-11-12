@@ -36,7 +36,7 @@ Requires a tenant-level application credential with `write:media`, `write:source
 | `SourceId` | The data source, the same identifier typed ingest uses |
 | `AssetKey` | The asset's key within that data source — also the id of the entry the upload creates |
 | `AssetFilename` | The name the file is stored under |
-| `FolderId` | Optional; the folder new entries land in, root when omitted |
+| `FolderId` | Optional; the folder new entries land in, root when omitted. `client.Sources.ListFolders` lists a source's folders and their ids — see [sources.md](sources.md#folders) |
 | `Asset` | A key and a filename together, which is what `Complete` and `RefreshUploadLinks` take |
 | `AssetInitialization` | An `Asset` plus its property values, which is what `Initialize` and `Override` take |
 | `AssetUpload` | An `Asset` plus its bytes and property values, which is what `Upload` and `Replace` take |

@@ -76,7 +76,7 @@ spans when it is not:
 | `events metadata` | Client | `occtoo.events.total` |
 | `pull event batch` | Client | `occtoo.event_destination.id`, `occtoo.events.worker_id`, `occtoo.events.limit`, `occtoo.events.count`; `occtoo.events.lease_id`, `occtoo.events.attempt` (when a batch was leased) |
 | `acknowledge event batch` | Client | `occtoo.event_destination.id`, `occtoo.events.lease_id`, `occtoo.events.outcome` (`ok`, `failed`), `occtoo.events.acknowledgement` (`committed`, `requeued`, `stale`) |
-| `list sources`, `get source`, `create source`, … | Client | one span per management operation, named after it; `occtoo.source.id`, `occtoo.property.id`, `occtoo.application.id`, `occtoo.page.limit` where they apply |
+| `list sources`, `get source`, `create source`, … | Client | one span per management operation, named after it; `occtoo.source.id`, `occtoo.property.id`, `occtoo.folder.id`, `occtoo.application.id`, `occtoo.page.limit` where they apply |
 | `upload assets` | Client | `occtoo.source.id`, `occtoo.assets.count`, `occtoo.assets.completed`, `occtoo.assets.failed` |
 | `replace assets` | Client | `occtoo.source.id`, `occtoo.assets.count`, `occtoo.assets.completed`, `occtoo.assets.failed` |
 | `initialize assets` | Client | `occtoo.source.id`, `occtoo.assets.count`, `occtoo.folder.id` (when given), `occtoo.assets.signed`, `occtoo.assets.refused` |
