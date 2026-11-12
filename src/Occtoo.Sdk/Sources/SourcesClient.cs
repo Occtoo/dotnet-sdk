@@ -1,5 +1,6 @@
 using CSharpFunctionalExtensions;
 using Microsoft.Extensions.Logging;
+using Occtoo.Assets;
 using Occtoo.Http.Internal;
 using Occtoo.Logging;
 using Occtoo.Sources.Internal;
@@ -265,6 +266,52 @@ public sealed class SourcesClient
         CancellationToken cancellationToken = default) =>
         OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Delete, PropertyUri(sourceId, propertyId)),
             "delete source property", cancellationToken, PropertyTag(sourceId, propertyId));
+
+    /// <summary>
+    /// Reads one page of a source's folders, root included, ordered by path.
+    /// A <paramref name="parentId"/> narrows it to that folder's direct
+    /// children; keep it when following <see cref="Page{T}.Next"/>.
+    /// </summary>
+    public Task<Result<Page<SourceFolder>, OcctooError>> ListFolders(
+        SourceId sourceId,
+        Maybe<FolderId> parentId = default,
+        PageRequest? page = null,
+        CancellationToken cancellationToken = default)
+    {
+        page ??= new PageRequest();
+        var uri = new QueryString($"v1/sources/{Uri.EscapeDataString(sourceId.Value)}/folders")
+            .Add("parentId", parentId.Map(id => id.Value))
+            .Add(page)
+            .ToUri();
+
+        return Pages.Validate(page)
+            .Bind(() => OcctooTransport.Send(
+                _httpClient,
+                _requestTimeout,
+                OcctooTransport.Request(HttpMethod.Get, uri),
+                "list source folders",
+                SourcesJsonContext.Default.ForwardPageDtoSourceFolderDto,
+                cancellationToken,
+                [new("occtoo.source.id", sourceId.Value), new("occtoo.page.limit", page.Limit)]))
+            .MapResponse(result => Pages.ToPage(result.Items, result.After, result.TotalCount, dto => dto.ToModel()));
+    }
+
+    /// <summary>Reads one folder of a source.</summary>
+    public Task<Result<SourceFolder, OcctooError>> GetFolder(
+        SourceId sourceId,
+        FolderId folderId,
+        CancellationToken cancellationToken = default) =>
+        OcctooTransport.Send(
+                _httpClient,
+                _requestTimeout,
+                OcctooTransport.Request(
+                    HttpMethod.Get,
+                    new Uri($"v1/sources/{Uri.EscapeDataString(sourceId.Value)}/folders/{folderId.Value:D}", UriKind.Relative)),
+                "get source folder",
+                SourcesJsonContext.Default.SourceFolderDto,
+                cancellationToken,
+                [new("occtoo.source.id", sourceId.Value), new("occtoo.folder.id", folderId.Value)])
+            .MapResponse(dto => dto.ToModel());
 
     private static KeyValuePair<string, object?>[] SourceTag(SourceId sourceId) => [new("occtoo.source.id", sourceId.Value)];
 

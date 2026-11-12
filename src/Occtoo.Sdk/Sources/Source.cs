@@ -1,4 +1,5 @@
 using CSharpFunctionalExtensions;
+using Occtoo.Assets;
 
 namespace Occtoo.Sources;
 
@@ -56,6 +57,20 @@ public sealed record SourceProperty(
     Maybe<SourcePropertyType> Type,
     Maybe<Delimiter> Delimiter,
     Maybe<SourcePropertyState> State);
+
+/// <summary>
+/// A folder in a source. <c>Id</c> is the <see cref="FolderId"/> asset uploads
+/// take. The root folder has no <c>ParentId</c> and <c>IsSystem</c> set.
+/// </summary>
+public sealed record SourceFolder(
+    FolderId Id,
+    Maybe<FolderId> ParentId,
+    string DisplayName,
+    string SafeName,
+    string Path,
+    bool IsSystem,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt);
 
 /// <summary>A new source.</summary>
 public sealed record CreateSource(SourceId Id, string Name)
