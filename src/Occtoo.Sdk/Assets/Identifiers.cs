@@ -117,6 +117,7 @@ public readonly partial struct AssetFilename
 /// <summary>
 /// The id of a folder within a data source. Optional wherever it appears —
 /// omitting it puts the entries in the data source's root folder.
+/// <see cref="SourcesClient.ListFolders"/> lists a source's folders and their ids.
 /// </summary>
 [ValueObject<Guid>]
 public readonly partial struct FolderId

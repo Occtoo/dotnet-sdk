@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text.Json;
 using CSharpFunctionalExtensions;
+using Occtoo.Assets;
 using Occtoo.Authentication;
 using Occtoo.Sources;
 using Shouldly;
@@ -26,7 +27,13 @@ public class SourceManagementTests
         { "id": "tags", "displayName": "Tags", "description": "Marketing tags", "type": "List", "delimiter": ",", "state": "Active" }
         """;
 
+    private const string RootFolderBody = """
+        { "id": "2f1d4a3c-0000-4000-8000-000000000001", "parentId": null, "displayName": "Products", "safeName": "products", "path": "products", "isSystem": true, "createdAt": "2026-09-01T10:00:00Z", "updatedAt": "2026-09-01T10:00:00Z" }
+        """;
+
     private static readonly SourceId Products = SourceId.From("products");
+
+    private static readonly FolderId RootFolder = FolderId.From(Guid.Parse("2f1d4a3c-0000-4000-8000-000000000001"));
 
     private static OcctooClient Client(StubHandler handler) =>
         new(new HttpClient(handler), new OcctooClientOptions
@@ -201,6 +208,48 @@ public class SourceManagementTests
         var deleted = await client.Sources.DeleteProperty(Products, PropertyId.From("tags"), TestContext.Current.CancellationToken);
         deleted.IsSuccess.ShouldBeTrue();
         handler.Requests[1].Method.ShouldBe(HttpMethod.Delete);
+    }
+
+    [Fact]
+    public async Task ListFolders_carries_the_parent_in_the_query_and_maps_its_children()
+    {
+        using var handler = new StubHandler().Respond(HttpStatusCode.OK, """
+            {
+              "items": [
+                { "id": "2f1d4a3c-0000-4000-8000-000000000002", "parentId": "2f1d4a3c-0000-4000-8000-000000000001", "displayName": "Shoes", "safeName": "shoes", "path": "products/shoes", "isSystem": false, "createdAt": "2026-09-01T10:00:00Z", "updatedAt": "2026-09-02T11:30:00Z" }
+              ],
+              "after": "next",
+              "totalCount": null
+            }
+            """);
+        using var client = Client(handler);
+
+        var result = await client.Sources.ListFolders(
+            Products, RootFolder, new PageRequest { Limit = 10 }, TestContext.Current.CancellationToken);
+
+        var page = result.Value;
+        var folder = page.Items.ShouldHaveSingleItem();
+        folder.ParentId.GetValueOrThrow().ShouldBe(RootFolder);
+        folder.Path.ShouldBe("products/shoes");
+        folder.IsSystem.ShouldBeFalse();
+        page.Next.GetValueOrThrow().Value.ShouldBe("next");
+
+        handler.Requests.Single().RequestUri!.AbsoluteUri
+            .ShouldBe("https://api.occtoo.com/v1/sources/products/folders?parentId=2f1d4a3c-0000-4000-8000-000000000001&limit=10");
+    }
+
+    [Fact]
+    public async Task GetFolder_reads_the_root_folder()
+    {
+        using var handler = new StubHandler().Respond(HttpStatusCode.OK, RootFolderBody);
+        using var client = Client(handler);
+
+        var result = await client.Sources.GetFolder(Products, RootFolder, TestContext.Current.CancellationToken);
+
+        result.Value.IsSystem.ShouldBeTrue();
+        result.Value.ParentId.HasNoValue.ShouldBeTrue();
+        handler.Requests.Single().RequestUri!.AbsoluteUri
+            .ShouldBe("https://api.occtoo.com/v1/sources/products/folders/2f1d4a3c-0000-4000-8000-000000000001");
     }
 
     [Fact]

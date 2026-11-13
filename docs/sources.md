@@ -154,6 +154,28 @@ by name substring, `SourceType`,
 `SourceStatus` and inclusive created/updated windows; soft-deleted sources are
 never listed.
 
+## Folders
+
+`ListFolders` and `GetFolder` (`/v1/sources/{sourceId}/folders[/{folderId}]`, `read:sources`) read a source's folders. A folder's `Id` is the `FolderId` an asset upload takes to put new entries in that folder — see [assets.md](assets.md#the-model).
+
+A `SourceFolder` has `Id`, `ParentId`, `DisplayName`, `SafeName`, `Path`, `IsSystem`, `CreatedAt` and `UpdatedAt`. The root is a folder too: `IsSystem = true`, no `ParentId`.
+
+`ListFolders` returns every folder in the source, root included, ordered by path. Pass `parentId` to get only that folder's direct children, and keep passing it when you follow `Next`. Paging works like `List` and `ListProperties` — see [applications.md](applications.md#listing) for the loop. An unknown source gives a `NotFoundError`; a known source with no matching folders gives an empty page.
+
+`GetFolder` reads one folder. It returns a `NotFoundError` when the source or the folder doesn't exist.
+
+```csharp
+using Occtoo.Assets;
+
+var media = SourceId.From("product-media");
+
+await client.Sources.ListFolders(media)
+    .Map(page => page.Items.Single(folder => folder.IsSystem).Id)
+    .Bind(rootId => client.Sources.ListFolders(media, rootId))
+    .Map(children => children.Items.Single(folder => folder.SafeName == "catalogue").Id)
+    .Bind(folderId => client.Assets.Upload(media, [AssetUpload.FromFile("logo_1", "files/logo.png")], folderId));
+```
+
 ## Reading entries
 
 `GetEntry` and `GetEntries` (`/v1/sources/{sourceId}/entries[/{entryId}]`,
