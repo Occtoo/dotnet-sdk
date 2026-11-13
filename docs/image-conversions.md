@@ -58,6 +58,45 @@ The modes. An original smaller than the canvas is scaled up in every mode.
 
 `ImageAspectRatio` and `ImageBackground` are value objects: `From` throws a `ValueObjectValidationException` for a malformed value and `TryFrom` reports it. `AspectRatio` takes a string literal directly. `Background` is a `Maybe<ImageBackground>`, so assign `ImageBackground.From("FFFFFF")`. Occtoo checks the numeric ranges and the padding rule.
 
+## Presets
+
+A preset is a named set of `ImageConversionParameters` stored in your tenant. `client.ImageConversions` lists, reads, creates, replaces and deletes them.
+
+```csharp
+await client.ImageConversions.CreatePreset("web-thumbnail", "Web thumbnail", thumbnail)
+    .Bind(created => client.ImageConversions.GetPreset(created.Id))
+    .Ensure(
+        preset => preset.Parameters.HasValue,
+        new UnexpectedError("The preset uses a mode or an output format this SDK version doesn't know."))
+    .Bind(preset => client.ImageConversions.UpdatePreset(
+        preset.Id, preset.DisplayName, preset.Parameters.Value with { Quality = 90 }))
+    .Tap(preset => logger.LogInformation("Preset {Id} is at version {Version}", preset.Id, preset.Version))
+    .TapError(error => logger.LogWarning("Preset change failed: {Error}", error));
+
+var page = await client.ImageConversions.ListPresets(new PageRequest { Limit = 100 });
+```
+
+| Call | What it does |
+|---|---|
+| `ListPresets(page)` | Reads one page of presets, ordered by id. Follow `Next` while `HasMore` is true |
+| `GetPreset(id)` | Reads one preset |
+| `CreatePreset(id, displayName, parameters)` | Creates a preset and returns it |
+| `UpdatePreset(id, displayName, parameters)` | Replaces the display name and the parameters together, and returns the preset |
+| `DeletePreset(id)` | Deletes a preset. Deleting one that doesn't exist succeeds |
+
+A `ConversionPreset` carries its `Id`, `DisplayName`, `Parameters`, `Version`, `CreatedAt` and `UpdatedAt`. `Version` goes up when the parameters change. `Parameters` is a `Maybe<ImageConversionParameters>`: it's absent when Occtoo returns a mode or an output format this SDK version doesn't know.
+
+The rules for the inputs, checked by the value objects before any call:
+
+- `ConversionPresetId`: a lower-case letter, then lower-case letters, digits, `_` or `-`, at most 64 characters, such as `web-thumbnail`. It can't change once the preset exists.
+- `ConversionPresetDisplayName`: 2 to 50 printable ASCII characters, not starting or ending with a space. Occtoo never trims a name.
+
+Both take a string literal directly. The parameters follow the same rules as for `Convert`.
+
+A card definition can use a preset. While one does, `DeletePreset` fails with a `ConflictError`.
+
+Reading presets needs `read:media`; creating, updating and deleting them needs `write:media`.
+
 ## Lifetimes
 
 - The upload link lasts 1 hour.
@@ -75,5 +114,10 @@ The modes. An original smaller than the canvas is scaled up in every mode.
 | The credential is refused, or lacks `write:media` | `AuthenticationError`, `ForbiddenError` |
 | The conversion ran over 25 seconds (`504`), or Occtoo failed | `ServerError` |
 | Blob storage refused the bytes | As for an asset transfer: an expired upload link is an `AuthenticationError`, and the message carries storage's error code and request id |
+| A preset's id, display name or parameter breaks a rule | `ValidationError`, with `Failures` keyed `Id`, `DisplayName` or `Parameters.TargetSize` and the like |
+| A page limit outside 1 to 200, or a cursor Occtoo refuses | `ValidationError`; a refused cursor is keyed `after` |
+| No preset under the id, on `GetPreset` or `UpdatePreset` | `NotFoundError` |
+| `CreatePreset` with an id that already exists, or `DeletePreset` while a card definition uses the preset | `ConflictError` |
+| The credential lacks `read:media` to read presets, or `write:media` to change them | `ForbiddenError` |
 
 The SDK doesn't resend the create request or `Convert` after a `5xx` or a timeout. See [errors.md](errors.md).

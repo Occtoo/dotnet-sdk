@@ -10,22 +10,32 @@ namespace Occtoo.ImageConversions;
 
 /// <summary>
 /// Upload an image once with <see cref="Upload"/>, then call
-/// <see cref="Convert"/> as often as you like.
+/// <see cref="Convert"/> as often as you like. The tenant's conversion presets
+/// are managed here too.
 /// </summary>
 /// <remarks>
-/// Occtoo deletes the original a day after the upload. The credential needs
-/// <see cref="Authentication.OcctooScopes.WriteMedia"/>.
+/// Occtoo deletes the original a day after the upload. Uploading, converting
+/// and changing presets need
+/// <see cref="Authentication.OcctooScopes.WriteMedia"/>; reading presets needs
+/// <c>read:media</c>.
 /// </remarks>
 public sealed class ImageConversionsClient
 {
     private const string UploadOperation = "upload image";
     private const string RequestOperation = "request image conversion";
     private const string ConvertOperation = "convert image";
+    private const string ListPresetsOperation = "list conversion presets";
+    private const string GetPresetOperation = "get conversion preset";
+    private const string CreatePresetOperation = "create conversion preset";
+    private const string UpdatePresetOperation = "update conversion preset";
+    private const string DeletePresetOperation = "delete conversion preset";
 
     private const string IdTag = "occtoo.image_conversions.id";
     private const string BytesTag = "occtoo.image_conversions.bytes";
+    private const string PresetTag = "occtoo.image_conversions.preset";
 
     private static readonly Uri ImageConversionsUri = new("v1/image-conversions", UriKind.Relative);
+    private static readonly Uri PresetsUri = new("v1/conversion-presets", UriKind.Relative);
 
     private readonly HttpClient _httpClient;
     private readonly Lazy<HttpClient> _uploadHttpClient;
@@ -152,14 +162,7 @@ public sealed class ImageConversionsClient
                 OcctooTransport.Request(
                     HttpMethod.Post,
                     new($"v1/image-conversions/{id.Value:D}/convert", UriKind.Relative),
-                    new(new(
-                        parameters.Mode,
-                        parameters.TargetSize,
-                        parameters.AspectRatio.Value,
-                        parameters.PaddingPercent.HasValue ? parameters.PaddingPercent.Value : null,
-                        parameters.Background.HasValue ? parameters.Background.Value.Value : null,
-                        parameters.OutputFormat,
-                        parameters.Quality)),
+                    new(ToParametersDto(parameters)),
                     ImageConversionsJsonContext.Default.ConvertImageDto),
                 ConvertOperation,
                 ImageConversionsJsonContext.Default.ConvertedImageDto,
@@ -168,6 +171,226 @@ public sealed class ImageConversionsClient
             .Bind(ToConvertedImage)
             .ConfigureAwait(false);
     }
+
+    /// <summary>
+    /// Reads one page of the tenant's conversion presets, ordered by id.
+    /// </summary>
+    /// <param name="page">Where to read from and how much; absent reads the first 50.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>
+    /// The page, or why the read failed:
+    /// <list type="bullet">
+    /// <item><description>
+    /// <see cref="ValidationError"/>: the limit isn't from 1 to 200, or Occtoo
+    /// refuses the cursor, keyed in <see cref="ValidationError.Failures"/> as
+    /// <c>after</c>.
+    /// </description></item>
+    /// <item><description>
+    /// <see cref="AuthenticationError"/> or <see cref="ForbiddenError"/>: the
+    /// credential is refused or lacks the scope.
+    /// </description></item>
+    /// <item><description>
+    /// <see cref="ServerError"/>: Occtoo failed.
+    /// </description></item>
+    /// </list>
+    /// </returns>
+    public Task<Result<Page<ConversionPreset>, OcctooError>> ListPresets(
+        PageRequest? page = null,
+        CancellationToken cancellationToken = default)
+    {
+        page ??= new PageRequest();
+        var uri = new QueryString("v1/conversion-presets")
+            .Add(page)
+            .ToUri();
+
+        return Pages.Validate(page)
+            .Bind(() => OcctooTransport.Send(
+                _httpClient,
+                _requestTimeout,
+                OcctooTransport.Request(HttpMethod.Get, uri),
+                ListPresetsOperation,
+                ImageConversionsJsonContext.Default.ForwardPageDtoConversionPresetDto,
+                cancellationToken,
+                [new("occtoo.page.limit", page.Limit)]))
+            .MapResponse(presets => Pages.ToPage(
+                presets.Items ?? throw new MalformedResponseException("'items' is missing."),
+                presets.After,
+                presets.TotalCount,
+                ToPreset));
+    }
+
+    /// <summary>
+    /// Reads one conversion preset.
+    /// </summary>
+    /// <param name="id">The preset's id.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>
+    /// The preset, or why the read failed:
+    /// <list type="bullet">
+    /// <item><description>
+    /// <see cref="NotFoundError"/>: no preset has the id.
+    /// </description></item>
+    /// <item><description>
+    /// <see cref="AuthenticationError"/> or <see cref="ForbiddenError"/>: the
+    /// credential is refused or lacks the scope.
+    /// </description></item>
+    /// <item><description>
+    /// <see cref="ServerError"/>: Occtoo failed.
+    /// </description></item>
+    /// </list>
+    /// </returns>
+    public Task<Result<ConversionPreset, OcctooError>> GetPreset(
+        ConversionPresetId id,
+        CancellationToken cancellationToken = default) =>
+        OcctooTransport
+            .Send(
+                _httpClient,
+                _requestTimeout,
+                OcctooTransport.Request(HttpMethod.Get, PresetUri(id)),
+                GetPresetOperation,
+                ImageConversionsJsonContext.Default.ConversionPresetDto,
+                cancellationToken,
+                [new(PresetTag, id.Value)])
+            .MapResponse(ToPreset);
+
+    /// <summary>
+    /// Creates a conversion preset.
+    /// </summary>
+    /// <param name="id">The new preset's id. It can't change later.</param>
+    /// <param name="displayName">The new preset's display name.</param>
+    /// <param name="parameters">How the preset converts an image.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>
+    /// The created preset, or why the create failed:
+    /// <list type="bullet">
+    /// <item><description>
+    /// <see cref="ValidationError"/>: a value Occtoo refuses, keyed in
+    /// <see cref="ValidationError.Failures"/> as <c>Id</c>,
+    /// <c>DisplayName</c> or a parameter's name, such as
+    /// <c>Parameters.TargetSize</c>.
+    /// </description></item>
+    /// <item><description>
+    /// <see cref="ConflictError"/>: a preset with the id already exists.
+    /// </description></item>
+    /// <item><description>
+    /// <see cref="AuthenticationError"/> or <see cref="ForbiddenError"/>: the
+    /// credential is refused or lacks the scope.
+    /// </description></item>
+    /// <item><description>
+    /// <see cref="ServerError"/>: Occtoo failed.
+    /// </description></item>
+    /// </list>
+    /// </returns>
+    public async Task<Result<ConversionPreset, OcctooError>> CreatePreset(
+        ConversionPresetId id,
+        ConversionPresetDisplayName displayName,
+        ImageConversionParameters parameters,
+        CancellationToken cancellationToken = default)
+    {
+        if (parameters is null)
+            return new ValidationError("Conversion parameters are required.");
+
+        return await OcctooTransport
+            .Send(
+                _httpClient,
+                _requestTimeout,
+                OcctooTransport.Request(
+                    HttpMethod.Post,
+                    PresetsUri,
+                    new(id.Value, displayName.Value, ToParametersDto(parameters)),
+                    ImageConversionsJsonContext.Default.CreateConversionPresetDto),
+                CreatePresetOperation,
+                ImageConversionsJsonContext.Default.ConversionPresetDto,
+                cancellationToken,
+                [new(PresetTag, id.Value)])
+            .MapResponse(ToPreset)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Replaces a conversion preset's display name and parameters.
+    /// </summary>
+    /// <param name="id">The preset's id.</param>
+    /// <param name="displayName">The preset's new display name.</param>
+    /// <param name="parameters">How the preset converts an image from now on.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>
+    /// The updated preset, or why the update failed:
+    /// <list type="bullet">
+    /// <item><description>
+    /// <see cref="ValidationError"/>: a value Occtoo refuses, keyed in
+    /// <see cref="ValidationError.Failures"/> as <c>DisplayName</c> or a
+    /// parameter's name, such as <c>Parameters.TargetSize</c>.
+    /// </description></item>
+    /// <item><description>
+    /// <see cref="NotFoundError"/>: no preset has the id.
+    /// </description></item>
+    /// <item><description>
+    /// <see cref="AuthenticationError"/> or <see cref="ForbiddenError"/>: the
+    /// credential is refused or lacks the scope.
+    /// </description></item>
+    /// <item><description>
+    /// <see cref="ServerError"/>: Occtoo failed.
+    /// </description></item>
+    /// </list>
+    /// </returns>
+    public async Task<Result<ConversionPreset, OcctooError>> UpdatePreset(
+        ConversionPresetId id,
+        ConversionPresetDisplayName displayName,
+        ImageConversionParameters parameters,
+        CancellationToken cancellationToken = default)
+    {
+        if (parameters is null)
+            return new ValidationError("Conversion parameters are required.");
+
+        return await OcctooTransport
+            .Send(
+                _httpClient,
+                _requestTimeout,
+                OcctooTransport.Request(
+                    HttpMethod.Put,
+                    PresetUri(id),
+                    new(displayName.Value, ToParametersDto(parameters)),
+                    ImageConversionsJsonContext.Default.UpdateConversionPresetDto),
+                UpdatePresetOperation,
+                ImageConversionsJsonContext.Default.ConversionPresetDto,
+                cancellationToken,
+                [new(PresetTag, id.Value)])
+            .MapResponse(ToPreset)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Deletes a conversion preset. Deleting a preset that doesn't exist
+    /// succeeds.
+    /// </summary>
+    /// <param name="id">The preset's id.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>
+    /// Success, or why the delete failed:
+    /// <list type="bullet">
+    /// <item><description>
+    /// <see cref="ConflictError"/>: a card definition still uses the preset.
+    /// </description></item>
+    /// <item><description>
+    /// <see cref="AuthenticationError"/> or <see cref="ForbiddenError"/>: the
+    /// credential is refused or lacks the scope.
+    /// </description></item>
+    /// <item><description>
+    /// <see cref="ServerError"/>: Occtoo failed.
+    /// </description></item>
+    /// </list>
+    /// </returns>
+    public Task<UnitResult<OcctooError>> DeletePreset(
+        ConversionPresetId id,
+        CancellationToken cancellationToken = default) =>
+        OcctooTransport.Send(
+            _httpClient,
+            _requestTimeout,
+            OcctooTransport.Request(HttpMethod.Delete, PresetUri(id)),
+            DeletePresetOperation,
+            cancellationToken,
+            [new(PresetTag, id.Value)]);
 
     private Task<Result<UploadTarget, OcctooError>> RequestUpload(
         AssetFilename filename,
@@ -206,6 +429,46 @@ public sealed class ImageConversionsClient
         converted.Url is { Length: > 0 } url && Uri.TryCreate(url, UriKind.Absolute, out var location)
             ? new ConvertedImage(location, converted.ExpiresAt, converted.Filename, converted.ContentType, converted.Size)
             : new UnexpectedError("Occtoo returned a converted image whose download link isn't a URL.");
+
+    private static ImageConversionParametersDto ToParametersDto(ImageConversionParameters parameters) => new(
+        parameters.Mode,
+        parameters.TargetSize,
+        parameters.AspectRatio.Value,
+        parameters.PaddingPercent.HasValue ? parameters.PaddingPercent.Value : null,
+        parameters.Background.HasValue ? parameters.Background.Value.Value : null,
+        parameters.OutputFormat,
+        parameters.Quality);
+
+    private static ConversionPreset ToPreset(ConversionPresetDto preset)
+    {
+        var parameters = preset.Parameters
+            ?? throw new MalformedResponseException($"Conversion preset '{preset.Id}' has no parameters.");
+        var aspectRatio = ImageAspectRatio.From(parameters.AspectRatio);
+        var background = parameters.Background is { } color
+            ? Maybe.From(ImageBackground.From(color))
+            : Maybe<ImageBackground>.None;
+
+        return new ConversionPreset(
+            ConversionPresetId.From(preset.Id),
+            preset.DisplayName,
+            Enums.Read<ImageConversionMode>(parameters.Mode)
+                .Bind(mode => Enums.Read<ImageOutputFormat>(parameters.OutputFormat)
+                    .Map(outputFormat => new ImageConversionParameters(
+                        mode,
+                        parameters.TargetSize,
+                        aspectRatio,
+                        outputFormat,
+                        parameters.Quality)
+                    {
+                        PaddingPercent = parameters.PaddingPercent is { } padding ? Maybe.From(padding) : Maybe<int>.None,
+                        Background = background,
+                    })),
+            preset.Version,
+            preset.CreatedAt,
+            preset.UpdatedAt);
+    }
+
+    private static Uri PresetUri(ConversionPresetId id) => new($"v1/conversion-presets/{id.Value}", UriKind.Relative);
 
     private sealed record UploadTarget(ImageConversionId Id, Uri Url, long MaxFileSize);
 }

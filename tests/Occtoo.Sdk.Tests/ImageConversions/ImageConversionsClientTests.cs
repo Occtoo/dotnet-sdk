@@ -271,4 +271,260 @@ public class ImageConversionsClientTests
     [InlineData("00AAFF")]
     public void A_background_accepts_six_hex_digits_in_either_case(string value) =>
         ImageBackground.TryFrom(value, out _).ShouldBeTrue();
+
+    [Fact]
+    public async Task ListPresets_gets_the_first_page_of_presets()
+    {
+        using var api = new StubHandler().Respond(HttpStatusCode.OK, PresetPage(after: null));
+        using var client = Client(api);
+
+        await client.ImageConversions.ListPresets(cancellationToken: TestContext.Current.CancellationToken);
+
+        var request = api.Requests.Single();
+        request.Method.ShouldBe(HttpMethod.Get);
+        request.RequestUri!.ToString().ShouldBe("https://api.occtoo.com/v1/conversion-presets?limit=50");
+    }
+
+    [Fact]
+    public async Task ListPresets_sends_the_page_request_in_the_query()
+    {
+        using var api = new StubHandler().Respond(HttpStatusCode.OK, PresetPage(after: null));
+        using var client = Client(api);
+
+        await client.ImageConversions.ListPresets(
+            new PageRequest { After = PageCursor.From("web-large"), Limit = 10, IncludeTotal = true },
+            TestContext.Current.CancellationToken);
+
+        api.Requests.Single().RequestUri!.Query.ShouldBe("?after=web-large&limit=10&includeTotalCount=true");
+    }
+
+    [Fact]
+    public async Task A_preset_page_with_a_next_cursor_has_more()
+    {
+        using var api = new StubHandler().Respond(HttpStatusCode.OK, PresetPage(after: "c1"));
+        using var client = Client(api);
+
+        var result = await client.ImageConversions.ListPresets(cancellationToken: TestContext.Current.CancellationToken);
+
+        var page = result.Value;
+        page.Items.ShouldHaveSingleItem().Id.ShouldBe(PresetId);
+        page.Next.GetValueOrThrow().Value.ShouldBe("c1");
+        page.HasMore.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task A_preset_page_without_a_next_cursor_is_the_last()
+    {
+        using var api = new StubHandler().Respond(HttpStatusCode.OK, PresetPage(after: null));
+        using var client = Client(api);
+
+        var result = await client.ImageConversions.ListPresets(cancellationToken: TestContext.Current.CancellationToken);
+
+        var page = result.Value;
+        page.Items.ShouldHaveSingleItem();
+        page.Next.HasNoValue.ShouldBeTrue();
+        page.HasMore.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task GetPreset_gets_the_preset_by_id()
+    {
+        using var api = new StubHandler().Respond(HttpStatusCode.OK, PresetBody());
+        using var client = Client(api);
+
+        await client.ImageConversions.GetPreset(PresetId, TestContext.Current.CancellationToken);
+
+        var request = api.Requests.Single();
+        request.Method.ShouldBe(HttpMethod.Get);
+        request.RequestUri!.ToString().ShouldBe($"https://api.occtoo.com/v1/conversion-presets/{PresetIdValue}");
+    }
+
+    [Fact]
+    public async Task A_preset_response_maps_to_a_conversion_preset()
+    {
+        using var api = new StubHandler().Respond(HttpStatusCode.OK, PresetBody());
+        using var client = Client(api);
+
+        var result = await client.ImageConversions.GetPreset(PresetId, TestContext.Current.CancellationToken);
+
+        result.Value.ShouldBe(new ConversionPreset(
+            PresetId,
+            "Web large",
+            Padded,
+            2,
+            DateTimeOffset.Parse(PresetCreatedAt, null),
+            DateTimeOffset.Parse(PresetUpdatedAt, null)));
+    }
+
+    [Fact]
+    public async Task A_preset_with_an_unknown_mode_has_no_parameters()
+    {
+        using var api = new StubHandler().Respond(HttpStatusCode.OK, PresetBody(mode: "Stretch"));
+        using var client = Client(api);
+
+        var result = await client.ImageConversions.GetPreset(PresetId, TestContext.Current.CancellationToken);
+
+        result.Value.Parameters.HasNoValue.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task A_preset_with_a_malformed_aspect_ratio_is_an_unexpected_error()
+    {
+        using var api = new StubHandler().Respond(HttpStatusCode.OK, PresetBody(aspectRatio: "4x3"));
+        using var client = Client(api);
+
+        var result = await client.ImageConversions.GetPreset(PresetId, TestContext.Current.CancellationToken);
+
+        result.Error.ShouldBeOfType<UnexpectedError>();
+    }
+
+    [Fact]
+    public async Task A_404_on_GetPreset_is_a_not_found_error()
+    {
+        using var api = new StubHandler().Respond(HttpStatusCode.NotFound, NotFoundBody);
+        using var client = Client(api);
+
+        var result = await client.ImageConversions.GetPreset(PresetId, TestContext.Current.CancellationToken);
+
+        result.Error.ShouldBeOfType<NotFoundError>();
+    }
+
+    [Fact]
+    public async Task CreatePreset_posts_the_id_display_name_and_parameters()
+    {
+        using var api = new StubHandler().Respond(HttpStatusCode.Created, PresetBody());
+        using var client = Client(api);
+
+        await client.ImageConversions.CreatePreset(
+            PresetId, "Web large", Padded, TestContext.Current.CancellationToken);
+
+        var request = api.Requests.Single();
+        request.Method.ShouldBe(HttpMethod.Post);
+        request.RequestUri!.ToString().ShouldBe("https://api.occtoo.com/v1/conversion-presets");
+        request.Body.ShouldBe(
+            """{"id":"web-large","displayName":"Web large","parameters":{"mode":"FillBackground","targetSize":2000,"aspectRatio":"4:3","paddingPercent":5,"background":"FFFFFF","outputFormat":"Jpg","quality":90}}""");
+    }
+
+    [Fact]
+    public async Task CreatePreset_returns_the_created_preset()
+    {
+        using var api = new StubHandler().Respond(HttpStatusCode.Created, PresetBody());
+        using var client = Client(api);
+
+        var result = await client.ImageConversions.CreatePreset(
+            PresetId, "Web large", Padded, TestContext.Current.CancellationToken);
+
+        result.Value.Parameters.GetValueOrThrow().ShouldBe(Padded);
+    }
+
+    [Fact]
+    public async Task A_409_on_CreatePreset_is_a_conflict_error()
+    {
+        using var api = new StubHandler().Respond(HttpStatusCode.Conflict, PresetConflictBody);
+        using var client = Client(api);
+
+        var result = await client.ImageConversions.CreatePreset(
+            PresetId, "Web large", Padded, TestContext.Current.CancellationToken);
+
+        result.Error.ShouldBeOfType<ConflictError>();
+    }
+
+    [Fact]
+    public async Task A_rejected_display_name_lands_in_the_failures()
+    {
+        using var api = new StubHandler().Respond(HttpStatusCode.BadRequest, DisplayNameRejectedBody);
+        using var client = Client(api);
+
+        var result = await client.ImageConversions.CreatePreset(
+            PresetId, "Web large", Padded, TestContext.Current.CancellationToken);
+
+        var error = result.Error.ShouldBeOfType<ValidationError>();
+        error.Failures[DisplayNameKey].Single().ShouldContain("between 2 and 50");
+    }
+
+    [Fact]
+    public async Task UpdatePreset_puts_the_display_name_and_parameters_without_the_id()
+    {
+        using var api = new StubHandler().Respond(HttpStatusCode.OK, PresetBody());
+        using var client = Client(api);
+
+        await client.ImageConversions.UpdatePreset(
+            PresetId, "Web thumbnail", Thumbnail, TestContext.Current.CancellationToken);
+
+        var request = api.Requests.Single();
+        request.Method.ShouldBe(HttpMethod.Put);
+        request.RequestUri!.ToString().ShouldBe($"https://api.occtoo.com/v1/conversion-presets/{PresetIdValue}");
+        request.Body.ShouldBe(
+            """{"displayName":"Web thumbnail","parameters":{"mode":"Fit","targetSize":400,"aspectRatio":"1:1","outputFormat":"Webp","quality":80}}""");
+    }
+
+    [Fact]
+    public async Task A_404_on_UpdatePreset_is_a_not_found_error()
+    {
+        using var api = new StubHandler().Respond(HttpStatusCode.NotFound, NotFoundBody);
+        using var client = Client(api);
+
+        var result = await client.ImageConversions.UpdatePreset(
+            PresetId, "Web large", Padded, TestContext.Current.CancellationToken);
+
+        result.Error.ShouldBeOfType<NotFoundError>();
+    }
+
+    [Fact]
+    public async Task DeletePreset_deletes_the_preset_by_id()
+    {
+        using var api = new StubHandler().Respond(_ => new HttpResponseMessage(HttpStatusCode.NoContent));
+        using var client = Client(api);
+
+        var result = await client.ImageConversions.DeletePreset(PresetId, TestContext.Current.CancellationToken);
+
+        result.IsSuccess.ShouldBeTrue();
+        var request = api.Requests.Single();
+        request.Method.ShouldBe(HttpMethod.Delete);
+        request.RequestUri!.ToString().ShouldBe($"https://api.occtoo.com/v1/conversion-presets/{PresetIdValue}");
+    }
+
+    [Fact]
+    public async Task A_409_on_DeletePreset_is_a_conflict_error()
+    {
+        using var api = new StubHandler().Respond(HttpStatusCode.Conflict, PresetConflictBody);
+        using var client = Client(api);
+
+        var result = await client.ImageConversions.DeletePreset(PresetId, TestContext.Current.CancellationToken);
+
+        result.Error.ShouldBeOfType<ConflictError>();
+    }
+
+    [Theory]
+    [InlineData("Web-large")]
+    [InlineData("1-large")]
+    [InlineData("web large")]
+    [InlineData("web.large")]
+    [InlineData("a2345678901234567890123456789012345678901234567890123456789012345")]
+    public void A_preset_id_rejects_anything_but_a_lower_case_slug_of_at_most_64_characters(string value) =>
+        ConversionPresetId.TryFrom(value, out _).ShouldBeFalse();
+
+    [Theory]
+    [InlineData("w")]
+    [InlineData("web_large-2")]
+    [InlineData("a234567890123456789012345678901234567890123456789012345678901234")]
+    public void A_preset_id_accepts_a_lower_case_slug_of_at_most_64_characters(string value) =>
+        ConversionPresetId.TryFrom(value, out _).ShouldBeTrue();
+
+    [Theory]
+    [InlineData(" Web large")]
+    [InlineData("Web large ")]
+    [InlineData("W")]
+    [InlineData("Web großes Bild")]
+    [InlineData("Web\tlarge")]
+    [InlineData("A12345678901234567890123456789012345678901234567890")]
+    public void A_preset_display_name_rejects_padded_short_long_or_non_printable_ascii_names(string value) =>
+        ConversionPresetDisplayName.TryFrom(value, out _).ShouldBeFalse();
+
+    [Theory]
+    [InlineData("Wb")]
+    [InlineData("Web large (4:3) ~ #1")]
+    [InlineData("A1234567890123456789012345678901234567890123456789")]
+    public void A_preset_display_name_accepts_2_to_50_printable_ascii_characters(string value) =>
+        ConversionPresetDisplayName.TryFrom(value, out _).ShouldBeTrue();
 }
