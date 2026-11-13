@@ -14,7 +14,12 @@ internal sealed record ImageConversionCreatedDto
     public long? MaxFileSize { get; init; }
 }
 
-internal sealed record ConvertImageDto(ImageConversionParametersDto Parameters);
+internal sealed record ConvertImageDto
+{
+    public ImageConversionParametersDto? Parameters { get; init; }
+
+    public string? Preset { get; init; }
+}
 
 internal sealed record ImageConversionParametersDto(
     ImageConversionMode Mode,

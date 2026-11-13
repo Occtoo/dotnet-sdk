@@ -37,7 +37,11 @@ The transfer isn't retried.
 
 ## Convert
 
-`Convert` takes the id and an `ImageConversionParameters`, and returns a `ConvertedImage`: the download `Url`, its `ExpiresAt`, the `Filename`, the `ContentType` and the `Size` in bytes. Every call converts the original again and returns a fresh link.
+`Convert` takes the id and either an `ImageConversionParameters` or the id of one of your [presets](#presets), and returns a `ConvertedImage`: the download `Url`, its `ExpiresAt`, the `Filename`, the `ContentType` and the `Size` in bytes. Every call converts the original again and returns a fresh link.
+
+```csharp
+var image = await client.ImageConversions.Convert(id, "web-thumbnail");
+```
 
 | Parameter | Rule |
 |---|---|
@@ -60,7 +64,7 @@ The modes. An original smaller than the canvas is scaled up in every mode.
 
 ## Presets
 
-A preset is a named set of `ImageConversionParameters` stored in your tenant. `client.ImageConversions` lists, reads, creates, replaces and deletes them.
+A preset is a named set of `ImageConversionParameters` stored in your tenant. `client.ImageConversions` lists, reads, creates, replaces and deletes them, and `Convert` takes a preset's id in place of the parameters (see [Convert](#convert)).
 
 ```csharp
 await client.ImageConversions.CreatePreset("web-thumbnail", "Web thumbnail", thumbnail)
@@ -110,7 +114,7 @@ Reading presets needs `read:media`; creating, updating and deleting them needs `
 | The content's length is unknown, or the content is too large | `ValidationError`, before any bytes are sent |
 | A parameter breaks a rule | `ValidationError`, with `Failures` keyed `Parameters.TargetSize`, `Parameters.PaddingPercent`, `Parameters.Quality`, `Parameters.Mode` or `Parameters.OutputFormat` |
 | The original is too large, isn't an image Occtoo can convert, or the filename is refused | `ValidationError`, without `Failures` |
-| No original under the id: unknown, not uploaded yet, or already deleted | `NotFoundError` |
+| No original under the id: unknown, not uploaded yet, or already deleted; or, converting with a preset, no preset under its id. The error doesn't say which | `NotFoundError` |
 | The credential is refused, or lacks `write:media` | `AuthenticationError`, `ForbiddenError` |
 | The conversion ran over 25 seconds (`504`), or Occtoo failed | `ServerError` |
 | Blob storage refused the bytes | As for an asset transfer: an expired upload link is an `AuthenticationError`, and the message carries storage's error code and request id |

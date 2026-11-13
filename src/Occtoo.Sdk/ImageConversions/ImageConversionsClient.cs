@@ -9,9 +9,12 @@ using Occtoo.Telemetry;
 namespace Occtoo.ImageConversions;
 
 /// <summary>
-/// Upload an image once with <see cref="Upload"/>, then call
-/// <see cref="Convert"/> as often as you like. The tenant's conversion presets
-/// are managed here too.
+/// Upload an image once with <see cref="Upload"/>, then convert it as often as
+/// you like, either with your own parameters:
+/// <see cref="Convert(ImageConversionId, ImageConversionParameters, CancellationToken)"/>
+/// or with one of the tenant's presets:
+/// <see cref="Convert(ImageConversionId, ConversionPresetId, CancellationToken)"/>.
+/// This client also manages the tenant's conversion presets.
 /// </summary>
 /// <remarks>
 /// Occtoo deletes the original a day after the upload. Uploading, converting
@@ -58,7 +61,10 @@ public sealed class ImageConversionsClient
     /// <param name="filename">The image's filename, such as <c>shoe.tif</c>.</param>
     /// <param name="cancellationToken">Cancels the upload.</param>
     /// <returns>
-    /// The id to pass to <see cref="Convert"/>, or why the upload failed:
+    /// The id to pass to
+    /// <see cref="Convert(ImageConversionId, ImageConversionParameters, CancellationToken)"/>
+    /// or <see cref="Convert(ImageConversionId, ConversionPresetId, CancellationToken)"/>,
+    /// or why the upload failed:
     /// <list type="bullet">
     /// <item><description>
     /// <see cref="ValidationError"/>: the content's length is unknown, the
@@ -155,22 +161,54 @@ public sealed class ImageConversionsClient
         if (parameters is null)
             return new ValidationError("Conversion parameters are required.");
 
-        return await OcctooTransport
-            .Send(
-                _httpClient,
-                _requestTimeout,
-                OcctooTransport.Request(
-                    HttpMethod.Post,
-                    new($"v1/image-conversions/{id.Value:D}/convert", UriKind.Relative),
-                    new(ToParametersDto(parameters)),
-                    ImageConversionsJsonContext.Default.ConvertImageDto),
-                ConvertOperation,
-                ImageConversionsJsonContext.Default.ConvertedImageDto,
-                cancellationToken,
-                [new(IdTag, id.Value.ToString("D"))])
-            .Bind(ToConvertedImage)
+        return await SendConvert(
+                id,
+                new ConvertImageDto { Parameters = ToParametersDto(parameters) },
+                [new(IdTag, id.Value.ToString("D"))],
+                cancellationToken)
             .ConfigureAwait(false);
     }
+
+    /// <summary>
+    /// Converts an uploaded image with one of the tenant's conversion presets
+    /// and returns a link to download the result.
+    /// </summary>
+    /// <param name="id">The id <see cref="Upload"/> returned.</param>
+    /// <param name="preset">The id of the preset to convert with.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>
+    /// The converted image, or why the conversion failed:
+    /// <list type="bullet">
+    /// <item><description>
+    /// <see cref="ValidationError"/>: the original is too large or isn't an
+    /// image Occtoo can convert.
+    /// </description></item>
+    /// <item><description>
+    /// <see cref="NotFoundError"/>: the original is unknown, not uploaded yet,
+    /// already deleted, or no preset has the id. The error doesn't say which.
+    /// </description></item>
+    /// <item><description>
+    /// <see cref="AuthenticationError"/> or <see cref="ForbiddenError"/>: the
+    /// credential is refused or lacks the scope.
+    /// </description></item>
+    /// <item><description>
+    /// <see cref="ServerError"/>: Occtoo failed, including a <c>504</c> when
+    /// the conversion ran over 25 seconds.
+    /// </description></item>
+    /// </list>
+    /// </returns>
+    /// <remarks>
+    /// Nothing is resent after a <c>5xx</c> or a timeout.
+    /// </remarks>
+    public Task<Result<ConvertedImage, OcctooError>> Convert(
+        ImageConversionId id,
+        ConversionPresetId preset,
+        CancellationToken cancellationToken = default) =>
+        SendConvert(
+            id,
+            new ConvertImageDto { Preset = preset.Value },
+            [new(IdTag, id.Value.ToString("D")), new(PresetTag, preset.Value)],
+            cancellationToken);
 
     /// <summary>
     /// Reads one page of the tenant's conversion presets, ordered by id.
@@ -409,6 +447,26 @@ public sealed class ImageConversionsClient
                 cancellationToken,
                 responseTags: created => [new(IdTag, created.Id.ToString("D"))])
             .Bind(ToUploadTarget);
+
+    private Task<Result<ConvertedImage, OcctooError>> SendConvert(
+        ImageConversionId id,
+        ConvertImageDto body,
+        IReadOnlyList<KeyValuePair<string, object?>> tags,
+        CancellationToken cancellationToken) =>
+        OcctooTransport
+            .Send(
+                _httpClient,
+                _requestTimeout,
+                OcctooTransport.Request(
+                    HttpMethod.Post,
+                    new($"v1/image-conversions/{id.Value:D}/convert", UriKind.Relative),
+                    body,
+                    ImageConversionsJsonContext.Default.ConvertImageDto),
+                ConvertOperation,
+                ImageConversionsJsonContext.Default.ConvertedImageDto,
+                cancellationToken,
+                tags)
+            .Bind(ToConvertedImage);
 
     private static Result<UploadTarget, OcctooError> ToUploadTarget(
         ImageConversionCreatedDto created)

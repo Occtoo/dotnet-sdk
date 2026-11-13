@@ -5,8 +5,10 @@ namespace Occtoo.ImageConversions;
 
 /// <summary>
 /// The id of an uploaded original. <see cref="ImageConversionsClient.Upload"/>
-/// returns it, and every <see cref="ImageConversionsClient.Convert"/> of that
-/// original takes it.
+/// returns it, and every
+/// <see cref="ImageConversionsClient.Convert(ImageConversionId, ImageConversionParameters, CancellationToken)"/>
+/// or <see cref="ImageConversionsClient.Convert(ImageConversionId, ConversionPresetId, CancellationToken)"/>
+/// of that original takes it.
 /// </summary>
 [ValueObject<Guid>]
 public readonly partial struct ImageConversionId

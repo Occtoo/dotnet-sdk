@@ -245,6 +245,49 @@ public class ImageConversionsClientTests
         result.Error.ShouldBeOfType<UnexpectedError>();
     }
 
+    [Fact]
+    public async Task Convert_with_a_preset_posts_only_the_preset_id()
+    {
+        using var api = new StubHandler().Respond(HttpStatusCode.OK, ConvertedBody);
+        using var client = Client(api);
+
+        await client.ImageConversions.Convert(ConversionId, PresetIdValue, TestContext.Current.CancellationToken);
+
+        var request = api.Requests.Single();
+        request.Method.ShouldBe(HttpMethod.Post);
+        request.RequestUri!.ToString().ShouldBe($"https://api.occtoo.com/v1/image-conversions/{Id}/convert");
+        request.Body.ShouldBe($$"""{"preset":"{{PresetIdValue}}"}""");
+    }
+
+    [Fact]
+    public async Task The_convert_response_for_a_preset_maps_to_a_converted_image()
+    {
+        using var api = new StubHandler().Respond(HttpStatusCode.OK, ConvertedBody);
+        using var client = Client(api);
+
+        var result = await client.ImageConversions.Convert(
+            ConversionId, PresetId, TestContext.Current.CancellationToken);
+
+        result.Value.ShouldBe(new ConvertedImage(
+            new Uri(DownloadUrl),
+            DateTimeOffset.Parse(DownloadExpiry, null),
+            "shoe.webp",
+            "image/webp",
+            81234));
+    }
+
+    [Fact]
+    public async Task A_404_on_Convert_with_a_preset_is_a_not_found_error()
+    {
+        using var api = new StubHandler().Respond(HttpStatusCode.NotFound, NotFoundBody);
+        using var client = Client(api);
+
+        var result = await client.ImageConversions.Convert(
+            ConversionId, PresetId, TestContext.Current.CancellationToken);
+
+        result.Error.ShouldBeOfType<NotFoundError>();
+    }
+
     [Theory]
     [InlineData("1x1")]
     [InlineData("0:1")]
