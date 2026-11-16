@@ -20,7 +20,7 @@ namespace Occtoo.ImageConversions;
 /// Occtoo deletes the original a day after the upload. Uploading, converting
 /// and changing presets need
 /// <see cref="Authentication.OcctooScopes.WriteMedia"/>; reading presets needs
-/// <c>read:media</c>.
+/// <see cref="Authentication.OcctooScopes.ReadMedia"/>.
 /// </remarks>
 public sealed class ImageConversionsClient
 {
