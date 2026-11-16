@@ -68,7 +68,6 @@ A preset is a named set of `ImageConversionParameters` stored in your tenant. `c
 
 ```csharp
 await client.ImageConversions.CreatePreset("web-thumbnail", "Web thumbnail", thumbnail)
-    .Bind(created => client.ImageConversions.GetPreset(created.Id))
     .Ensure(
         preset => preset.Parameters.HasValue,
         new UnexpectedError("The preset uses a mode or an output format this SDK version doesn't know."))
@@ -97,7 +96,7 @@ The rules for the inputs, checked by the value objects before any call:
 
 Both take a string literal directly. The parameters follow the same rules as for `Convert`.
 
-A card definition can use a preset. While one does, `DeletePreset` fails with a `ConflictError`. If a concurrent change removes something the preset uses, it fails with a `NotFoundError`.
+A card definition can use a preset. While one does, `DeletePreset` fails with a `ConflictError`. If a change made at the same time interferes with the delete, it fails with a `NotFoundError`. `GetPreset` tells you whether the preset is still there.
 
 Reading presets needs `read:media`; creating, updating and deleting them needs `write:media`.
 
@@ -120,7 +119,7 @@ Reading presets needs `read:media`; creating, updating and deleting them needs `
 | Blob storage refused the bytes | As for an asset transfer: an expired upload link is an `AuthenticationError`, and the message carries storage's error code and request id |
 | A preset's id, display name or parameter breaks a rule | `ValidationError`, with `Failures` keyed `Id`, `DisplayName` or `Parameters.TargetSize` and the like |
 | A page limit outside 1 to 200, or a cursor Occtoo refuses | `ValidationError`; a refused cursor is keyed `after` |
-| No preset under the id, on `GetPreset` or `UpdatePreset`; on `DeletePreset`, a concurrent change removed something the preset uses | `NotFoundError` |
+| No preset under the id, on `GetPreset` or `UpdatePreset`; on `DeletePreset`, a change made at the same time interfered with the delete (check with `GetPreset`) | `NotFoundError` |
 | `CreatePreset` with an id that already exists, or `DeletePreset` while a card definition uses the preset | `ConflictError` |
 | The credential lacks `read:media` to read presets, or `write:media` to change them | `ForbiddenError` |
 

@@ -411,8 +411,9 @@ public sealed class ImageConversionsClient
     /// <see cref="ConflictError"/>: a card definition still uses the preset.
     /// </description></item>
     /// <item><description>
-    /// <see cref="NotFoundError"/>: a concurrent change removed something the
-    /// preset uses.
+    /// <see cref="NotFoundError"/>: a change made at the same time interfered
+    /// with the delete. <c>GetPreset</c> tells you whether the preset is still
+    /// there.
     /// </description></item>
     /// <item><description>
     /// <see cref="AuthenticationError"/> or <see cref="ForbiddenError"/>: the
