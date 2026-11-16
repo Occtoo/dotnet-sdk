@@ -411,6 +411,10 @@ public sealed class ImageConversionsClient
     /// <see cref="ConflictError"/>: a card definition still uses the preset.
     /// </description></item>
     /// <item><description>
+    /// <see cref="NotFoundError"/>: a concurrent change removed something the
+    /// preset uses.
+    /// </description></item>
+    /// <item><description>
     /// <see cref="AuthenticationError"/> or <see cref="ForbiddenError"/>: the
     /// credential is refused or lacks the scope.
     /// </description></item>
