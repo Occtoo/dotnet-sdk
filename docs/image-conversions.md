@@ -1,6 +1,6 @@
 # Image conversions
 
-`client.ImageConversions` wraps `/v1/image-conversions`: upload an image once, then convert it as often as you like. Each conversion resizes the original onto a canvas, re-encodes it and returns a temporary download link.
+`client.ImageConversions` wraps `/v1/image-conversions` and `/v1/conversion-presets`: upload an image once, then convert it as often as you like, with parameters you pass or with one of the tenant's conversion presets. Each conversion resizes the original onto a canvas, re-encodes it and returns a temporary download link.
 
 ```csharp
 var thumbnail = new ImageConversionParameters(
@@ -21,7 +21,7 @@ await client.ImageConversions.Upload(AssetContent.FromFile("files/shoe.tif"), "s
     .TapError(error => logger.LogWarning("Conversion failed: {Error}", error));
 ```
 
-Both calls need a credential with `write:media`; see [authentication.md](authentication.md).
+`Upload` and `Convert` need a credential with `write:media`; see [authentication.md](authentication.md).
 
 ## Upload
 

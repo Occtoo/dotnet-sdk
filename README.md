@@ -262,9 +262,12 @@ Occtoo.
 |---|---|---|
 | `POST` | `/v1/image-conversions` | Sign a link to upload an image to convert |
 | `POST` | `/v1/image-conversions/{id}/convert` | Convert the uploaded image and return a temporary download link |
+| `GET` `POST` | `/v1/conversion-presets` | List and create conversion presets |
+| `GET` `PUT` `DELETE` | `/v1/conversion-presets/{id}` | Read, replace, and delete a conversion preset |
 
-Requires `write:media`. The original's bytes go straight to Azure Blob Storage
-against a signed URL and never pass through Occtoo.
+Reading presets needs `read:media`; everything else needs `write:media`. The
+original's bytes go straight to Azure Blob Storage against a signed URL and
+never pass through Occtoo.
 
 ### Applications
 

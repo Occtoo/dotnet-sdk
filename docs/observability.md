@@ -88,7 +88,8 @@ spans when it is not:
 | `delete assets` | Client | `occtoo.source.id`, `occtoo.assets.count` |
 | `upload image` | Client | `occtoo.image_conversions.id` (once Occtoo has assigned one), `occtoo.image_conversions.bytes` (on success) |
 | `request image conversion` | Client | `occtoo.image_conversions.id` |
-| `convert image` | Client | `occtoo.image_conversions.id` |
+| `convert image` | Client | `occtoo.image_conversions.id`, `occtoo.image_conversions.preset` (when converting with a preset) |
+| `list conversion presets`, `get conversion preset`, `create conversion preset`, `update conversion preset`, `delete conversion preset` | Client | `occtoo.image_conversions.preset` on all but the list; `occtoo.page.limit` on the list |
 
 A token acquisition triggered mid-request nests under the operation that needed
 it, so a slow ingest that was really a slow token exchange shows up as exactly
