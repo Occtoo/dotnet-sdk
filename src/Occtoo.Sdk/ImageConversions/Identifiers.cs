@@ -5,8 +5,10 @@ namespace Occtoo.ImageConversions;
 
 /// <summary>
 /// The id of an uploaded original. <see cref="ImageConversionsClient.Upload"/>
-/// returns it, and every <see cref="ImageConversionsClient.Convert"/> of that
-/// original takes it.
+/// returns it, and every
+/// <see cref="ImageConversionsClient.Convert(ImageConversionId, ImageConversionParameters, CancellationToken)"/>
+/// or <see cref="ImageConversionsClient.Convert(ImageConversionId, ConversionPresetId, CancellationToken)"/>
+/// of that original takes it.
 /// </summary>
 [ValueObject<Guid>]
 public readonly partial struct ImageConversionId
@@ -71,5 +73,66 @@ public readonly partial struct ImageBackground
     };
 
     [GeneratedRegex(@"^[0-9a-fA-F]{6}\z")]
+    private static partial Regex Pattern();
+}
+
+/// <summary>
+/// A conversion preset's id: a lower-case letter, then lower-case letters,
+/// digits, <c>_</c> or <c>-</c>, at most 64 characters in all, such as
+/// <c>web-thumbnail</c>. It can't change once the preset exists.
+/// </summary>
+[ValueObject<string>(toPrimitiveCasting: CastOperator.Explicit, fromPrimitiveCasting: CastOperator.None)]
+public readonly partial struct ConversionPresetId
+{
+    /// <summary>
+    /// Converts a string through the same validation as <see cref="From"/>,
+    /// so a call site can pass the literal while the signature keeps the type.
+    /// </summary>
+    /// <exception cref="ValueObjectValidationException">The value is invalid.</exception>
+    public static implicit operator ConversionPresetId(string value) => From(value);
+
+    private static Validation Validate(string input) => input switch
+    {
+        _ when string.IsNullOrWhiteSpace(input) => Validation.Invalid("A conversion preset id must not be empty."),
+        _ when input.Length > 64 => Validation.Invalid(
+            $"'{input}' isn't a valid conversion preset id. It must be at most 64 characters."),
+        _ when Pattern().IsMatch(input) => Validation.Ok,
+        _ when !char.IsAsciiLetterLower(input[0]) => Validation.Invalid(
+            $"'{input}' isn't a valid conversion preset id. It must start with a lower-case letter."),
+        _ => Validation.Invalid(
+            $"'{input}' isn't a valid conversion preset id. Use only lower-case letters, digits, '_' and '-'."),
+    };
+
+    [GeneratedRegex(@"^[a-z][a-z0-9_-]*\z")]
+    private static partial Regex Pattern();
+}
+
+/// <summary>
+/// A conversion preset's display name: 2 to 50 printable ASCII characters,
+/// not starting or ending with a space, such as <c>Web thumbnail</c>.
+/// </summary>
+[ValueObject<string>(toPrimitiveCasting: CastOperator.Explicit, fromPrimitiveCasting: CastOperator.None)]
+public readonly partial struct ConversionPresetDisplayName
+{
+    /// <summary>
+    /// Converts a string through the same validation as <see cref="From"/>,
+    /// so a call site can pass the literal while the signature keeps the type.
+    /// </summary>
+    /// <exception cref="ValueObjectValidationException">The value is invalid.</exception>
+    public static implicit operator ConversionPresetDisplayName(string value) => From(value);
+
+    private static Validation Validate(string input) => input switch
+    {
+        _ when string.IsNullOrWhiteSpace(input) => Validation.Invalid("A conversion preset display name must not be empty."),
+        _ when Pattern().IsMatch(input) => Validation.Ok,
+        _ when input.Length is < 2 or > 50 => Validation.Invalid(
+            $"'{input}' isn't a valid conversion preset display name. It must be 2 to 50 characters."),
+        _ when input.StartsWith(' ') || input.EndsWith(' ') => Validation.Invalid(
+            $"'{input}' isn't a valid conversion preset display name. It must not start or end with a space."),
+        _ => Validation.Invalid(
+            $"'{input}' isn't a valid conversion preset display name. Use only printable ASCII characters."),
+    };
+
+    [GeneratedRegex(@"^[\x21-\x7E][\x20-\x7E]{0,48}[\x21-\x7E]\z")]
     private static partial Regex Pattern();
 }

@@ -73,6 +73,66 @@ internal static class ImageConversionsTestSetup
         }
         """;
 
+    internal const string PresetIdValue = "web-large";
+
+    internal const string PresetCreatedAt = "2026-09-01T10:00:00+00:00";
+
+    internal const string PresetUpdatedAt = "2026-09-02T10:00:00+00:00";
+
+    internal static readonly ConversionPresetId PresetId = ConversionPresetId.From(PresetIdValue);
+
+    internal const string PresetConflictBody = """
+        {
+          "type": "https://tools.ietf.org/html/rfc9110#section-15.5.10",
+          "title": "Conflict",
+          "status": 409
+        }
+        """;
+
+    internal const string DisplayNameKey = "DisplayName";
+
+    internal const string DisplayNameRejectedBody = $$"""
+        {
+          "title": "One or more validation errors occurred.",
+          "status": 400,
+          "errors": {
+            "{{DisplayNameKey}}": [ "'Display Name' must be between 2 and 50 characters." ]
+          }
+        }
+        """;
+
+    /// <summary>
+    /// A preset holding <see cref="Padded"/>, with <paramref name="mode"/> and
+    /// <paramref name="aspectRatio"/> in place of its own.
+    /// </summary>
+    internal static string PresetBody(string mode = "FillBackground", string aspectRatio = "4:3") => $$"""
+        {
+          "id": "{{PresetIdValue}}",
+          "displayName": "Web large",
+          "version": 2,
+          "parameters": {
+            "mode": "{{mode}}",
+            "targetSize": 2000,
+            "aspectRatio": "{{aspectRatio}}",
+            "paddingPercent": 5,
+            "background": "FFFFFF",
+            "outputFormat": "Jpg",
+            "quality": 90
+          },
+          "createdAt": "{{PresetCreatedAt}}",
+          "updatedAt": "{{PresetUpdatedAt}}"
+        }
+        """;
+
+    /// <summary>A page of one preset, followed by <paramref name="after"/> when it's set.</summary>
+    internal static string PresetPage(string? after) => $$"""
+        {
+          "items": [ {{PresetBody()}} ],
+          "after": {{(after is null ? "null" : $"\"{after}\"")}},
+          "totalCount": null
+        }
+        """;
+
     /// <summary>The create response, accepting originals smaller than <paramref name="maxFileSize"/> bytes.</summary>
     internal static string Created(long maxFileSize = 33554432) => $$"""
         {
