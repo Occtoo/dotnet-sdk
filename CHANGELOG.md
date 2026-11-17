@@ -2,6 +2,12 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v0.10.0](https://github.com/Occtoo/dotnet-sdk/compare/748ad6c9abfa428c024204bebc0aa05c35de9608..v0.10.0) - 2026-11-17
+#### Features
+- (**image-conversions**) manage conversion presets and convert with one (#16) - ([748ad6c](https://github.com/Occtoo/dotnet-sdk/commit/748ad6c9abfa428c024204bebc0aa05c35de9608)) - Patryk Kuszmar
+
+- - -
+
 ## [v0.9.0](https://github.com/Occtoo/dotnet-sdk/compare/aef8b56ac78901df3606ccc293473beba0975f39..v0.9.0) - 2026-11-13
 #### Features
 - (**sources**) list and read a source's folders (#15) - ([aef8b56](https://github.com/Occtoo/dotnet-sdk/commit/aef8b56ac78901df3606ccc293473beba0975f39)) - Patryk Kuszmar
