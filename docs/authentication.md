@@ -128,6 +128,46 @@ expiry, return `AccessToken.WithoutExpiry(value)`. There is deliberately no
 fixed-token credential — whoever holds a raw token has a real flow available,
 and a pasted token dies within the hour.
 
+## Protected destination APIs
+
+A destination API version set to *protected* accepts tokens from the same
+authorization server and the same tenant applications. Grant the application
+the version — in Studio, or with the [application builder](applications.md)
+(`WithApiVersions(apiVersionId)`, or `WithDestinations(destinationId)` for every
+version of a destination) — then request a token whose audience is the API
+version id, with no scopes:
+
+```csharp
+using var credential = OcctooCredential.ClientCredentials(
+    new OcctooAuthorityOptions
+    {
+        ClientId = ClientId.From(clientId),
+        Audience = Audience.From(apiVersionId), // in the application's Audiences
+    },
+    ClientSecret.From(clientSecret));
+
+using var http = new HttpClient(new OcctooAuthenticationHandler(credential)
+{
+    InnerHandler = new SocketsHttpHandler(),
+});
+
+var response = await http.GetAsync(destinationEndpoint);
+```
+
+The destination gateway checks only the audience: a token for the tenant
+audience is rejected, and capability scopes are not part of its contract. One
+client id and secret reach every API the application is granted — use one
+credential per audience, each caching its own token. With dependency
+injection, register the handler on a named client and share one credential
+instance:
+
+```csharp
+builder.Services.AddHttpClient("webshop", client => client.BaseAddress = destinationBaseAddress)
+    .AddHttpMessageHandler(() => new OcctooAuthenticationHandler(credential));
+```
+
+Runnable: [`examples/Occtoo.Sdk.Examples.Destinations.Auth`](../examples/Occtoo.Sdk.Examples.Destinations.Auth).
+
 ## Token caching
 
 Token-based credentials keep their tokens in a
