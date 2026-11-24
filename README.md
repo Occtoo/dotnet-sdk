@@ -177,6 +177,7 @@ Runnable samples under [`examples/`](examples), one project per capability:
 | Project | Shows |
 |---|---|
 | [`Occtoo.Sdk.Examples.Auth`](examples/Occtoo.Sdk.Examples.Auth) | Every auth flow, one file each: client credentials, API key, device login |
+| [`Occtoo.Sdk.Examples.Destinations.Auth`](examples/Occtoo.Sdk.Examples.Destinations.Auth) | A tenant application calling a protected destination API: the API version id as audience, no scopes |
 | [`Occtoo.Sdk.Examples.Sources.Ingest`](examples/Occtoo.Sdk.Examples.Sources.Ingest) | A hosted worker ingesting typed entries periodically — appsettings, DI, SDK log levels |
 | [`Occtoo.Sdk.Examples.Assets.Sync`](examples/Occtoo.Sdk.Examples.Assets.Sync) | A hosted worker turning file events into a Media data source: Upload for an added file, Replace for an updated one, typed ingest for a metadata-only change, Delete for a removed one |
 | [`Occtoo.Sdk.Examples.Events.Pull`](examples/Occtoo.Sdk.Examples.Events.Pull) | A paginated event consumer that persists its cursor and resumes across restarts |
