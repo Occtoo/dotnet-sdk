@@ -95,7 +95,37 @@ internal sealed record UpsertSourcePropertyDto(
     string DisplayName,
     SourcePropertyType? Type,
     string? Delimiter,
-    string? Description);
+    string? Description,
+    string? Id = null)
+{
+    internal static Result<UpsertSourcePropertyDto, OcctooError> From(UpsertSourceProperty? property, string? id = null)
+    {
+        if (property is null)
+            return new ValidationError("A property is required.");
+        if (string.IsNullOrWhiteSpace(property.DisplayName))
+            return new ValidationError("A property display name is required.");
+
+        var isList = property.Type.HasValue && property.Type.Value is SourcePropertyType.List or SourcePropertyType.LocalizedList;
+        if (isList && property.Delimiter.HasNoValue)
+            return new ValidationError("List and LocalizedList properties require a Delimiter.");
+        if (property.Type.HasValue && !isList && property.Delimiter.HasValue)
+            return new ValidationError("Only List and LocalizedList properties take a Delimiter.");
+
+        return new UpsertSourcePropertyDto(
+            property.DisplayName,
+            property.Type.HasValue ? property.Type.Value : null,
+            property.Delimiter.HasValue ? property.Delimiter.Value.Value : null,
+            property.Description.GetValueOrDefault(),
+            id);
+    }
+}
+
+internal sealed record UpsertSourcePropertiesDto(IReadOnlyList<UpsertSourcePropertyDto> Properties);
+
+internal sealed record SourcePropertiesDto
+{
+    public required SourcePropertyDto[] Items { get; init; }
+}
 
 internal sealed record ForwardPageDto<T>
 {
@@ -116,6 +146,8 @@ internal sealed record ForwardPageDto<T>
 [JsonSerializable(typeof(CreateSourceDto))]
 [JsonSerializable(typeof(UpdateSourceDto))]
 [JsonSerializable(typeof(UpsertSourcePropertyDto))]
+[JsonSerializable(typeof(UpsertSourcePropertiesDto))]
+[JsonSerializable(typeof(SourcePropertiesDto))]
 [JsonSerializable(typeof(ForwardPageDto<SourceDto>))]
 [JsonSerializable(typeof(ForwardPageDto<SourcePropertyDto>))]
 [JsonSerializable(typeof(SourceFolderDto))]
