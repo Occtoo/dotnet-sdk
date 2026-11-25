@@ -147,6 +147,18 @@ accepted).
 
 A property id `UpsertProperty` creates must start with a lowercase letter, then lowercase letters, digits, `_` or `-`; `PropertyId` lowercases but doesn't check the first character. Creating a property with a type also reindexes, so it's `Updating` and a second `UpsertProperty` on it answers `409` until it's `Active` again. Asset uploads write only to properties that already exist, so a Media data source's properties are created here before its first upload — see [assets.md](assets.md#properties).
 
+Use `UpsertProperties` to send several definitions for one source in one PATCH.
+It returns the updated properties with their lifecycle states. A validation error rejects the whole batch.
+
+```csharp
+var properties = await client.Sources.UpsertProperties("products",
+    new Dictionary<PropertyId, UpsertSourceProperty>
+    {
+        ["color"] = new("Color") { Type = SourcePropertyType.Text },
+        ["tags"] = new("Tags") { Type = SourcePropertyType.List, Delimiter = Delimiter.From(",") },
+    }, cancellationToken);
+```
+
 `List` and `ListProperties` page forward the same way the applications
 surface does — see [applications.md](applications.md#listing) for cursors
 and the paging loop. Every `Source` carries its `SourceType` (`Generic` or `Media`); lists filter

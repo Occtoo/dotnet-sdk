@@ -195,6 +195,43 @@ public class SourceManagementTests
     }
 
     [Fact]
+    public async Task UpsertProperties_patches_the_collection_once_and_returns_each_property()
+    {
+        using var handler = new StubHandler().Respond(HttpStatusCode.OK, $$"""
+            { "items": [{{PropertyBody}}, { "id": "color", "displayName": "Color", "type": "Text", "state": "Active" }] }
+            """);
+        using var client = Client(handler);
+        var result = await client.Sources.UpsertProperties(Products, new Dictionary<PropertyId, UpsertSourceProperty>
+        {
+            ["tags"] = new("Tags") { Type = SourcePropertyType.List, Delimiter = Delimiter.From(",") },
+            ["color"] = new("Color") { Description = "" },
+        }, TestContext.Current.CancellationToken);
+
+        result.Value.Select(property => property.Id.Value).ShouldBe(["tags", "color"]);
+        result.Value[1].State.GetValueOrThrow().ShouldBe(SourcePropertyState.Active);
+        var request = handler.Requests.Single();
+        request.Method.ShouldBe(HttpMethod.Patch);
+        request.RequestUri!.AbsoluteUri.ShouldBe("https://api.occtoo.com/v1/sources/products/properties");
+        request.Body.ShouldBe("""{"properties":[{"displayName":"Tags","type":"List","delimiter":",","id":"tags"},{"displayName":"Color","description":"","id":"color"}]}""");
+    }
+
+    [Fact]
+    public async Task UpsertProperties_rejects_an_invalid_batch_before_sending()
+    {
+        using var handler = new StubHandler();
+        using var client = Client(handler);
+        var properties = new Dictionary<PropertyId, UpsertSourceProperty>();
+        var empty = await client.Sources.UpsertProperties(Products, properties, TestContext.Current.CancellationToken);
+        empty.Error.ShouldBeOfType<ValidationError>();
+
+        properties["color"] = new("Color");
+        properties["tags"] = new("Tags") { Type = SourcePropertyType.List };
+        var invalid = await client.Sources.UpsertProperties(Products, properties, TestContext.Current.CancellationToken);
+        invalid.Error.ShouldBeOfType<ValidationError>();
+        handler.RequestCount.ShouldBe(0);
+    }
+
+    [Fact]
     public async Task DeleteProperty_and_GetProperty_target_the_property_route()
     {
         using var handler = new StubHandler()

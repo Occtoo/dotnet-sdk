@@ -224,35 +224,43 @@ public sealed class SourcesClient
         SourceId sourceId,
         PropertyId propertyId,
         UpsertSourceProperty property,
-        CancellationToken cancellationToken = default)
-    {
-        if (property is null)
-            return Task.FromResult(Result.Failure<SourceProperty, OcctooError>(new ValidationError("A property is required.")));
-
-        if (string.IsNullOrWhiteSpace(property.DisplayName))
-            return Task.FromResult(Result.Failure<SourceProperty, OcctooError>(new ValidationError("A property display name is required.")));
-
-        // The same rule the API applies, checked before the round trip.
-        var isList = property.Type.HasValue && property.Type.Value is SourcePropertyType.List or SourcePropertyType.LocalizedList;
-        if (isList && property.Delimiter.HasNoValue)
-            return Task.FromResult(Result.Failure<SourceProperty, OcctooError>(
-                new ValidationError("List and LocalizedList properties require a Delimiter.")));
-
-        if (property.Type.HasValue && !isList && property.Delimiter.HasValue)
-            return Task.FromResult(Result.Failure<SourceProperty, OcctooError>(
-                new ValidationError("Only List and LocalizedList properties take a Delimiter.")));
-
-        var body = new UpsertSourcePropertyDto(
-            property.DisplayName,
-            property.Type.HasValue ? property.Type.Value : null,
-            property.Delimiter.HasValue ? property.Delimiter.Value.Value : null,
-            property.Description.GetValueOrDefault());
-
-        return OcctooTransport.Send(_httpClient, _requestTimeout,
+        CancellationToken cancellationToken = default) =>
+        UpsertSourcePropertyDto.From(property)
+            .Bind(body => OcctooTransport.Send(_httpClient, _requestTimeout,
                 OcctooTransport.Request(HttpMethod.Put, PropertyUri(sourceId, propertyId), body,
                     SourcesJsonContext.Default.UpsertSourcePropertyDto),
-                "upsert source property", SourcesJsonContext.Default.SourcePropertyDto, cancellationToken, PropertyTag(sourceId, propertyId))
+                "upsert source property", SourcesJsonContext.Default.SourcePropertyDto, cancellationToken, PropertyTag(sourceId, propertyId)))
             .MapResponse(dto => dto.ToModel());
+
+    /// <summary>Creates or updates several properties of one source in a single PATCH request.</summary>
+    /// <param name="sourceId">The source whose property definitions to change.</param>
+    /// <param name="properties">One or more property definitions keyed by property ID. Omitted properties keep their existing definitions.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The properties returned by the API, including their lifecycle states.</returns>
+    public async Task<Result<IReadOnlyList<SourceProperty>, OcctooError>> UpsertProperties(
+        SourceId sourceId,
+        IReadOnlyDictionary<PropertyId, UpsertSourceProperty> properties,
+        CancellationToken cancellationToken = default)
+    {
+        if (properties is null or { Count: 0 })
+            return new ValidationError("At least one property is required.");
+
+        var items = new List<UpsertSourcePropertyDto>(properties.Count);
+        foreach (var (id, property) in properties)
+        {
+            var item = UpsertSourcePropertyDto.From(property, id.Value);
+            if (item.IsFailure)
+                return item.Error;
+            items.Add(item.Value);
+        }
+
+        var uri = new Uri($"v1/sources/{Uri.EscapeDataString(sourceId.Value)}/properties", UriKind.Relative);
+        return await OcctooTransport.Send(_httpClient, _requestTimeout,
+                OcctooTransport.Request(HttpMethod.Patch, uri, new UpsertSourcePropertiesDto(items),
+                    SourcesJsonContext.Default.UpsertSourcePropertiesDto),
+                "upsert source properties", SourcesJsonContext.Default.SourcePropertiesDto, cancellationToken, SourceTag(sourceId))
+            .MapResponse(IReadOnlyList<SourceProperty> (dto) => [.. OcctooTransport.Elements(dto.Items, "items").Select(item => item.ToModel())])
+            .ConfigureAwait(false);
     }
 
     /// <summary>
