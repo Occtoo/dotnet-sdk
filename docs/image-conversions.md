@@ -23,8 +23,14 @@ while (true)
     var read = await client.ImageConversions.GetTask(queued.Value.Id, queued.Value.TaskId, cancellationToken);
     if (read.IsFailure)
     {
-        logger.LogWarning("Reading the conversion failed: {Error}", read.Error);
-        continue;
+        if (read.Error is TransientError)
+        {
+            logger.LogWarning("Couldn't read the conversion, retrying: {Error}", read.Error);
+            continue;
+        }
+
+        logger.LogWarning("Couldn't read the conversion, giving up: {Error}", read.Error);
+        break;
     }
 
     var task = read.Value;
@@ -42,7 +48,7 @@ while (true)
 }
 ```
 
-The loop runs until the conversion completes or fails, or until `cancellationToken` is cancelled.
+The loop stops when the conversion completes or fails, when a read fails with anything other than a `TransientError` (polling again won't fix those), or when `cancellationToken` is cancelled.
 
 `Upload`, `Convert` and `GetTask` need a credential with `write:media`; see [authentication.md](authentication.md).
 
