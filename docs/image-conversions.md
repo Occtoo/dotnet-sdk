@@ -80,7 +80,7 @@ var withParameters = await client.ImageConversions.Convert(id, large);
 var withPreset = await client.ImageConversions.Convert(id, "web-thumbnail");
 ```
 
-`Convert` fails right away only when it can't queue the conversion: a parameter or the preset is refused, the original is 32 MiB or more, or there's no original under the id or, with a preset, no preset under its id (see [What can go wrong](#what-can-go-wrong)). An original Occtoo can't convert fails the task instead.
+`Convert` fails right away when it can't queue the conversion or when Occtoo fails while queuing it: the credential is refused or lacks the scope, a parameter or the preset is refused, the original is 32 MiB or more, there's no original under the id or, with a preset, no preset under its id, or Occtoo returns a server error or times out (a call that fails this way isn't resent and may still have queued a conversion). See [What can go wrong](#what-can-go-wrong). An original Occtoo can't convert fails the task instead.
 
 | Parameter | Rule |
 |---|---|
