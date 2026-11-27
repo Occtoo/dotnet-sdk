@@ -1,3 +1,6 @@
+using Microsoft.Extensions.DependencyInjection;
+using Occtoo.Authentication;
+using Occtoo.DependencyInjection;
 using Occtoo.ImageConversions;
 
 namespace Occtoo.Sdk.Tests.ImageConversions;
@@ -60,6 +63,14 @@ internal static class ImageConversionsTestSetup
           "type": "https://tools.ietf.org/html/rfc9110#section-15.5.5",
           "title": "Not Found",
           "status": 404
+        }
+        """;
+
+    internal const string ServiceUnavailableBody = """
+        {
+          "type": "https://tools.ietf.org/html/rfc9110#section-15.6.4",
+          "title": "Service Unavailable",
+          "status": 503
         }
         """;
 
@@ -151,4 +162,30 @@ internal static class ImageConversionsTestSetup
           "maxFileSize": {{maxFileSize}}
         }
         """;
+
+    /// <summary>
+    /// A client whose pipeline retries a failed request, built the way
+    /// dependency injection builds it.
+    /// </summary>
+    internal static OcctooClient RetryingClient(StubHandler api)
+    {
+        var options = new OcctooClientOptions
+        {
+            Credential = OcctooCredential.ApiKey(ApiKey.From("key-1")),
+            Resilience = new OcctooResilienceOptions
+            {
+                MaxRetryAttempts = 3,
+                BaseDelay = TimeSpan.FromMilliseconds(1),
+                UseJitter = false,
+            },
+        };
+
+        var services = new ServiceCollection();
+        services.AddOcctooClient(_ => options);
+        services
+            .AddHttpClient(OcctooServiceCollectionExtensions.HttpClientName)
+            .ConfigurePrimaryHttpMessageHandler(() => api);
+
+        return services.BuildServiceProvider().GetRequiredService<OcctooClient>();
+    }
 }

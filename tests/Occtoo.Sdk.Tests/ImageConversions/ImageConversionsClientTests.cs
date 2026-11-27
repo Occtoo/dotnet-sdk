@@ -219,6 +219,19 @@ public class ImageConversionsClientTests
     }
 
     [Fact]
+    public async Task A_convert_is_not_replayed_after_an_ambiguous_failure()
+    {
+        using var api = new StubHandler().RespondAlways(HttpStatusCode.ServiceUnavailable, ServiceUnavailableBody);
+        using var client = RetryingClient(api);
+
+        var result = await client.ImageConversions.Convert(
+            ConversionId, Thumbnail, TestContext.Current.CancellationToken);
+
+        result.Error.ShouldBeOfType<ServerError>();
+        api.RequestCount.ShouldBe(1);
+    }
+
+    [Fact]
     public async Task Convert_with_a_preset_posts_only_the_preset_id()
     {
         using var api = new StubHandler().Respond(HttpStatusCode.Accepted, QueuedTaskBody);
