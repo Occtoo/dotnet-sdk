@@ -21,8 +21,8 @@ The official .NET client for [Occtoo](https://www.occtoo.com). One package,
   assets, moves the bytes straight to storage, and completes them — reporting
   progress per file and telling you exactly which ones made it.
 - **Image conversions** — upload an image once and convert it as often as you
-  need: resized, padded or cropped, re-encoded as JPEG, PNG or WebP, and
-  handed back as a temporary download link.
+  need: resized, padded or cropped, re-encoded as JPEG, PNG or WebP. Each
+  conversion queues a task; read the task for a temporary download link.
 - **Applications** — the tenant's machine-to-machine applications and their
   grants, with the access catalog as the vocabulary.
 - **Managed tags** — controlled vocabularies and their values, plain or
@@ -113,7 +113,8 @@ var upload = await client.Assets.Upload(
 ```
 
 And converting images — upload the original once, then convert it as often as
-you need, each conversion returning a fresh download link:
+you need. Each conversion is queued, and reading its task gives the download
+link once it's done:
 
 ```csharp
 using Occtoo.ImageConversions;
@@ -121,9 +122,15 @@ using Occtoo.ImageConversions;
 var thumbnail = new ImageConversionParameters(
     ImageConversionMode.Fit, TargetSize: 400, AspectRatio: "1:1", ImageOutputFormat.Webp, Quality: 80);
 
-var image = await client.ImageConversions.Upload(AssetContent.FromFile("files/shoe.tif"), "shoe.tif")
-    .Bind(id => client.ImageConversions.Convert(id, thumbnail));
+var task = await client.ImageConversions.Upload(AssetContent.FromFile("files/shoe.tif"), "shoe.tif")
+    .Bind(id => client.ImageConversions.Convert(id, thumbnail)
+        .Bind(taskId => client.ImageConversions.GetTask(id, taskId)));
+
+// The task starts out Queued: read it every second or two until it's
+// Completed (task.Value.Image) or Failed (task.Value.Error).
 ```
+
+[docs/image-conversions.md](docs/image-conversions.md) shows the polling loop.
 
 Every operation returns `Result<T, OcctooError>`
 ([CSharpFunctionalExtensions](https://github.com/vkhorikov/CSharpFunctionalExtensions))
@@ -262,7 +269,8 @@ Occtoo.
 | Method | Path | Purpose |
 |---|---|---|
 | `POST` | `/v1/image-conversions` | Sign a link to upload an image to convert |
-| `POST` | `/v1/image-conversions/{id}/convert` | Convert the uploaded image and return a temporary download link |
+| `POST` | `/v1/image-conversions/{id}/convert` | Queue a conversion of the uploaded image and return its task |
+| `GET` | `/v1/image-conversions/{id}/tasks/{taskId}` | Read a conversion task: its status, and the temporary download link once it completed |
 | `GET` `POST` | `/v1/conversion-presets` | List and create conversion presets |
 | `GET` `PUT` `DELETE` | `/v1/conversion-presets/{id}` | Read, replace, and delete a conversion preset |
 
