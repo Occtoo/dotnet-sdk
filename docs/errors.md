@@ -87,9 +87,9 @@ under an etag, deleting) may hide a change that was committed, so it surfaces
 as its `TransientError` instead: replaying would turn a successful create into
 a `ConflictError` and lose its one-time client secret. Check the resource
 before trying again. The image conversion create request and `Convert` aren't
-replayed either: a `504` from `Convert` means the conversion ran over 25
-seconds, which a resend is likely to repeat. A `429` is resent for every
-request — it was refused before anything was processed.
+replayed either: a `Convert` that failed with a `5xx` or a timeout may still
+have queued a conversion, and a resend queues another. A `429` is resent for
+every request — it was refused before anything was processed.
 
 Notes on individual types:
 
