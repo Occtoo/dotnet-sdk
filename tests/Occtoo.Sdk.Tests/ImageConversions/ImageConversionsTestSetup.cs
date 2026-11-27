@@ -27,9 +27,9 @@ internal static class ImageConversionsTestSetup
             Background = ImageBackground.From("FFFFFF"),
         };
 
-    internal const string TaskIdValue = "0193a5c4-7e1f-7b2a-9c3d-4e5f60718293";
+    internal const string JobIdValue = "0193a5c4-7e1f-7b2a-9c3d-4e5f60718293";
 
-    internal static readonly ConversionTaskId TaskId = ConversionTaskId.From(Guid.Parse(TaskIdValue));
+    internal static readonly ConversionJobId JobId = ConversionJobId.From(Guid.Parse(JobIdValue));
 
     internal const string ConvertedBody = $$"""
         {
@@ -41,17 +41,17 @@ internal static class ImageConversionsTestSetup
         }
         """;
 
-    internal static readonly string QueuedTaskBody = TaskBody("Queued");
+    internal static readonly string QueuedJobBody = JobBody("Queued");
 
-    internal static readonly string CompletedTaskBody = TaskBody("Completed", result: ConvertedBody);
+    internal static readonly string CompletedJobBody = JobBody("Completed", result: ConvertedBody);
 
     /// <summary>
-    /// The task resource Occtoo returns from a convert and a task read, with
+    /// The job resource Occtoo returns from a convert and a job read, with
     /// <paramref name="result"/> and <paramref name="error"/> as raw JSON.
     /// </summary>
-    internal static string TaskBody(string status, string result = "null", string error = "null") => $$"""
+    internal static string JobBody(string status, string result = "null", string error = "null") => $$"""
         {
-          "id": "{{TaskIdValue}}",
+          "id": "{{JobIdValue}}",
           "status": "{{status}}",
           "result": {{result}},
           "error": {{error}}

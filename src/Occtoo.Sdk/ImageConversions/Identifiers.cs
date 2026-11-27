@@ -8,7 +8,7 @@ namespace Occtoo.ImageConversions;
 /// returns it.
 /// <see cref="ImageConversionsClient.Convert(ImageConversionId, ImageConversionParameters, CancellationToken)"/>,
 /// <see cref="ImageConversionsClient.Convert(ImageConversionId, ConversionPresetId, CancellationToken)"/>
-/// and <see cref="ImageConversionsClient.GetTask"/> take it.
+/// and <see cref="ImageConversionsClient.GetJob"/> take it.
 /// </summary>
 [ValueObject<Guid>]
 public readonly partial struct ImageConversionId
@@ -23,14 +23,14 @@ public readonly partial struct ImageConversionId
 /// The id of a queued conversion.
 /// <see cref="ImageConversionsClient.Convert(ImageConversionId, ImageConversionParameters, CancellationToken)"/>
 /// and <see cref="ImageConversionsClient.Convert(ImageConversionId, ConversionPresetId, CancellationToken)"/>
-/// return it, and <see cref="ImageConversionsClient.GetTask"/> takes it.
+/// return it, and <see cref="ImageConversionsClient.GetJob"/> takes it.
 /// </summary>
 [ValueObject<Guid>]
-public readonly partial struct ConversionTaskId
+public readonly partial struct ConversionJobId
 {
     private static Validation Validate(Guid input) =>
         input == Guid.Empty
-            ? Validation.Invalid("A conversion task id must not be empty.")
+            ? Validation.Invalid("A conversion job id must not be empty.")
             : Validation.Ok;
 }
 

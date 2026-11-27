@@ -132,7 +132,7 @@ public class ImageConversionsClientTests
     [Fact]
     public async Task Convert_writes_enum_member_names_and_leaves_out_unset_optional_fields()
     {
-        using var api = new StubHandler().Respond(HttpStatusCode.Accepted, QueuedTaskBody);
+        using var api = new StubHandler().Respond(HttpStatusCode.Accepted, QueuedJobBody);
         using var client = Client(api);
 
         await client.ImageConversions.Convert(ConversionId, Thumbnail, TestContext.Current.CancellationToken);
@@ -155,7 +155,7 @@ public class ImageConversionsClientTests
     [Fact]
     public async Task Convert_sends_padding_and_background_when_set()
     {
-        using var api = new StubHandler().Respond(HttpStatusCode.Accepted, QueuedTaskBody);
+        using var api = new StubHandler().Respond(HttpStatusCode.Accepted, QueuedJobBody);
         using var client = Client(api);
 
         await client.ImageConversions.Convert(ConversionId, Padded, TestContext.Current.CancellationToken);
@@ -170,19 +170,19 @@ public class ImageConversionsClientTests
     }
 
     [Fact]
-    public async Task Convert_returns_the_queued_task_id()
+    public async Task Convert_returns_the_queued_job_id()
     {
-        using var api = new StubHandler().Respond(HttpStatusCode.Accepted, QueuedTaskBody);
+        using var api = new StubHandler().Respond(HttpStatusCode.Accepted, QueuedJobBody);
         using var client = Client(api);
 
         var result = await client.ImageConversions.Convert(
             ConversionId, Thumbnail, TestContext.Current.CancellationToken);
 
-        result.Value.ShouldBe(TaskId);
+        result.Value.ShouldBe(JobId);
     }
 
     [Fact]
-    public async Task A_202_without_a_task_id_is_an_unexpected_error()
+    public async Task A_202_without_a_job_id_is_an_unexpected_error()
     {
         using var api = new StubHandler().Respond(HttpStatusCode.Accepted, """{ "status": "Queued" }""");
         using var client = Client(api);
@@ -234,7 +234,7 @@ public class ImageConversionsClientTests
     [Fact]
     public async Task Convert_with_a_preset_posts_only_the_preset_id()
     {
-        using var api = new StubHandler().Respond(HttpStatusCode.Accepted, QueuedTaskBody);
+        using var api = new StubHandler().Respond(HttpStatusCode.Accepted, QueuedJobBody);
         using var client = Client(api);
 
         await client.ImageConversions.Convert(ConversionId, PresetIdValue, TestContext.Current.CancellationToken);
@@ -246,15 +246,15 @@ public class ImageConversionsClientTests
     }
 
     [Fact]
-    public async Task Convert_with_a_preset_returns_the_queued_task_id()
+    public async Task Convert_with_a_preset_returns_the_queued_job_id()
     {
-        using var api = new StubHandler().Respond(HttpStatusCode.Accepted, QueuedTaskBody);
+        using var api = new StubHandler().Respond(HttpStatusCode.Accepted, QueuedJobBody);
         using var client = Client(api);
 
         var result = await client.ImageConversions.Convert(
             ConversionId, PresetId, TestContext.Current.CancellationToken);
 
-        result.Value.ShouldBe(TaskId);
+        result.Value.ShouldBe(JobId);
     }
 
     [Fact]
@@ -270,29 +270,29 @@ public class ImageConversionsClientTests
     }
 
     [Fact]
-    public async Task GetTask_gets_the_task_under_its_conversion()
+    public async Task GetJob_gets_the_job_under_its_conversion()
     {
-        using var api = new StubHandler().Respond(HttpStatusCode.OK, QueuedTaskBody);
+        using var api = new StubHandler().Respond(HttpStatusCode.OK, QueuedJobBody);
         using var client = Client(api);
 
-        await client.ImageConversions.GetTask(ConversionId, TaskId, TestContext.Current.CancellationToken);
+        await client.ImageConversions.GetJob(ConversionId, JobId, TestContext.Current.CancellationToken);
 
         var request = api.Requests.Single();
         request.Method.ShouldBe(HttpMethod.Get);
-        request.RequestUri!.ToString().ShouldBe($"https://api.occtoo.com/v1/image-conversions/{Id}/tasks/{TaskIdValue}");
+        request.RequestUri!.ToString().ShouldBe($"https://api.occtoo.com/v1/image-conversions/{Id}/jobs/{JobIdValue}");
     }
 
     [Fact]
-    public async Task A_completed_task_maps_to_its_converted_image()
+    public async Task A_completed_job_maps_to_its_converted_image()
     {
-        using var api = new StubHandler().Respond(HttpStatusCode.OK, CompletedTaskBody);
+        using var api = new StubHandler().Respond(HttpStatusCode.OK, CompletedJobBody);
         using var client = Client(api);
 
-        var result = await client.ImageConversions.GetTask(ConversionId, TaskId, TestContext.Current.CancellationToken);
+        var result = await client.ImageConversions.GetJob(ConversionId, JobId, TestContext.Current.CancellationToken);
 
-        result.Value.ShouldBe(new ConversionTask(
-            TaskId,
-            ConversionTaskStatus.Completed,
+        result.Value.ShouldBe(new ConversionJob(
+            JobId,
+            ConversionJobStatus.Completed,
             new ConvertedImage(
                 new Uri(DownloadUrl),
                 DateTimeOffset.Parse(DownloadExpiry, null),
@@ -303,49 +303,49 @@ public class ImageConversionsClientTests
     }
 
     [Fact]
-    public async Task A_failed_task_carries_the_error_and_no_image()
+    public async Task A_failed_job_carries_the_error_and_no_image()
     {
         using var api = new StubHandler().Respond(
             HttpStatusCode.OK,
-            TaskBody("Failed", error: "\"The uploaded file can't be converted.\""));
+            JobBody("Failed", error: "\"The uploaded file can't be converted.\""));
         using var client = Client(api);
 
-        var result = await client.ImageConversions.GetTask(ConversionId, TaskId, TestContext.Current.CancellationToken);
+        var result = await client.ImageConversions.GetJob(ConversionId, JobId, TestContext.Current.CancellationToken);
 
-        var task = result.Value;
-        task.Status.GetValueOrThrow().ShouldBe(ConversionTaskStatus.Failed);
-        task.Error.GetValueOrThrow().ShouldBe("The uploaded file can't be converted.");
-        task.Image.HasNoValue.ShouldBeTrue();
+        var job = result.Value;
+        job.Status.GetValueOrThrow().ShouldBe(ConversionJobStatus.Failed);
+        job.Error.GetValueOrThrow().ShouldBe("The uploaded file can't be converted.");
+        job.Image.HasNoValue.ShouldBeTrue();
     }
 
     [Fact]
-    public async Task A_queued_task_has_neither_an_image_nor_an_error()
+    public async Task A_queued_job_has_neither_an_image_nor_an_error()
     {
-        using var api = new StubHandler().Respond(HttpStatusCode.OK, QueuedTaskBody);
+        using var api = new StubHandler().Respond(HttpStatusCode.OK, QueuedJobBody);
         using var client = Client(api);
 
-        var result = await client.ImageConversions.GetTask(ConversionId, TaskId, TestContext.Current.CancellationToken);
+        var result = await client.ImageConversions.GetJob(ConversionId, JobId, TestContext.Current.CancellationToken);
 
-        result.Value.ShouldBe(new ConversionTask(
-            TaskId,
-            ConversionTaskStatus.Queued,
+        result.Value.ShouldBe(new ConversionJob(
+            JobId,
+            ConversionJobStatus.Queued,
             Maybe<ConvertedImage>.None,
             Maybe<string>.None));
     }
 
     [Fact]
-    public async Task A_task_with_an_unknown_status_has_no_status()
+    public async Task A_job_with_an_unknown_status_has_no_status()
     {
-        using var api = new StubHandler().Respond(HttpStatusCode.OK, TaskBody("Paused"));
+        using var api = new StubHandler().Respond(HttpStatusCode.OK, JobBody("Paused"));
         using var client = Client(api);
 
-        var result = await client.ImageConversions.GetTask(ConversionId, TaskId, TestContext.Current.CancellationToken);
+        var result = await client.ImageConversions.GetJob(ConversionId, JobId, TestContext.Current.CancellationToken);
 
         result.Value.Status.HasNoValue.ShouldBeTrue();
     }
 
     [Fact]
-    public async Task A_completed_task_whose_download_link_is_not_an_absolute_url_is_an_unexpected_error()
+    public async Task A_completed_job_whose_download_link_is_not_an_absolute_url_is_an_unexpected_error()
     {
         const string relative = """
             {
@@ -357,32 +357,32 @@ public class ImageConversionsClientTests
             }
             """;
 
-        using var api = new StubHandler().Respond(HttpStatusCode.OK, TaskBody("Completed", result: relative));
+        using var api = new StubHandler().Respond(HttpStatusCode.OK, JobBody("Completed", result: relative));
         using var client = Client(api);
 
-        var result = await client.ImageConversions.GetTask(ConversionId, TaskId, TestContext.Current.CancellationToken);
+        var result = await client.ImageConversions.GetJob(ConversionId, JobId, TestContext.Current.CancellationToken);
 
         result.Error.ShouldBeOfType<UnexpectedError>();
     }
 
     [Fact]
-    public async Task A_completed_task_without_a_result_is_an_unexpected_error()
+    public async Task A_completed_job_without_a_result_is_an_unexpected_error()
     {
-        using var api = new StubHandler().Respond(HttpStatusCode.OK, TaskBody("Completed"));
+        using var api = new StubHandler().Respond(HttpStatusCode.OK, JobBody("Completed"));
         using var client = Client(api);
 
-        var result = await client.ImageConversions.GetTask(ConversionId, TaskId, TestContext.Current.CancellationToken);
+        var result = await client.ImageConversions.GetJob(ConversionId, JobId, TestContext.Current.CancellationToken);
 
         result.Error.ShouldBeOfType<UnexpectedError>();
     }
 
     [Fact]
-    public async Task A_404_on_GetTask_is_a_not_found_error()
+    public async Task A_404_on_GetJob_is_a_not_found_error()
     {
         using var api = new StubHandler().Respond(HttpStatusCode.NotFound, NotFoundBody);
         using var client = Client(api);
 
-        var result = await client.ImageConversions.GetTask(ConversionId, TaskId, TestContext.Current.CancellationToken);
+        var result = await client.ImageConversions.GetJob(ConversionId, JobId, TestContext.Current.CancellationToken);
 
         result.Error.ShouldBeOfType<NotFoundError>();
     }

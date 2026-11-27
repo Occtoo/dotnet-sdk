@@ -43,7 +43,7 @@ internal sealed record ConvertedImageDto
     public long Size { get; init; }
 }
 
-internal sealed record ConversionTaskDto
+internal sealed record ConversionJobDto
 {
     public Guid Id { get; init; }
 
@@ -107,7 +107,7 @@ internal sealed record ForwardPageDto<T>
 [JsonSerializable(typeof(RequestImageConversionDto))]
 [JsonSerializable(typeof(ImageConversionCreatedDto))]
 [JsonSerializable(typeof(ConvertImageDto))]
-[JsonSerializable(typeof(ConversionTaskDto))]
+[JsonSerializable(typeof(ConversionJobDto))]
 [JsonSerializable(typeof(CreateConversionPresetDto))]
 [JsonSerializable(typeof(UpdateConversionPresetDto))]
 [JsonSerializable(typeof(ConversionPresetDto))]

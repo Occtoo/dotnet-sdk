@@ -1,6 +1,6 @@
 # Image conversions
 
-`client.ImageConversions` wraps `/v1/image-conversions` and `/v1/conversion-presets`: upload an image once, then convert it as often as you like, with parameters you pass or with one of the tenant's conversion presets. Each conversion resizes the original onto a canvas and re-encodes it. `Convert` queues the conversion and returns a task id; read the task with `GetTask` every second or two until it's done, then download the result from its temporary link.
+`client.ImageConversions` wraps `/v1/image-conversions` and `/v1/conversion-presets`: upload an image once, then convert it as often as you like, with parameters you pass or with one of the tenant's conversion presets. Each conversion resizes the original onto a canvas and re-encodes it. `Convert` queues the conversion and returns a job id; read the job with `GetJob` every second or two until it's done, then download the result from its temporary link.
 
 ```csharp
 var thumbnail = new ImageConversionParameters(
@@ -8,7 +8,7 @@ var thumbnail = new ImageConversionParameters(
 
 var queued = await client.ImageConversions.Upload(AssetContent.FromFile("files/shoe.tif"), "shoe.tif", cancellationToken)
     .Bind(id => client.ImageConversions.Convert(id, thumbnail, cancellationToken)
-        .Map(taskId => (Id: id, TaskId: taskId)));
+        .Map(jobId => (Id: id, JobId: jobId)));
 
 if (queued.IsFailure)
 {
@@ -20,7 +20,7 @@ while (true)
 {
     await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
 
-    var read = await client.ImageConversions.GetTask(queued.Value.Id, queued.Value.TaskId, cancellationToken);
+    var read = await client.ImageConversions.GetJob(queued.Value.Id, queued.Value.JobId, cancellationToken);
     if (read.IsFailure)
     {
         if (read.Error is TransientError)
@@ -33,16 +33,16 @@ while (true)
         break;
     }
 
-    var task = read.Value;
-    if (task.Status == ConversionTaskStatus.Completed)
+    var job = read.Value;
+    if (job.Status == ConversionJobStatus.Completed)
     {
-        logger.LogInformation("Thumbnail at {Url}", task.Image.Value.Url);
+        logger.LogInformation("Thumbnail at {Url}", job.Image.Value.Url);
         break;
     }
 
-    if (task.Status == ConversionTaskStatus.Failed)
+    if (job.Status == ConversionJobStatus.Failed)
     {
-        logger.LogWarning("Conversion failed: {Error}", task.Error.GetValueOrDefault());
+        logger.LogWarning("Conversion failed: {Error}", job.Error.GetValueOrDefault());
         break;
     }
 }
@@ -52,7 +52,7 @@ The loop stops when the conversion completes or fails, when a read fails with an
 
 Runnable: [`examples/Occtoo.Sdk.Examples.ImageConversions`](../examples/Occtoo.Sdk.Examples.ImageConversions).
 
-`Upload`, `Convert` and `GetTask` need a credential with `write:media`; see [authentication.md](authentication.md).
+`Upload`, `Convert` and `GetJob` need a credential with `write:media`; see [authentication.md](authentication.md).
 
 ## Upload
 
@@ -68,7 +68,7 @@ The transfer isn't retried.
 
 ## Convert
 
-`Convert` takes the id and either an `ImageConversionParameters` or the id of one of your [presets](#presets), queues the conversion and returns its `ConversionTaskId`. Read the result with [`GetTask`](#read-the-result). Every call queues a new conversion with its own output, even with the same parameters.
+`Convert` takes the id and either an `ImageConversionParameters` or the id of one of your [presets](#presets), queues the conversion and returns its `ConversionJobId`. Read the result with [`GetJob`](#read-the-result). Every call queues a new conversion with its own output, even with the same parameters.
 
 ```csharp
 var large = new ImageConversionParameters(
@@ -82,7 +82,7 @@ var withParameters = await client.ImageConversions.Convert(id, large);
 var withPreset = await client.ImageConversions.Convert(id, "web-thumbnail");
 ```
 
-`Convert` fails right away when it can't queue the conversion or when Occtoo fails while queuing it: the credential is refused or lacks the scope, a parameter or the preset is refused, the original is 32 MiB or more, there's no original under the id or, with a preset, no preset under its id, or Occtoo returns a server error or times out (a call that fails this way isn't resent and may still have queued a conversion). See [What can go wrong](#what-can-go-wrong). An original Occtoo can't convert fails the task instead.
+`Convert` fails right away when it can't queue the conversion or when Occtoo fails while queuing it: the credential is refused or lacks the scope, a parameter or the preset is refused, the original is 32 MiB or more, there's no original under the id or, with a preset, no preset under its id, or Occtoo returns a server error or times out (a call that fails this way isn't resent and may still have queued a conversion). See [What can go wrong](#what-can-go-wrong). An original Occtoo can't convert fails the job instead.
 
 | Parameter | Rule |
 |---|---|
@@ -105,25 +105,25 @@ The modes. An original smaller than the canvas is scaled up in every mode.
 
 ## Read the result
 
-`GetTask` takes the upload's id and the `ConversionTaskId` that `Convert` returned, and returns a `ConversionTask`:
+`GetJob` takes the upload's id and the `ConversionJobId` that `Convert` returned, and returns a `ConversionJob`:
 
 | Field | What it holds |
 |---|---|
-| `Id` | The task's id |
-| `Status` | Where the conversion stands, a `Maybe<ConversionTaskStatus>` (below) |
-| `Image` | Once the task is `Completed`: a `ConvertedImage` with the download `Url`, its `ExpiresAt`, the `Filename`, the `ContentType` and the `Size` in bytes |
-| `Error` | Once the task is `Failed`: Occtoo's message saying why, such as an original it can't convert |
+| `Id` | The job's id |
+| `Status` | Where the conversion stands, a `Maybe<ConversionJobStatus>` (below) |
+| `Image` | Once the job is `Completed`: a `ConvertedImage` with the download `Url`, its `ExpiresAt`, the `Filename`, the `ContentType` and the `Size` in bytes |
+| `Error` | Once the job is `Failed`: Occtoo's message saying why, such as an original it can't convert |
 
 The statuses:
 
-- `Queued`: the conversion is waiting to run. A running task can go back to `Queued` when Occtoo retries it.
+- `Queued`: the conversion is waiting to run. A running job can go back to `Queued` when Occtoo retries it.
 - `Running`: the conversion is running.
 - `Completed`: the conversion finished and `Image` is ready to download. This is final.
 - `Failed`: the conversion failed and won't be retried. This is final.
 
-Read the task every second or two until it's `Completed` or `Failed`. How long that takes depends on how much Occtoo is converting at the time. A failed conversion is still a successful read: `GetTask` succeeds with `Status` `Failed` and the message in `Error`. A failed `Result` means the read itself failed.
+Read the job every second or two until it's `Completed` or `Failed`. How long that takes depends on how much Occtoo is converting at the time. A failed conversion is still a successful read: `GetJob` succeeds with `Status` `Failed` and the message in `Error`. A failed `Result` means the read itself failed.
 
-Every read of a completed task returns a new download link that lasts an hour, so read the task again when a link has expired. A task stays readable for at least a day after it finishes. Once Occtoo no longer keeps the result, or for an id that isn't a task of this upload, `GetTask` fails with a `NotFoundError`.
+Every read of a completed job returns a new download link that lasts an hour, so read the job again when a link has expired. A job stays readable for at least a day after it finishes. Once Occtoo no longer keeps the result, or for an id that isn't a job of this upload, `GetJob` fails with a `NotFoundError`.
 
 `Status` is read like every enum in the SDK: a status this SDK version doesn't know reads as absent, as on [asset states](assets.md#reading-state-afterwards). `Image` and `Error` are still filled in when Occtoo sends them.
 
@@ -168,8 +168,8 @@ Reading presets needs `read:media`; creating, updating and deleting them needs `
 ## Lifetimes
 
 - The upload link lasts 1 hour.
-- Each download link lasts 1 hour. Every `GetTask` of a completed task returns a new one.
-- A task stays readable for at least a day after it finishes.
+- Each download link lasts 1 hour. Every `GetJob` of a completed job returns a new one.
+- A job stays readable for at least a day after it finishes.
 - You can convert the original any number of times until Occtoo deletes it, a day after the upload.
 
 ## What can go wrong
@@ -180,9 +180,9 @@ Reading presets needs `read:media`; creating, updating and deleting them needs `
 | A parameter breaks a rule | `ValidationError`, with `Failures` keyed `Parameters.TargetSize`, `Parameters.PaddingPercent`, `Parameters.Quality`, `Parameters.Mode` or `Parameters.OutputFormat` |
 | The original is 32 MiB or more, on `Convert`; or the filename is refused, on `Upload` | `ValidationError`, without `Failures` |
 | No original under the id: unknown, not uploaded yet, or already deleted; or, converting with a preset, no preset under its id. The error doesn't say which | `NotFoundError` |
-| On `GetTask`, the upload has no task under the id, or the task's result is no longer kept | `NotFoundError` |
-| The conversion failed, for example because the original isn't an image Occtoo can convert | No error: `GetTask` succeeds with `Status` `Failed` and Occtoo's message in `Error` |
-| The credential is refused, or lacks `write:media`, which `Upload`, `Convert` and `GetTask` need | `AuthenticationError`, `ForbiddenError` |
+| On `GetJob`, the upload has no job under the id, or the job's result is no longer kept | `NotFoundError` |
+| The conversion failed, for example because the original isn't an image Occtoo can convert | No error: `GetJob` succeeds with `Status` `Failed` and Occtoo's message in `Error` |
+| The credential is refused, or lacks `write:media`, which `Upload`, `Convert` and `GetJob` need | `AuthenticationError`, `ForbiddenError` |
 | Occtoo failed | `ServerError` |
 | Blob storage refused the bytes | As for an asset transfer: an expired upload link is an `AuthenticationError`, and the message carries storage's error code and request id |
 | A preset's id, display name or parameter breaks a rule | `ValidationError`, with `Failures` keyed `Id`, `DisplayName` or `Parameters.TargetSize` and the like |

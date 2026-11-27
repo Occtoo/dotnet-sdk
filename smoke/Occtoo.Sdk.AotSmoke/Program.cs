@@ -4,7 +4,7 @@
 // (snake_case JSON), FusionCache token storage, ingest request serialization,
 // receipt parsing, problem-details parsing, the asset payloads and their
 // generated filename regex, one byte transfer, the durable-consumer pull
-// and acknowledge round trip, and an image upload, conversion and task
+// and acknowledge round trip, and an image upload, conversion and job
 // read. Everything is scripted; no network is involved. Exit code 0 means the
 // SDK works in this deployment shape.
 
@@ -329,7 +329,7 @@ Check("acknowledgement parsed with its status and committed position", acknowled
 
 // 7. Image conversions: the value objects' generated patterns, the create
 //    response, one byte transfer, the convert payloads with their enums, and
-//    the task read with its status and converted image.
+//    the job read with its status and converted image.
 Check("ImageAspectRatio rejects a ratio the API would reject", !ImageAspectRatio.TryFrom("01:1", out _));
 Check("ImageBackground rejects a color the API would reject", !ImageBackground.TryFrom("#FFFFFF", out _));
 
@@ -373,7 +373,7 @@ Check("convert body carries the enum names and the value objects as strings", tr
     && convert.Contains("\"outputFormat\":\"Webp\"")
     && convert.Contains("\"aspectRatio\":\"4:3\"")
     && convert.Contains("\"background\":\"FFFFFF\""));
-Check("conversion task id parsed", queued is { IsSuccess: true }
+Check("conversion job id parsed", queued is { IsSuccess: true }
     && queued.Value.Value == Guid.Parse("0193a5c4-7e1f-7b2a-9c3d-4e5f60718293"));
 
 transport.Enqueue(HttpStatusCode.OK, """
@@ -391,16 +391,16 @@ transport.Enqueue(HttpStatusCode.OK, """
     }
     """);
 
-var task = await client.ImageConversions.GetTask(uploaded.Value, queued.Value);
-Check("completed conversion task parsed with its status and converted image", task is
+var job = await client.ImageConversions.GetJob(uploaded.Value, queued.Value);
+Check("completed conversion job parsed with its status and converted image", job is
 {
     IsSuccess: true,
     Value:
     {
-        Status: { HasValue: true, Value: ConversionTaskStatus.Completed },
+        Status: { HasValue: true, Value: ConversionJobStatus.Completed },
         Image: { HasValue: true, Value: { Filename: "shoe.webp", ContentType: "image/webp", Size: 81234 } },
     },
-} && task.Value.Image.Value.Url.Host == "tenant.blob.core.windows.net");
+} && job.Value.Image.Value.Url.Host == "tenant.blob.core.windows.net");
 
 Console.WriteLine(failures == 0 ? "AOT smoke: OK" : $"AOT smoke: {failures} FAILED");
 return failures == 0 ? 0 : 1;

@@ -1,5 +1,5 @@
 // Image conversion end to end: upload a small image, queue a conversion,
-// poll the task until it's done and download the result.
+// poll the job until it's done and download the result.
 //
 // Fill in the placeholders and `dotnet run` to convert with the parameters
 // below. To use one of your tenant's conversion presets instead, pass its id:
@@ -63,7 +63,7 @@ try
 
     var id = uploaded.Value;
 
-    // Convert only queues the conversion and returns the task's id. Keep it:
+    // Convert only queues the conversion and returns the job's id. Keep it:
     // every Convert call queues another conversion, so a resent call would
     // queue a second one.
     var queued = preset is { } presetId
@@ -77,14 +77,14 @@ try
 
     Console.WriteLine($"Conversion {queued.Value.Value} queued. Waiting for it to finish (Ctrl+C to stop).");
 
-    // Convert returns before the conversion runs, so read the task about once
+    // Convert returns before the conversion runs, so read the job about once
     // a second until it completes or fails.
     ConvertedImage image;
     while (true)
     {
         await Task.Delay(TimeSpan.FromSeconds(1), stopping.Token);
 
-        var read = await client.ImageConversions.GetTask(id, queued.Value, stopping.Token);
+        var read = await client.ImageConversions.GetJob(id, queued.Value, stopping.Token);
         if (read.IsFailure)
         {
             if (read.Error is TransientError)
@@ -93,22 +93,22 @@ try
                 continue;
             }
 
-            // Reading again won't fix this one: a refused credential, a task
+            // Reading again won't fix this one: a refused credential, a job
             // Occtoo no longer keeps.
             Console.Error.WriteLine($"Couldn't read the conversion: {read.Error}");
             return 1;
         }
 
-        var task = read.Value;
-        if (task.Status == ConversionTaskStatus.Completed)
+        var job = read.Value;
+        if (job.Status == ConversionJobStatus.Completed)
         {
-            image = task.Image.Value;
+            image = job.Image.Value;
             break;
         }
 
-        if (task.Status == ConversionTaskStatus.Failed)
+        if (job.Status == ConversionJobStatus.Failed)
         {
-            Console.Error.WriteLine($"Conversion failed: {task.Error.GetValueOrDefault("Occtoo didn't say why.")}");
+            Console.Error.WriteLine($"Conversion failed: {job.Error.GetValueOrDefault("Occtoo didn't say why.")}");
             return 1;
         }
 

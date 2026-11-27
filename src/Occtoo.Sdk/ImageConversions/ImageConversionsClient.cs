@@ -14,12 +14,12 @@ namespace Occtoo.ImageConversions;
 /// <see cref="Convert(ImageConversionId, ImageConversionParameters, CancellationToken)"/>
 /// or with one of the tenant's presets:
 /// <see cref="Convert(ImageConversionId, ConversionPresetId, CancellationToken)"/>.
-/// Each convert queues a conversion; read its result with <see cref="GetTask"/>.
+/// Each convert queues a conversion; read its result with <see cref="GetJob"/>.
 /// This client also manages the tenant's conversion presets.
 /// </summary>
 /// <remarks>
 /// Occtoo deletes the original a day after the upload. Uploading, converting,
-/// reading a conversion with <see cref="GetTask"/> and changing presets need
+/// reading a conversion with <see cref="GetJob"/> and changing presets need
 /// <see cref="Authentication.OcctooScopes.WriteMedia"/>; reading presets needs
 /// <see cref="Authentication.OcctooScopes.ReadMedia"/>.
 /// </remarks>
@@ -28,7 +28,7 @@ public sealed class ImageConversionsClient
     private const string UploadOperation = "upload image";
     private const string RequestOperation = "request image conversion";
     private const string ConvertOperation = "convert image";
-    private const string GetTaskOperation = "get conversion task";
+    private const string GetJobOperation = "get conversion job";
     private const string ListPresetsOperation = "list conversion presets";
     private const string GetPresetOperation = "get conversion preset";
     private const string CreatePresetOperation = "create conversion preset";
@@ -38,7 +38,7 @@ public sealed class ImageConversionsClient
     private const string IdTag = "occtoo.image_conversions.id";
     private const string BytesTag = "occtoo.image_conversions.bytes";
     private const string PresetTag = "occtoo.image_conversions.preset";
-    private const string TaskTag = "occtoo.image_conversions.task";
+    private const string JobTag = "occtoo.image_conversions.job";
     private const string StatusTag = "occtoo.image_conversions.status";
 
     private static readonly Uri ImageConversionsUri = new("v1/image-conversions", UriKind.Relative);
@@ -126,14 +126,14 @@ public sealed class ImageConversionsClient
     }
 
     /// <summary>
-    /// Queues a conversion of an uploaded image and returns the task's id to
-    /// read with <see cref="GetTask"/>.
+    /// Queues a conversion of an uploaded image and returns the job's id to
+    /// read with <see cref="GetJob"/>.
     /// </summary>
     /// <param name="id">The id <see cref="Upload"/> returned.</param>
     /// <param name="parameters">How to convert the image.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
     /// <returns>
-    /// The task's id, or why the conversion wasn't queued:
+    /// The job's id, or why the conversion wasn't queued:
     /// <list type="bullet">
     /// <item><description>
     /// <see cref="ValidationError"/>: a parameter Occtoo refuses, keyed in
@@ -158,7 +158,7 @@ public sealed class ImageConversionsClient
     /// Nothing is resent after a <c>5xx</c> or a timeout, and such a call may
     /// still have queued a conversion. Every call queues a new one.
     /// </remarks>
-    public async Task<Result<ConversionTaskId, OcctooError>> Convert(
+    public async Task<Result<ConversionJobId, OcctooError>> Convert(
         ImageConversionId id,
         ImageConversionParameters parameters,
         CancellationToken cancellationToken = default)
@@ -176,14 +176,14 @@ public sealed class ImageConversionsClient
 
     /// <summary>
     /// Queues a conversion of an uploaded image with one of the tenant's
-    /// conversion presets and returns the task's id to read with
-    /// <see cref="GetTask"/>.
+    /// conversion presets and returns the job's id to read with
+    /// <see cref="GetJob"/>.
     /// </summary>
     /// <param name="id">The id <see cref="Upload"/> returned.</param>
     /// <param name="preset">The id of the preset to convert with.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
     /// <returns>
-    /// The task's id, or why the conversion wasn't queued:
+    /// The job's id, or why the conversion wasn't queued:
     /// <list type="bullet">
     /// <item><description>
     /// <see cref="ValidationError"/>: the original is 32 MiB or more.
@@ -205,7 +205,7 @@ public sealed class ImageConversionsClient
     /// Nothing is resent after a <c>5xx</c> or a timeout, and such a call may
     /// still have queued a conversion. Every call queues a new one.
     /// </remarks>
-    public Task<Result<ConversionTaskId, OcctooError>> Convert(
+    public Task<Result<ConversionJobId, OcctooError>> Convert(
         ImageConversionId id,
         ConversionPresetId preset,
         CancellationToken cancellationToken = default) =>
@@ -220,14 +220,14 @@ public sealed class ImageConversionsClient
     /// completed, or why it failed.
     /// </summary>
     /// <param name="id">The id <see cref="Upload"/> returned.</param>
-    /// <param name="task">The id a convert of that upload returned.</param>
+    /// <param name="job">The id a convert of that upload returned.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
     /// <returns>
-    /// The task, failed conversions included, or why the read failed:
+    /// The job, failed conversions included, or why the read failed:
     /// <list type="bullet">
     /// <item><description>
-    /// <see cref="NotFoundError"/>: the upload has no task with the id, or the
-    /// task's result is no longer kept.
+    /// <see cref="NotFoundError"/>: the upload has no job with the id, or the
+    /// job's result is no longer kept.
     /// </description></item>
     /// <item><description>
     /// <see cref="AuthenticationError"/> or <see cref="ForbiddenError"/>: the
@@ -239,17 +239,17 @@ public sealed class ImageConversionsClient
     /// </list>
     /// </returns>
     /// <remarks>
-    /// Poll every second or two until the task is
-    /// <see cref="ConversionTaskStatus.Completed"/> or
-    /// <see cref="ConversionTaskStatus.Failed"/>. How long that takes depends
-    /// on how much Occtoo is converting at the time. A task can go back to
-    /// <see cref="ConversionTaskStatus.Queued"/> when Occtoo retries it. Every read of a completed task returns a new
-    /// link that lasts an hour. A task stays readable for at least a day after
+    /// Poll every second or two until the job is
+    /// <see cref="ConversionJobStatus.Completed"/> or
+    /// <see cref="ConversionJobStatus.Failed"/>. How long that takes depends
+    /// on how much Occtoo is converting at the time. A job can go back to
+    /// <see cref="ConversionJobStatus.Queued"/> when Occtoo retries it. Every read of a completed job returns a new
+    /// link that lasts an hour. A job stays readable for at least a day after
     /// it finishes.
     /// </remarks>
-    public Task<Result<ConversionTask, OcctooError>> GetTask(
+    public Task<Result<ConversionJob, OcctooError>> GetJob(
         ImageConversionId id,
-        ConversionTaskId task,
+        ConversionJobId job,
         CancellationToken cancellationToken = default) =>
         OcctooTransport
             .Send(
@@ -257,13 +257,13 @@ public sealed class ImageConversionsClient
                 _requestTimeout,
                 OcctooTransport.Request(
                     HttpMethod.Get,
-                    new($"v1/image-conversions/{id.Value:D}/tasks/{task.Value:D}", UriKind.Relative)),
-                GetTaskOperation,
-                ImageConversionsJsonContext.Default.ConversionTaskDto,
+                    new($"v1/image-conversions/{id.Value:D}/jobs/{job.Value:D}", UriKind.Relative)),
+                GetJobOperation,
+                ImageConversionsJsonContext.Default.ConversionJobDto,
                 cancellationToken,
-                [new(IdTag, id.Value.ToString("D")), new(TaskTag, task.Value.ToString("D"))],
+                [new(IdTag, id.Value.ToString("D")), new(JobTag, job.Value.ToString("D"))],
                 read => [new(StatusTag, read.Status)])
-            .Bind(ToTask);
+            .Bind(ToJob);
 
     /// <summary>
     /// Reads one page of the tenant's conversion presets, ordered by id.
@@ -508,7 +508,7 @@ public sealed class ImageConversionsClient
                 responseTags: created => [new(IdTag, created.Id.ToString("D"))])
             .Bind(ToUploadTarget);
 
-    private Task<Result<ConversionTaskId, OcctooError>> SendConvert(
+    private Task<Result<ConversionJobId, OcctooError>> SendConvert(
         ImageConversionId id,
         ConvertImageDto body,
         IReadOnlyList<KeyValuePair<string, object?>> tags,
@@ -523,11 +523,11 @@ public sealed class ImageConversionsClient
                     body,
                     ImageConversionsJsonContext.Default.ConvertImageDto),
                 ConvertOperation,
-                ImageConversionsJsonContext.Default.ConversionTaskDto,
+                ImageConversionsJsonContext.Default.ConversionJobDto,
                 cancellationToken,
                 tags,
-                queued => [new(TaskTag, queued.Id.ToString("D"))])
-            .Bind(ToTaskId);
+                queued => [new(JobTag, queued.Id.ToString("D"))])
+            .Bind(ToJobId);
 
     private static Result<UploadTarget, OcctooError> ToUploadTarget(
         ImageConversionCreatedDto created)
@@ -544,25 +544,25 @@ public sealed class ImageConversionsClient
         return new UploadTarget(id, location, created.MaxFileSize.Value);
     }
 
-    private static Result<ConversionTaskId, OcctooError> ToTaskId(ConversionTaskDto task) =>
-        ConversionTaskId.TryFrom(task.Id, out var id)
+    private static Result<ConversionJobId, OcctooError> ToJobId(ConversionJobDto job) =>
+        ConversionJobId.TryFrom(job.Id, out var id)
             ? id
-            : new UnexpectedError("Occtoo returned a conversion task without an id.");
+            : new UnexpectedError("Occtoo returned a conversion job without an id.");
 
-    private static Result<ConversionTask, OcctooError> ToTask(ConversionTaskDto task)
+    private static Result<ConversionJob, OcctooError> ToJob(ConversionJobDto job)
     {
-        var status = Enums.Read<ConversionTaskStatus>(task.Status);
-        var error = task.Error is { Length: > 0 } message ? Maybe.From(message) : Maybe<string>.None;
+        var status = Enums.Read<ConversionJobStatus>(job.Status);
+        var error = job.Error is { Length: > 0 } message ? Maybe.From(message) : Maybe<string>.None;
 
-        return ToTaskId(task)
+        return ToJobId(job)
             .Bind(
-                id => task.Result switch
+                id => job.Result switch
                 {
                     { } result => ToConvertedImage(result)
-                        .Map(image => new ConversionTask(id, status, image, error)),
-                    null when status == ConversionTaskStatus.Completed => new UnexpectedError(
-                        $"Occtoo returned completed conversion task '{id}' without its converted image."),
-                    null => new ConversionTask(id, status, Maybe<ConvertedImage>.None, error),
+                        .Map(image => new ConversionJob(id, status, image, error)),
+                    null when status == ConversionJobStatus.Completed => new UnexpectedError(
+                        $"Occtoo returned completed conversion job '{id}' without its converted image."),
+                    null => new ConversionJob(id, status, Maybe<ConvertedImage>.None, error),
                 });
     }
 
