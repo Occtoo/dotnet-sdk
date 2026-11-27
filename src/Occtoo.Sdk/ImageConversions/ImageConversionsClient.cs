@@ -14,11 +14,12 @@ namespace Occtoo.ImageConversions;
 /// <see cref="Convert(ImageConversionId, ImageConversionParameters, CancellationToken)"/>
 /// or with one of the tenant's presets:
 /// <see cref="Convert(ImageConversionId, ConversionPresetId, CancellationToken)"/>.
+/// Each convert queues a conversion; read its result with <see cref="GetTask"/>.
 /// This client also manages the tenant's conversion presets.
 /// </summary>
 /// <remarks>
-/// Occtoo deletes the original a day after the upload. Uploading, converting
-/// and changing presets need
+/// Occtoo deletes the original a day after the upload. Uploading, converting,
+/// reading a conversion with <see cref="GetTask"/> and changing presets need
 /// <see cref="Authentication.OcctooScopes.WriteMedia"/>; reading presets needs
 /// <see cref="Authentication.OcctooScopes.ReadMedia"/>.
 /// </remarks>
@@ -27,6 +28,7 @@ public sealed class ImageConversionsClient
     private const string UploadOperation = "upload image";
     private const string RequestOperation = "request image conversion";
     private const string ConvertOperation = "convert image";
+    private const string GetTaskOperation = "get conversion task";
     private const string ListPresetsOperation = "list conversion presets";
     private const string GetPresetOperation = "get conversion preset";
     private const string CreatePresetOperation = "create conversion preset";
@@ -36,6 +38,8 @@ public sealed class ImageConversionsClient
     private const string IdTag = "occtoo.image_conversions.id";
     private const string BytesTag = "occtoo.image_conversions.bytes";
     private const string PresetTag = "occtoo.image_conversions.preset";
+    private const string TaskTag = "occtoo.image_conversions.task";
+    private const string StatusTag = "occtoo.image_conversions.status";
 
     private static readonly Uri ImageConversionsUri = new("v1/image-conversions", UriKind.Relative);
     private static readonly Uri PresetsUri = new("v1/conversion-presets", UriKind.Relative);
@@ -122,19 +126,20 @@ public sealed class ImageConversionsClient
     }
 
     /// <summary>
-    /// Converts an uploaded image and returns a link to download the result.
+    /// Queues a conversion of an uploaded image and returns the task's id to
+    /// read with <see cref="GetTask"/>.
     /// </summary>
     /// <param name="id">The id <see cref="Upload"/> returned.</param>
     /// <param name="parameters">How to convert the image.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
     /// <returns>
-    /// The converted image, or why the conversion failed:
+    /// The task's id, or why the conversion wasn't queued:
     /// <list type="bullet">
     /// <item><description>
     /// <see cref="ValidationError"/>: a parameter Occtoo refuses, keyed in
     /// <see cref="ValidationError.Failures"/> by its name, such as
-    /// <c>Parameters.TargetSize</c>. Without keys: the original is too large or
-    /// isn't an image Occtoo can convert.
+    /// <c>Parameters.TargetSize</c>. Without keys: the original is 32 MiB or
+    /// more.
     /// </description></item>
     /// <item><description>
     /// <see cref="NotFoundError"/>: the original is unknown, not uploaded yet,
@@ -145,15 +150,15 @@ public sealed class ImageConversionsClient
     /// credential is refused or lacks the scope.
     /// </description></item>
     /// <item><description>
-    /// <see cref="ServerError"/>: Occtoo failed, including a <c>504</c> when
-    /// the conversion ran over 25 seconds.
+    /// <see cref="ServerError"/>: Occtoo failed.
     /// </description></item>
     /// </list>
     /// </returns>
     /// <remarks>
-    /// Nothing is resent after a <c>5xx</c> or a timeout.
+    /// Nothing is resent after a <c>5xx</c> or a timeout, and such a call may
+    /// still have queued a conversion. Every call queues a new one.
     /// </remarks>
-    public async Task<Result<ConvertedImage, OcctooError>> Convert(
+    public async Task<Result<ConversionTaskId, OcctooError>> Convert(
         ImageConversionId id,
         ImageConversionParameters parameters,
         CancellationToken cancellationToken = default)
@@ -170,18 +175,18 @@ public sealed class ImageConversionsClient
     }
 
     /// <summary>
-    /// Converts an uploaded image with one of the tenant's conversion presets
-    /// and returns a link to download the result.
+    /// Queues a conversion of an uploaded image with one of the tenant's
+    /// conversion presets and returns the task's id to read with
+    /// <see cref="GetTask"/>.
     /// </summary>
     /// <param name="id">The id <see cref="Upload"/> returned.</param>
     /// <param name="preset">The id of the preset to convert with.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
     /// <returns>
-    /// The converted image, or why the conversion failed:
+    /// The task's id, or why the conversion wasn't queued:
     /// <list type="bullet">
     /// <item><description>
-    /// <see cref="ValidationError"/>: the original is too large or isn't an
-    /// image Occtoo can convert.
+    /// <see cref="ValidationError"/>: the original is 32 MiB or more.
     /// </description></item>
     /// <item><description>
     /// <see cref="NotFoundError"/>: the original is unknown, not uploaded yet,
@@ -192,15 +197,15 @@ public sealed class ImageConversionsClient
     /// credential is refused or lacks the scope.
     /// </description></item>
     /// <item><description>
-    /// <see cref="ServerError"/>: Occtoo failed, including a <c>504</c> when
-    /// the conversion ran over 25 seconds.
+    /// <see cref="ServerError"/>: Occtoo failed.
     /// </description></item>
     /// </list>
     /// </returns>
     /// <remarks>
-    /// Nothing is resent after a <c>5xx</c> or a timeout.
+    /// Nothing is resent after a <c>5xx</c> or a timeout, and such a call may
+    /// still have queued a conversion. Every call queues a new one.
     /// </remarks>
-    public Task<Result<ConvertedImage, OcctooError>> Convert(
+    public Task<Result<ConversionTaskId, OcctooError>> Convert(
         ImageConversionId id,
         ConversionPresetId preset,
         CancellationToken cancellationToken = default) =>
@@ -209,6 +214,56 @@ public sealed class ImageConversionsClient
             new ConvertImageDto { Preset = preset.Value },
             [new(IdTag, id.Value.ToString("D")), new(PresetTag, preset.Value)],
             cancellationToken);
+
+    /// <summary>
+    /// Reads a queued conversion: its status, the converted image once it
+    /// completed, or why it failed.
+    /// </summary>
+    /// <param name="id">The id <see cref="Upload"/> returned.</param>
+    /// <param name="task">The id a convert of that upload returned.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>
+    /// The task, failed conversions included, or why the read failed:
+    /// <list type="bullet">
+    /// <item><description>
+    /// <see cref="NotFoundError"/>: the upload has no task with the id, or the
+    /// task's result is no longer kept.
+    /// </description></item>
+    /// <item><description>
+    /// <see cref="AuthenticationError"/> or <see cref="ForbiddenError"/>: the
+    /// credential is refused or lacks the scope.
+    /// </description></item>
+    /// <item><description>
+    /// <see cref="ServerError"/>: Occtoo failed.
+    /// </description></item>
+    /// </list>
+    /// </returns>
+    /// <remarks>
+    /// Poll every second or two until the task is
+    /// <see cref="ConversionTaskStatus.Completed"/> or
+    /// <see cref="ConversionTaskStatus.Failed"/>; that usually takes a few
+    /// seconds. A task can go back to <see cref="ConversionTaskStatus.Queued"/>
+    /// when Occtoo retries it. Every read of a completed task returns a new
+    /// link that lasts an hour. A task stays readable for at least a day after
+    /// it finishes.
+    /// </remarks>
+    public Task<Result<ConversionTask, OcctooError>> GetTask(
+        ImageConversionId id,
+        ConversionTaskId task,
+        CancellationToken cancellationToken = default) =>
+        OcctooTransport
+            .Send(
+                _httpClient,
+                _requestTimeout,
+                OcctooTransport.Request(
+                    HttpMethod.Get,
+                    new($"v1/image-conversions/{id.Value:D}/tasks/{task.Value:D}", UriKind.Relative)),
+                GetTaskOperation,
+                ImageConversionsJsonContext.Default.ConversionTaskDto,
+                cancellationToken,
+                [new(IdTag, id.Value.ToString("D")), new(TaskTag, task.Value.ToString("D"))],
+                read => [new(StatusTag, read.Status)])
+            .Bind(ToTask);
 
     /// <summary>
     /// Reads one page of the tenant's conversion presets, ordered by id.
@@ -453,7 +508,7 @@ public sealed class ImageConversionsClient
                 responseTags: created => [new(IdTag, created.Id.ToString("D"))])
             .Bind(ToUploadTarget);
 
-    private Task<Result<ConvertedImage, OcctooError>> SendConvert(
+    private Task<Result<ConversionTaskId, OcctooError>> SendConvert(
         ImageConversionId id,
         ConvertImageDto body,
         IReadOnlyList<KeyValuePair<string, object?>> tags,
@@ -468,10 +523,11 @@ public sealed class ImageConversionsClient
                     body,
                     ImageConversionsJsonContext.Default.ConvertImageDto),
                 ConvertOperation,
-                ImageConversionsJsonContext.Default.ConvertedImageDto,
+                ImageConversionsJsonContext.Default.ConversionTaskDto,
                 cancellationToken,
-                tags)
-            .Bind(ToConvertedImage);
+                tags,
+                queued => [new(TaskTag, queued.Id.ToString("D"))])
+            .Bind(ToTaskId);
 
     private static Result<UploadTarget, OcctooError> ToUploadTarget(
         ImageConversionCreatedDto created)
@@ -486,6 +542,28 @@ public sealed class ImageConversionsClient
             return new UnexpectedError($"Occtoo returned image conversion '{id}' without a maximum file size.");
 
         return new UploadTarget(id, location, created.MaxFileSize.Value);
+    }
+
+    private static Result<ConversionTaskId, OcctooError> ToTaskId(ConversionTaskDto task) =>
+        ConversionTaskId.TryFrom(task.Id, out var id)
+            ? id
+            : new UnexpectedError("Occtoo returned a conversion task without an id.");
+
+    private static Result<ConversionTask, OcctooError> ToTask(ConversionTaskDto task)
+    {
+        var status = Enums.Read<ConversionTaskStatus>(task.Status);
+        var error = task.Error is { Length: > 0 } message ? Maybe.From(message) : Maybe<string>.None;
+
+        return ToTaskId(task)
+            .Bind(
+                id => task.Result switch
+                {
+                    { } result => ToConvertedImage(result)
+                        .Map(image => new ConversionTask(id, status, image, error)),
+                    null when status == ConversionTaskStatus.Completed => new UnexpectedError(
+                        $"Occtoo returned completed conversion task '{id}' without its converted image."),
+                    null => new ConversionTask(id, status, Maybe<ConvertedImage>.None, error),
+                });
     }
 
     private static Result<ConvertedImage, OcctooError> ToConvertedImage(ConvertedImageDto converted) =>

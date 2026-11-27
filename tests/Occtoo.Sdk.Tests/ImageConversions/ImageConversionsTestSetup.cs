@@ -1,6 +1,3 @@
-using Microsoft.Extensions.DependencyInjection;
-using Occtoo.Authentication;
-using Occtoo.DependencyInjection;
 using Occtoo.ImageConversions;
 
 namespace Occtoo.Sdk.Tests.ImageConversions;
@@ -27,6 +24,10 @@ internal static class ImageConversionsTestSetup
             Background = ImageBackground.From("FFFFFF"),
         };
 
+    internal const string TaskIdValue = "0193a5c4-7e1f-7b2a-9c3d-4e5f60718293";
+
+    internal static readonly ConversionTaskId TaskId = ConversionTaskId.From(Guid.Parse(TaskIdValue));
+
     internal const string ConvertedBody = $$"""
         {
           "url": "{{DownloadUrl}}",
@@ -34,6 +35,23 @@ internal static class ImageConversionsTestSetup
           "filename": "shoe.webp",
           "contentType": "image/webp",
           "size": 81234
+        }
+        """;
+
+    internal static readonly string QueuedTaskBody = TaskBody("Queued");
+
+    internal static readonly string CompletedTaskBody = TaskBody("Completed", result: ConvertedBody);
+
+    /// <summary>
+    /// The task resource Occtoo returns from a convert and a task read, with
+    /// <paramref name="result"/> and <paramref name="error"/> as raw JSON.
+    /// </summary>
+    internal static string TaskBody(string status, string result = "null", string error = "null") => $$"""
+        {
+          "id": "{{TaskIdValue}}",
+          "status": "{{status}}",
+          "result": {{result}},
+          "error": {{error}}
         }
         """;
 
@@ -61,15 +79,6 @@ internal static class ImageConversionsTestSetup
           "errors": {
             "Parameters.TargetSize": [ "'Target Size' must be between 1 and 8000." ]
           }
-        }
-        """;
-
-    internal const string TimedOutBody = """
-        {
-          "type": "https://tools.ietf.org/html/rfc9110#section-15.6.5",
-          "title": "Gateway Timeout",
-          "status": 504,
-          "detail": "The conversion took longer than 25 seconds."
         }
         """;
 
@@ -142,30 +151,4 @@ internal static class ImageConversionsTestSetup
           "maxFileSize": {{maxFileSize}}
         }
         """;
-
-    /// <summary>
-    /// A client whose pipeline retries a failed request, built the way
-    /// dependency injection builds it.
-    /// </summary>
-    internal static OcctooClient RetryingClient(StubHandler api)
-    {
-        var options = new OcctooClientOptions
-        {
-            Credential = OcctooCredential.ApiKey(ApiKey.From("key-1")),
-            Resilience = new OcctooResilienceOptions
-            {
-                MaxRetryAttempts = 3,
-                BaseDelay = TimeSpan.FromMilliseconds(1),
-                UseJitter = false,
-            },
-        };
-
-        var services = new ServiceCollection();
-        services.AddOcctooClient(_ => options);
-        services
-            .AddHttpClient(OcctooServiceCollectionExtensions.HttpClientName)
-            .ConfigurePrimaryHttpMessageHandler(() => api);
-
-        return services.BuildServiceProvider().GetRequiredService<OcctooClient>();
-    }
 }
