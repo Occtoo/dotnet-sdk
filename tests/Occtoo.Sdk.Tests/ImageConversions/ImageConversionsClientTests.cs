@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using CSharpFunctionalExtensions;
 using Occtoo.Assets;
 using Occtoo.ImageConversions;
 using Occtoo.Sdk.Tests.Assets;
@@ -131,7 +132,7 @@ public class ImageConversionsClientTests
     [Fact]
     public async Task Convert_writes_enum_member_names_and_leaves_out_unset_optional_fields()
     {
-        using var api = new StubHandler().Respond(HttpStatusCode.OK, ConvertedBody);
+        using var api = new StubHandler().Respond(HttpStatusCode.Accepted, QueuedJobBody);
         using var client = Client(api);
 
         await client.ImageConversions.Convert(ConversionId, Thumbnail, TestContext.Current.CancellationToken);
@@ -154,7 +155,7 @@ public class ImageConversionsClientTests
     [Fact]
     public async Task Convert_sends_padding_and_background_when_set()
     {
-        using var api = new StubHandler().Respond(HttpStatusCode.OK, ConvertedBody);
+        using var api = new StubHandler().Respond(HttpStatusCode.Accepted, QueuedJobBody);
         using var client = Client(api);
 
         await client.ImageConversions.Convert(ConversionId, Padded, TestContext.Current.CancellationToken);
@@ -169,20 +170,27 @@ public class ImageConversionsClientTests
     }
 
     [Fact]
-    public async Task The_convert_response_maps_to_a_converted_image()
+    public async Task Convert_returns_the_queued_job_id()
     {
-        using var api = new StubHandler().Respond(HttpStatusCode.OK, ConvertedBody);
+        using var api = new StubHandler().Respond(HttpStatusCode.Accepted, QueuedJobBody);
         using var client = Client(api);
 
         var result = await client.ImageConversions.Convert(
             ConversionId, Thumbnail, TestContext.Current.CancellationToken);
 
-        result.Value.ShouldBe(new ConvertedImage(
-            new Uri(DownloadUrl),
-            DateTimeOffset.Parse(DownloadExpiry, null),
-            "shoe.webp",
-            "image/webp",
-            81234));
+        result.Value.ShouldBe(JobId);
+    }
+
+    [Fact]
+    public async Task A_202_without_a_job_id_is_an_unexpected_error()
+    {
+        using var api = new StubHandler().Respond(HttpStatusCode.Accepted, """{ "status": "Queued" }""");
+        using var client = Client(api);
+
+        var result = await client.ImageConversions.Convert(
+            ConversionId, Thumbnail, TestContext.Current.CancellationToken);
+
+        result.Error.ShouldBeOfType<UnexpectedError>();
     }
 
     [Fact]
@@ -211,9 +219,9 @@ public class ImageConversionsClientTests
     }
 
     [Fact]
-    public async Task A_504_is_a_server_error_and_is_not_resent()
+    public async Task A_convert_is_not_replayed_after_an_ambiguous_failure()
     {
-        using var api = new StubHandler().RespondAlways(HttpStatusCode.GatewayTimeout, TimedOutBody);
+        using var api = new StubHandler().RespondAlways(HttpStatusCode.ServiceUnavailable, ServiceUnavailableBody);
         using var client = RetryingClient(api);
 
         var result = await client.ImageConversions.Convert(
@@ -224,31 +232,9 @@ public class ImageConversionsClientTests
     }
 
     [Fact]
-    public async Task A_download_link_that_is_not_an_absolute_url_is_an_unexpected_error()
-    {
-        const string relative = """
-            {
-              "url": "shoe.webp",
-              "expiresAt": "2099-01-01T00:00:00+00:00",
-              "filename": "shoe.webp",
-              "contentType": "image/webp",
-              "size": 81234
-            }
-            """;
-
-        using var api = new StubHandler().Respond(HttpStatusCode.OK, relative);
-        using var client = Client(api);
-
-        var result = await client.ImageConversions.Convert(
-            ConversionId, Thumbnail, TestContext.Current.CancellationToken);
-
-        result.Error.ShouldBeOfType<UnexpectedError>();
-    }
-
-    [Fact]
     public async Task Convert_with_a_preset_posts_only_the_preset_id()
     {
-        using var api = new StubHandler().Respond(HttpStatusCode.OK, ConvertedBody);
+        using var api = new StubHandler().Respond(HttpStatusCode.Accepted, QueuedJobBody);
         using var client = Client(api);
 
         await client.ImageConversions.Convert(ConversionId, PresetIdValue, TestContext.Current.CancellationToken);
@@ -260,20 +246,15 @@ public class ImageConversionsClientTests
     }
 
     [Fact]
-    public async Task The_convert_response_for_a_preset_maps_to_a_converted_image()
+    public async Task Convert_with_a_preset_returns_the_queued_job_id()
     {
-        using var api = new StubHandler().Respond(HttpStatusCode.OK, ConvertedBody);
+        using var api = new StubHandler().Respond(HttpStatusCode.Accepted, QueuedJobBody);
         using var client = Client(api);
 
         var result = await client.ImageConversions.Convert(
             ConversionId, PresetId, TestContext.Current.CancellationToken);
 
-        result.Value.ShouldBe(new ConvertedImage(
-            new Uri(DownloadUrl),
-            DateTimeOffset.Parse(DownloadExpiry, null),
-            "shoe.webp",
-            "image/webp",
-            81234));
+        result.Value.ShouldBe(JobId);
     }
 
     [Fact]
@@ -284,6 +265,124 @@ public class ImageConversionsClientTests
 
         var result = await client.ImageConversions.Convert(
             ConversionId, PresetId, TestContext.Current.CancellationToken);
+
+        result.Error.ShouldBeOfType<NotFoundError>();
+    }
+
+    [Fact]
+    public async Task GetJob_gets_the_job_under_its_conversion()
+    {
+        using var api = new StubHandler().Respond(HttpStatusCode.OK, QueuedJobBody);
+        using var client = Client(api);
+
+        await client.ImageConversions.GetJob(ConversionId, JobId, TestContext.Current.CancellationToken);
+
+        var request = api.Requests.Single();
+        request.Method.ShouldBe(HttpMethod.Get);
+        request.RequestUri!.ToString().ShouldBe($"https://api.occtoo.com/v1/image-conversions/{Id}/jobs/{JobIdValue}");
+    }
+
+    [Fact]
+    public async Task A_completed_job_maps_to_its_converted_image()
+    {
+        using var api = new StubHandler().Respond(HttpStatusCode.OK, CompletedJobBody);
+        using var client = Client(api);
+
+        var result = await client.ImageConversions.GetJob(ConversionId, JobId, TestContext.Current.CancellationToken);
+
+        result.Value.ShouldBe(new ConversionJob(
+            JobId,
+            ConversionJobStatus.Completed,
+            new ConvertedImage(
+                new Uri(DownloadUrl),
+                DateTimeOffset.Parse(DownloadExpiry, null),
+                "shoe.webp",
+                "image/webp",
+                81234),
+            Maybe<string>.None));
+    }
+
+    [Fact]
+    public async Task A_failed_job_carries_the_error_and_no_image()
+    {
+        using var api = new StubHandler().Respond(
+            HttpStatusCode.OK,
+            JobBody("Failed", error: "\"The uploaded file can't be converted.\""));
+        using var client = Client(api);
+
+        var result = await client.ImageConversions.GetJob(ConversionId, JobId, TestContext.Current.CancellationToken);
+
+        var job = result.Value;
+        job.Status.GetValueOrThrow().ShouldBe(ConversionJobStatus.Failed);
+        job.Error.GetValueOrThrow().ShouldBe("The uploaded file can't be converted.");
+        job.Image.HasNoValue.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task A_queued_job_has_neither_an_image_nor_an_error()
+    {
+        using var api = new StubHandler().Respond(HttpStatusCode.OK, QueuedJobBody);
+        using var client = Client(api);
+
+        var result = await client.ImageConversions.GetJob(ConversionId, JobId, TestContext.Current.CancellationToken);
+
+        result.Value.ShouldBe(new ConversionJob(
+            JobId,
+            ConversionJobStatus.Queued,
+            Maybe<ConvertedImage>.None,
+            Maybe<string>.None));
+    }
+
+    [Fact]
+    public async Task A_job_with_an_unknown_status_has_no_status()
+    {
+        using var api = new StubHandler().Respond(HttpStatusCode.OK, JobBody("Paused"));
+        using var client = Client(api);
+
+        var result = await client.ImageConversions.GetJob(ConversionId, JobId, TestContext.Current.CancellationToken);
+
+        result.Value.Status.HasNoValue.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task A_completed_job_whose_download_link_is_not_an_absolute_url_is_an_unexpected_error()
+    {
+        const string relative = """
+            {
+              "url": "shoe.webp",
+              "expiresAt": "2099-01-01T00:00:00+00:00",
+              "filename": "shoe.webp",
+              "contentType": "image/webp",
+              "size": 81234
+            }
+            """;
+
+        using var api = new StubHandler().Respond(HttpStatusCode.OK, JobBody("Completed", result: relative));
+        using var client = Client(api);
+
+        var result = await client.ImageConversions.GetJob(ConversionId, JobId, TestContext.Current.CancellationToken);
+
+        result.Error.ShouldBeOfType<UnexpectedError>();
+    }
+
+    [Fact]
+    public async Task A_completed_job_without_a_result_is_an_unexpected_error()
+    {
+        using var api = new StubHandler().Respond(HttpStatusCode.OK, JobBody("Completed"));
+        using var client = Client(api);
+
+        var result = await client.ImageConversions.GetJob(ConversionId, JobId, TestContext.Current.CancellationToken);
+
+        result.Error.ShouldBeOfType<UnexpectedError>();
+    }
+
+    [Fact]
+    public async Task A_404_on_GetJob_is_a_not_found_error()
+    {
+        using var api = new StubHandler().Respond(HttpStatusCode.NotFound, NotFoundBody);
+        using var client = Client(api);
+
+        var result = await client.ImageConversions.GetJob(ConversionId, JobId, TestContext.Current.CancellationToken);
 
         result.Error.ShouldBeOfType<NotFoundError>();
     }

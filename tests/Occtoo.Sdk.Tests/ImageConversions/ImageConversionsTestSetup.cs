@@ -27,6 +27,10 @@ internal static class ImageConversionsTestSetup
             Background = ImageBackground.From("FFFFFF"),
         };
 
+    internal const string JobIdValue = "0193a5c4-7e1f-7b2a-9c3d-4e5f60718293";
+
+    internal static readonly ConversionJobId JobId = ConversionJobId.From(Guid.Parse(JobIdValue));
+
     internal const string ConvertedBody = $$"""
         {
           "url": "{{DownloadUrl}}",
@@ -37,11 +41,36 @@ internal static class ImageConversionsTestSetup
         }
         """;
 
+    internal static readonly string QueuedJobBody = JobBody("Queued");
+
+    internal static readonly string CompletedJobBody = JobBody("Completed", result: ConvertedBody);
+
+    /// <summary>
+    /// The job resource Occtoo returns from a convert and a job read, with
+    /// <paramref name="result"/> and <paramref name="error"/> as raw JSON.
+    /// </summary>
+    internal static string JobBody(string status, string result = "null", string error = "null") => $$"""
+        {
+          "id": "{{JobIdValue}}",
+          "status": "{{status}}",
+          "result": {{result}},
+          "error": {{error}}
+        }
+        """;
+
     internal const string NotFoundBody = """
         {
           "type": "https://tools.ietf.org/html/rfc9110#section-15.5.5",
           "title": "Not Found",
           "status": 404
+        }
+        """;
+
+    internal const string ServiceUnavailableBody = """
+        {
+          "type": "https://tools.ietf.org/html/rfc9110#section-15.6.4",
+          "title": "Service Unavailable",
+          "status": 503
         }
         """;
 
@@ -61,15 +90,6 @@ internal static class ImageConversionsTestSetup
           "errors": {
             "Parameters.TargetSize": [ "'Target Size' must be between 1 and 8000." ]
           }
-        }
-        """;
-
-    internal const string TimedOutBody = """
-        {
-          "type": "https://tools.ietf.org/html/rfc9110#section-15.6.5",
-          "title": "Gateway Timeout",
-          "status": 504,
-          "detail": "The conversion took longer than 25 seconds."
         }
         """;
 

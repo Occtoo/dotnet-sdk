@@ -1,27 +1,58 @@
 # Image conversions
 
-`client.ImageConversions` wraps `/v1/image-conversions` and `/v1/conversion-presets`: upload an image once, then convert it as often as you like, with parameters you pass or with one of the tenant's conversion presets. Each conversion resizes the original onto a canvas, re-encodes it and returns a temporary download link.
+`client.ImageConversions` wraps `/v1/image-conversions` and `/v1/conversion-presets`: upload an image once, then convert it as often as you like, with parameters you pass or with one of the tenant's conversion presets. Each conversion resizes the original onto a canvas and re-encodes it. `Convert` queues the conversion and returns a job id; read the job with `GetJob` every second or two until it's done, then download the result from its temporary link.
 
 ```csharp
 var thumbnail = new ImageConversionParameters(
     ImageConversionMode.Fit, TargetSize: 400, AspectRatio: "1:1", ImageOutputFormat.Webp, Quality: 80);
 
-var large = new ImageConversionParameters(
-    ImageConversionMode.FillBackground, TargetSize: 2000, AspectRatio: "4:3", ImageOutputFormat.Jpg, Quality: 90)
-{
-    PaddingPercent = 5,
-    Background = ImageBackground.From("FFFFFF"),
-};
+var queued = await client.ImageConversions.Upload(AssetContent.FromFile("files/shoe.tif"), "shoe.tif", cancellationToken)
+    .Bind(id => client.ImageConversions.Convert(id, thumbnail, cancellationToken)
+        .Map(jobId => (Id: id, JobId: jobId)));
 
-await client.ImageConversions.Upload(AssetContent.FromFile("files/shoe.tif"), "shoe.tif")
-    .Bind(id => client.ImageConversions.Convert(id, thumbnail)
-        .Tap(image => logger.LogInformation("Thumbnail at {Url}", image.Url))
-        .Bind(_ => client.ImageConversions.Convert(id, large)))
-    .Tap(image => logger.LogInformation("Large image at {Url}", image.Url))
-    .TapError(error => logger.LogWarning("Conversion failed: {Error}", error));
+if (queued.IsFailure)
+{
+    logger.LogWarning("Conversion wasn't queued: {Error}", queued.Error);
+    return;
+}
+
+while (true)
+{
+    await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
+
+    var read = await client.ImageConversions.GetJob(queued.Value.Id, queued.Value.JobId, cancellationToken);
+    if (read.IsFailure)
+    {
+        if (read.Error is TransientError)
+        {
+            logger.LogWarning("Couldn't read the conversion, retrying: {Error}", read.Error);
+            continue;
+        }
+
+        logger.LogWarning("Couldn't read the conversion, giving up: {Error}", read.Error);
+        break;
+    }
+
+    var job = read.Value;
+    if (job.Status == ConversionJobStatus.Completed)
+    {
+        logger.LogInformation("Thumbnail at {Url}", job.Image.Value.Url);
+        break;
+    }
+
+    if (job.Status == ConversionJobStatus.Failed)
+    {
+        logger.LogWarning("Conversion failed: {Error}", job.Error.GetValueOrDefault());
+        break;
+    }
+}
 ```
 
-`Upload` and `Convert` need a credential with `write:media`; see [authentication.md](authentication.md).
+The loop stops when the conversion completes or fails, when a read fails with anything other than a `TransientError` (polling again won't fix those), or when `cancellationToken` is cancelled.
+
+Runnable: [`examples/Occtoo.Sdk.Examples.ImageConversions`](../examples/Occtoo.Sdk.Examples.ImageConversions).
+
+`Upload`, `Convert` and `GetJob` need a credential with `write:media`; see [authentication.md](authentication.md).
 
 ## Upload
 
@@ -37,11 +68,21 @@ The transfer isn't retried.
 
 ## Convert
 
-`Convert` takes the id and either an `ImageConversionParameters` or the id of one of your [presets](#presets), and returns a `ConvertedImage`: the download `Url`, its `ExpiresAt`, the `Filename`, the `ContentType` and the `Size` in bytes. Every call converts the original again and returns a fresh link.
+`Convert` takes the id and either an `ImageConversionParameters` or the id of one of your [presets](#presets), queues the conversion and returns its `ConversionJobId`. Read the result with [`GetJob`](#read-the-result). Every call queues a new conversion with its own output, even with the same parameters.
 
 ```csharp
-var image = await client.ImageConversions.Convert(id, "web-thumbnail");
+var large = new ImageConversionParameters(
+    ImageConversionMode.FillBackground, TargetSize: 2000, AspectRatio: "4:3", ImageOutputFormat.Jpg, Quality: 90)
+{
+    PaddingPercent = 5,
+    Background = ImageBackground.From("FFFFFF"),
+};
+
+var withParameters = await client.ImageConversions.Convert(id, large);
+var withPreset = await client.ImageConversions.Convert(id, "web-thumbnail");
 ```
+
+`Convert` fails right away when it can't queue the conversion or when Occtoo fails while queuing it: the credential is refused or lacks the scope, a parameter or the preset is refused, the original is 32 MiB or more, there's no original under the id or, with a preset, no preset under its id, or Occtoo returns a server error or times out (a call that fails this way isn't resent and may still have queued a conversion). See [What can go wrong](#what-can-go-wrong). An original Occtoo can't convert fails the job instead.
 
 | Parameter | Rule |
 |---|---|
@@ -61,6 +102,30 @@ The modes. An original smaller than the canvas is scaled up in every mode.
 - `Auto` crops when the image and the canvas have the same orientation, and fits otherwise.
 
 `ImageAspectRatio` and `ImageBackground` are value objects: `From` throws a `ValueObjectValidationException` for a malformed value and `TryFrom` reports it. `AspectRatio` takes a string literal directly. `Background` is a `Maybe<ImageBackground>`, so assign `ImageBackground.From("FFFFFF")`. Occtoo checks the numeric ranges and the padding rule.
+
+## Read the result
+
+`GetJob` takes the upload's id and the `ConversionJobId` that `Convert` returned, and returns a `ConversionJob`:
+
+| Field | What it holds |
+|---|---|
+| `Id` | The job's id |
+| `Status` | Where the conversion stands, a `Maybe<ConversionJobStatus>` (below) |
+| `Image` | Once the job is `Completed`: a `ConvertedImage` with the download `Url`, its `ExpiresAt`, the `Filename`, the `ContentType` and the `Size` in bytes |
+| `Error` | Once the job is `Failed`: Occtoo's message saying why, such as an original it can't convert |
+
+The statuses:
+
+- `Queued`: the conversion is waiting to run. A running job can go back to `Queued` when Occtoo retries it.
+- `Running`: the conversion is running.
+- `Completed`: the conversion finished and `Image` is ready to download. This is final.
+- `Failed`: the conversion failed and won't be retried. This is final.
+
+Read the job every second or two until it's `Completed` or `Failed`. How long that takes depends on how much Occtoo is converting at the time. A failed conversion is still a successful read: `GetJob` succeeds with `Status` `Failed` and the message in `Error`. A failed `Result` means the read itself failed.
+
+Every read of a completed job returns a new download link that lasts an hour, so read the job again when a link has expired. A job stays readable for at least a day after it finishes. Once Occtoo no longer keeps the result, or for an id that isn't a job of this upload, `GetJob` fails with a `NotFoundError`.
+
+`Status` is read like every enum in the SDK: a status this SDK version doesn't know reads as absent, as on [asset states](assets.md#reading-state-afterwards). `Image` and `Error` are still filled in when Occtoo sends them.
 
 ## Presets
 
@@ -103,7 +168,8 @@ Reading presets needs `read:media`; creating, updating and deleting them needs `
 ## Lifetimes
 
 - The upload link lasts 1 hour.
-- Each download link lasts 1 hour.
+- Each download link lasts 1 hour. Every `GetJob` of a completed job returns a new one.
+- A job stays readable for at least a day after it finishes.
 - You can convert the original any number of times until Occtoo deletes it, a day after the upload.
 
 ## What can go wrong
@@ -112,10 +178,12 @@ Reading presets needs `read:media`; creating, updating and deleting them needs `
 |---|---|
 | The content's length is unknown, or the content is too large | `ValidationError`, before any bytes are sent |
 | A parameter breaks a rule | `ValidationError`, with `Failures` keyed `Parameters.TargetSize`, `Parameters.PaddingPercent`, `Parameters.Quality`, `Parameters.Mode` or `Parameters.OutputFormat` |
-| The original is too large, isn't an image Occtoo can convert, or the filename is refused | `ValidationError`, without `Failures` |
+| The original is 32 MiB or more, on `Convert`; or the filename is refused, on `Upload` | `ValidationError`, without `Failures` |
 | No original under the id: unknown, not uploaded yet, or already deleted; or, converting with a preset, no preset under its id. The error doesn't say which | `NotFoundError` |
-| The credential is refused, or lacks `write:media` | `AuthenticationError`, `ForbiddenError` |
-| The conversion ran over 25 seconds (`504`), or Occtoo failed | `ServerError` |
+| On `GetJob`, the upload has no job under the id, or the job's result is no longer kept | `NotFoundError` |
+| The conversion failed, for example because the original isn't an image Occtoo can convert | No error: `GetJob` succeeds with `Status` `Failed` and Occtoo's message in `Error` |
+| The credential is refused, or lacks `write:media`, which `Upload`, `Convert` and `GetJob` need | `AuthenticationError`, `ForbiddenError` |
+| Occtoo failed | `ServerError` |
 | Blob storage refused the bytes | As for an asset transfer: an expired upload link is an `AuthenticationError`, and the message carries storage's error code and request id |
 | A preset's id, display name or parameter breaks a rule | `ValidationError`, with `Failures` keyed `Id`, `DisplayName` or `Parameters.TargetSize` and the like |
 | A page limit outside 1 to 200, or a cursor Occtoo refuses | `ValidationError`; a refused cursor is keyed `after` |
@@ -123,4 +191,4 @@ Reading presets needs `read:media`; creating, updating and deleting them needs `
 | `CreatePreset` with an id that already exists, or `DeletePreset` while a card definition uses the preset | `ConflictError` |
 | The credential lacks `read:media` to read presets, or `write:media` to change them | `ForbiddenError` |
 
-The SDK doesn't resend the create request or `Convert` after a `5xx` or a timeout. See [errors.md](errors.md).
+The SDK doesn't resend the create request or `Convert` after a `5xx` or a timeout. Such a `Convert` may still have queued a conversion, and calling it again queues another. See [errors.md](errors.md).

@@ -22,6 +22,7 @@
     <Project Path="examples/Occtoo.Sdk.Examples.Events.Batch/Occtoo.Sdk.Examples.Events.Batch.csproj" />
     <Project Path="examples/Occtoo.Sdk.Examples.Events.Pull/Occtoo.Sdk.Examples.Events.Pull.csproj" />
     <Project Path="examples/Occtoo.Sdk.Examples.Events.SSE/Occtoo.Sdk.Examples.Events.SSE.csproj" />
+    <Project Path="examples/Occtoo.Sdk.Examples.ImageConversions/Occtoo.Sdk.Examples.ImageConversions.csproj" />
     <Project Path="examples/Occtoo.Sdk.Examples.Sources.Ingest/Occtoo.Sdk.Examples.Sources.Ingest.csproj" />
   </Folder>
   <Folder Name="/bench/">

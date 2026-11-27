@@ -88,7 +88,8 @@ spans when it is not:
 | `delete assets` | Client | `occtoo.source.id`, `occtoo.assets.count` |
 | `upload image` | Client | `occtoo.image_conversions.id` (once Occtoo has assigned one), `occtoo.image_conversions.bytes` (on success) |
 | `request image conversion` | Client | `occtoo.image_conversions.id` |
-| `convert image` | Client | `occtoo.image_conversions.id`, `occtoo.image_conversions.preset` (when converting with a preset) |
+| `convert image` | Client | `occtoo.image_conversions.id`, `occtoo.image_conversions.preset` (when converting with a preset), `occtoo.image_conversions.job` (once Occtoo has queued the conversion) |
+| `get conversion job` | Client | `occtoo.image_conversions.id`, `occtoo.image_conversions.job`, `occtoo.image_conversions.status` (on success, as Occtoo sent it) |
 | `list conversion presets`, `get conversion preset`, `create conversion preset`, `update conversion preset`, `delete conversion preset` | Client | `occtoo.image_conversions.preset` on all but the list; `occtoo.page.limit` on the list |
 
 A token acquisition triggered mid-request nests under the operation that needed
