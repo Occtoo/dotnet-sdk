@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Occtoo.Sdk/Occtoo.Sdk.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="files/**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

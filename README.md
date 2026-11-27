@@ -190,6 +190,7 @@ Runnable samples under [`examples/`](examples), one project per capability:
 | [`Occtoo.Sdk.Examples.Events.Pull`](examples/Occtoo.Sdk.Examples.Events.Pull) | A paginated event consumer that persists its cursor and resumes across restarts |
 | [`Occtoo.Sdk.Examples.Events.SSE`](examples/Occtoo.Sdk.Examples.Events.SSE) | A live subscription over Server-Sent Events, filtered, with automatic reconnect |
 | [`Occtoo.Sdk.Examples.Events.Batch`](examples/Occtoo.Sdk.Examples.Events.Batch) | Competing workers on a durable consumer: pull leased batches, acknowledge, park poison batches |
+| [`Occtoo.Sdk.Examples.ImageConversions`](examples/Occtoo.Sdk.Examples.ImageConversions) | A console app that uploads an image, converts it with inline parameters or a preset, polls the task and downloads the result |
 
 With dependency injection:
 
