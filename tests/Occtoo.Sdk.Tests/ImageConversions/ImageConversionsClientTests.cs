@@ -353,6 +353,17 @@ public class ImageConversionsClientTests
     }
 
     [Fact]
+    public async Task A_completed_task_without_a_result_is_an_unexpected_error()
+    {
+        using var api = new StubHandler().Respond(HttpStatusCode.OK, TaskBody("Completed"));
+        using var client = Client(api);
+
+        var result = await client.ImageConversions.GetTask(ConversionId, TaskId, TestContext.Current.CancellationToken);
+
+        result.Error.ShouldBeOfType<UnexpectedError>();
+    }
+
+    [Fact]
     public async Task A_404_on_GetTask_is_a_not_found_error()
     {
         using var api = new StubHandler().Respond(HttpStatusCode.NotFound, NotFoundBody);
