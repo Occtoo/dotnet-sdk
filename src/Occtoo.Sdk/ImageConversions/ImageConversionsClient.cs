@@ -241,9 +241,9 @@ public sealed class ImageConversionsClient
     /// <remarks>
     /// Poll every second or two until the task is
     /// <see cref="ConversionTaskStatus.Completed"/> or
-    /// <see cref="ConversionTaskStatus.Failed"/>; that usually takes a few
-    /// seconds. A task can go back to <see cref="ConversionTaskStatus.Queued"/>
-    /// when Occtoo retries it. Every read of a completed task returns a new
+    /// <see cref="ConversionTaskStatus.Failed"/>. How long that takes depends
+    /// on how much Occtoo is converting at the time. A task can go back to
+    /// <see cref="ConversionTaskStatus.Queued"/> when Occtoo retries it. Every read of a completed task returns a new
     /// link that lasts an hour. A task stays readable for at least a day after
     /// it finishes.
     /// </remarks>

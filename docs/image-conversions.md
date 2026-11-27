@@ -119,7 +119,7 @@ The statuses:
 - `Completed`: the conversion finished and `Image` is ready to download. This is final.
 - `Failed`: the conversion failed and won't be retried. This is final.
 
-Read the task every second or two until it's `Completed` or `Failed`; that usually takes a few seconds. A failed conversion is still a successful read: `GetTask` succeeds with `Status` `Failed` and the message in `Error`. A failed `Result` means the read itself failed.
+Read the task every second or two until it's `Completed` or `Failed`. How long that takes depends on how much Occtoo is converting at the time. A failed conversion is still a successful read: `GetTask` succeeds with `Status` `Failed` and the message in `Error`. A failed `Result` means the read itself failed.
 
 Every read of a completed task returns a new download link that lasts an hour, so read the task again when a link has expired. A task stays readable for at least a day after it finishes. Once Occtoo no longer keeps the result, or for an id that isn't a task of this upload, `GetTask` fails with a `NotFoundError`.
 
