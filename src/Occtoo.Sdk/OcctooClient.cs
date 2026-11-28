@@ -2,6 +2,7 @@ using CSharpFunctionalExtensions;
 using Occtoo.Applications;
 using Occtoo.Assets;
 using Occtoo.Authentication;
+using Occtoo.Cards;
 using Occtoo.Events;
 using Occtoo.Http;
 using Occtoo.Http.Internal;
@@ -105,6 +106,7 @@ public sealed class OcctooClient : IDisposable
         ManagedTags = CreateManagedTags();
         Assets = CreateAssets();
         ImageConversions = CreateImageConversions();
+        CardDefinitions = new CardDefinitionsClient(_httpClient, Options.Timeout);
         Languages = new LanguagesClient(_httpClient, Options.Timeout);
     }
 
@@ -153,6 +155,7 @@ public sealed class OcctooClient : IDisposable
         ManagedTags = CreateManagedTags();
         Assets = CreateAssets();
         ImageConversions = CreateImageConversions();
+        CardDefinitions = new CardDefinitionsClient(_httpClient, Options.Timeout);
         Languages = new LanguagesClient(_httpClient, Options.Timeout);
     }
 
@@ -244,6 +247,9 @@ public sealed class OcctooClient : IDisposable
     /// Image conversions: upload an image once and convert it on demand.
     /// </summary>
     public ImageConversionsClient ImageConversions { get; }
+
+    /// <summary>Card definitions — how source entries become cards — and their exports.</summary>
+    public CardDefinitionsClient CardDefinitions { get; }
 
     /// <summary>The tenant's languages and its default language.</summary>
     public LanguagesClient Languages { get; }
