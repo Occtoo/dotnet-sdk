@@ -127,3 +127,38 @@ var export = await client.CardDefinitions.StartExport("products",
 Without `Matching` every entry is exported; without `WithProperties`, every
 visible card property; without `InLanguages`, the tenant's default language.
 Fewer than 500,000 entries may match. Exports need only `read:cards`.
+
+## Segments
+
+`client.Segments` manages the segments of a card definition
+(`/v1/card-definitions/{cardId}/segments`): reads need `read:segments`, writes
+`write:segments`. A segment's entries are tagged in the background; it is
+`Initializing` until that finishes.
+
+```csharp
+await client.Segments.Create("products",
+    CreateSegment.Query("summer26", "Summer 26", LanguageCode.From("en"),
+            Where.Text("season").Eq("summer") & Where.Integer("stock").Gte(1))
+        .ActiveUntil(new DateTimeOffset(2026, 9, 1, 0, 0, 0, TimeSpan.Zero)));
+
+await client.Segments.Create("products",
+    CreateSegment.Fixed("featured", "Featured", LanguageCode.From("en"), "chair-1", "table-2"));
+```
+
+A `Query` segment keeps following its condition; a `Fixed` one holds the
+listed cards. The language is the one localized card properties in the
+condition are read in. `ActiveFrom` and `ActiveUntil` take times on the hour;
+a start time must be in the future.
+
+A segment evaluates part of the `Where` language: `And` at the top level, `Or`
+and `Not` around a single condition; text `Eq`, `In` and `Matches`; list
+`Contains` and `Matches`; integer, decimal and timestamp `Eq`, `In`, `Gte` and
+`Lte`; boolean `Eq`; `HasValue`; and `Related` by id. Patterns are
+case-sensitive, and `HasValue` doesn't count an empty text or list. Anything
+else is a `ValidationError` naming the limit.
+
+`Segment.Where` is the stored condition: it can differ in form from what was
+sent, never in meaning, and branches the SDK doesn't model are kept as they
+are. `Update(segment.Edit().WithWhere(…))` changes only what you set; a new
+condition or language starts tagging again. `Delete` archives the segment, and
+an archived segment is no longer listed or read.

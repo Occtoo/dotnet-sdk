@@ -107,6 +107,7 @@ public sealed class OcctooClient : IDisposable
         Assets = CreateAssets();
         ImageConversions = CreateImageConversions();
         CardDefinitions = new CardDefinitionsClient(_httpClient, Options.Timeout);
+        Segments = new SegmentsClient(_httpClient, Options.Timeout);
         Languages = new LanguagesClient(_httpClient, Options.Timeout);
     }
 
@@ -156,6 +157,7 @@ public sealed class OcctooClient : IDisposable
         Assets = CreateAssets();
         ImageConversions = CreateImageConversions();
         CardDefinitions = new CardDefinitionsClient(_httpClient, Options.Timeout);
+        Segments = new SegmentsClient(_httpClient, Options.Timeout);
         Languages = new LanguagesClient(_httpClient, Options.Timeout);
     }
 
@@ -250,6 +252,9 @@ public sealed class OcctooClient : IDisposable
 
     /// <summary>Card definitions — how source entries become cards — and their exports.</summary>
     public CardDefinitionsClient CardDefinitions { get; }
+
+    /// <summary>Segments — named sets of cards of a card definition.</summary>
+    public SegmentsClient Segments { get; }
 
     /// <summary>The tenant's languages and its default language.</summary>
     public LanguagesClient Languages { get; }
