@@ -26,6 +26,9 @@ public readonly partial struct ClientSecret
 
     /// <summary>A masked placeholder — the secret itself is never printed.</summary>
     public override string ToString() => "***";
+
+    /// <summary>A masked placeholder — the secret itself is never printed.</summary>
+    public string ToString(IFormatProvider? provider) => "***";
 }
 
 /// <summary>
@@ -52,6 +55,9 @@ public readonly partial struct ApiKey
 
     /// <summary>A masked placeholder — the key itself is never printed.</summary>
     public override string ToString() => "***";
+
+    /// <summary>A masked placeholder — the key itself is never printed.</summary>
+    public string ToString(IFormatProvider? provider) => "***";
 }
 
 /// <summary>
