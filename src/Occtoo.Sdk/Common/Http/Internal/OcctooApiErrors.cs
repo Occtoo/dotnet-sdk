@@ -33,6 +33,8 @@ internal static class OcctooApiErrors
                 $"{operation} failed: {detail}"),
             HttpStatusCode.Conflict => new ConflictError(
                 $"{operation} was rejected: {detail}"),
+            HttpStatusCode.PreconditionFailed => new ConflictError(
+                $"{operation} was rejected: the resource changed since it was read; read it again and retry. {detail}"),
             HttpStatusCode.TooManyRequests => new RateLimitError(
                 $"{operation} was throttled: the tenant request-rate budget is exhausted.",
                 RetryAfter(response)),

@@ -55,3 +55,75 @@ API's size limits — 24 levels, 256 nodes — are checked by Occtoo.
 the builder doesn't model yet, such as lifecycle readiness. A condition read
 back from Occtoo, such as a segment's, keeps any branch the SDK doesn't model
 verbatim, so it round-trips unchanged. `ToString()` returns the JSON.
+
+## Card definitions
+
+`client.CardDefinitions` manages card definitions (`/v1/card-definitions`):
+reads need `read:cards`, writes `write:cards`. A new card definition is a
+draft; its card properties wait as pending changes until it is activated.
+
+```csharp
+await client.CardDefinitions.Create(
+        CreateCardDefinition.WithId("products", "Products")
+            .DisplayedAs(new CardDisplay(CardPropertyId.From("title"), default, default))
+            .WithProperty(CardProperty.Of("title", "products", "title", SourcePropertyType.LocalizedText)
+                .Named(LanguageCode.From("en"), "Title"))
+            .WithProperty(CardProperty.Of("tags", "products", "tags", SourcePropertyType.List)
+                .WithDelimiter(Delimiter.From(","))))
+    .Bind(draft => client.CardDefinitions.Activate(draft.Id, draft.ETag));
+```
+
+A card property reads one source property and exposes its type, which must
+match the source property's (`SourcePropertyType`) and can't change once the
+card property is active. `Named` and `Described` set translations, `Hidden`
+and `Editable` the Studio flags, `At` its position, and `FilledFrom` a managed
+tag list that fills it on enrichment.
+
+`Activate` applies the pending changes. The card definition comes back
+`Updating` while its entries are rebuilt; read it until it is `Active`.
+Nothing pending is a `ValidationError`.
+
+### Changes and versions
+
+`Update`, `Activate` and `Delete` carry the version (`ETag`) they were based
+on, sent as `If-Match`. When the card definition changed in the meantime the
+call is a `ConflictError`: read it again and retry.
+
+```csharp
+await client.CardDefinitions.Get("products")
+    .Bind(definition => client.CardDefinitions.Update(definition.Edit()
+        .WithName("Catalogue")
+        .SetProperty(CardProperty.Of("price", "products", "price", SourcePropertyType.Decimal))
+        .RemoveProperty("legacyCode")));
+```
+
+`Edit()` starts from the version read, including the pending property changes
+already saved: the API replaces pending changes as a whole, so `SetProperty`
+and `RemoveProperty` add to them, and `DiscardPendingChanges` clears them. A
+change to only the display fields of an active card property (name,
+description, settings, order, the hidden and editable flags, the managed tag
+list) applies at once; any other property change waits for activation. A change
+that touches no property sends no pending changes.
+
+`Delete` removes the card definition for good, and its id is free again. One
+used by destination endpoints, relation definitions or segments is a
+`ConflictError`.
+
+### Exports
+
+`StartExport` writes entries to a CSV or Excel file in the background and
+returns the export at once; `GetExport` reads it until its `Status` is final.
+Once `Completed`, `File.Url` is a signed download link, made new on every read
+and valid for up to 24 hours.
+
+```csharp
+var export = await client.CardDefinitions.StartExport("products",
+    StartCardExport.As(CardExportFormat.Csv)
+        .Matching(Where.Integer("stock").Gt(0))
+        .WithProperties("title", "price")
+        .InLanguages(LanguageCode.From("en"), LanguageCode.From("sv-SE")));
+```
+
+Without `Matching` every entry is exported; without `WithProperties`, every
+visible card property; without `InLanguages`, the tenant's default language.
+Fewer than 500,000 entries may match. Exports need only `read:cards`.
