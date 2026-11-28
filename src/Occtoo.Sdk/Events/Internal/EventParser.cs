@@ -264,9 +264,7 @@ internal static partial class EventParser
                     .Where(item => item.ValueKind == JsonValueKind.Object)
                     .Select(item => new EventPropertyValue(
                         GetString(item, "value") ?? "",
-                        LanguageCode.TryFrom(GetString(item, "language") ?? "", out var language)
-                            ? Maybe.From(language)
-                            : Maybe<LanguageCode>.None)),
+                        LanguageCode.Read(GetString(item, "language")))),
             ];
         }
 

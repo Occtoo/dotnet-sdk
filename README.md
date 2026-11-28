@@ -170,7 +170,8 @@ single-flight under concurrency, and recovery from a revoked token are handled
 for you. Full guides: [docs/authentication.md](docs/authentication.md) ·
 [docs/sources.md](docs/sources.md) · [docs/applications.md](docs/applications.md) ·
 [docs/managed-tags.md](docs/managed-tags.md) · [docs/assets.md](docs/assets.md) ·
-[docs/image-conversions.md](docs/image-conversions.md) · [docs/events.md](docs/events.md).
+[docs/image-conversions.md](docs/image-conversions.md) · [docs/languages.md](docs/languages.md) ·
+[docs/events.md](docs/events.md).
 
 Runnable samples under [`examples/`](examples), one project per capability:
 

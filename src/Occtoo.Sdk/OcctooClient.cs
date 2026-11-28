@@ -6,6 +6,7 @@ using Occtoo.Events;
 using Occtoo.Http;
 using Occtoo.Http.Internal;
 using Occtoo.ImageConversions;
+using Occtoo.Languages;
 using Occtoo.Logging;
 using Occtoo.ManagedTags;
 using Occtoo.Sources;
@@ -104,6 +105,7 @@ public sealed class OcctooClient : IDisposable
         ManagedTags = CreateManagedTags();
         Assets = CreateAssets();
         ImageConversions = CreateImageConversions();
+        Languages = new LanguagesClient(_httpClient, Options.Timeout);
     }
 
     /// <summary>
@@ -151,6 +153,7 @@ public sealed class OcctooClient : IDisposable
         ManagedTags = CreateManagedTags();
         Assets = CreateAssets();
         ImageConversions = CreateImageConversions();
+        Languages = new LanguagesClient(_httpClient, Options.Timeout);
     }
 
     private SourcesClient CreateSources() => new(
@@ -241,6 +244,9 @@ public sealed class OcctooClient : IDisposable
     /// Image conversions: upload an image once and convert it on demand.
     /// </summary>
     public ImageConversionsClient ImageConversions { get; }
+
+    /// <summary>The tenant's languages and its default language.</summary>
+    public LanguagesClient Languages { get; }
 
     /// <summary>
     /// Establishes the credential without calling an API, so a misconfigured

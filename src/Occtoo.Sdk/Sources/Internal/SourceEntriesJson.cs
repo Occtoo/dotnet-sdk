@@ -47,9 +47,7 @@ internal sealed record StoredPropertyDto
             type,
             Sources.Delimiter.Read(Delimiter),
             LastUpdated,
-            Language is { Length: > 0 } && LanguageCode.TryFrom(Language, out var language)
-                ? Maybe.From(language)
-                : Maybe<LanguageCode>.None);
+            LanguageCode.Read(Language));
     }
 
     // Values never fall back silently: anything the PropertyValue union cannot
