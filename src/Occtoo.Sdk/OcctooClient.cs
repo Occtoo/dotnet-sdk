@@ -3,6 +3,7 @@ using Occtoo.Applications;
 using Occtoo.Assets;
 using Occtoo.Authentication;
 using Occtoo.Cards;
+using Occtoo.Destinations;
 using Occtoo.Events;
 using Occtoo.Http;
 using Occtoo.Http.Internal;
@@ -110,6 +111,7 @@ public sealed class OcctooClient : IDisposable
         Segments = new SegmentsClient(_httpClient, Options.Timeout);
         RelationDefinitions = new RelationDefinitionsClient(_httpClient, Options.Timeout);
         CardEntries = new CardEntriesClient(_httpClient, Options.Timeout);
+        Destinations = new DestinationsClient(_httpClient, Options.Timeout);
         Languages = new LanguagesClient(_httpClient, Options.Timeout);
     }
 
@@ -162,6 +164,7 @@ public sealed class OcctooClient : IDisposable
         Segments = new SegmentsClient(_httpClient, Options.Timeout);
         RelationDefinitions = new RelationDefinitionsClient(_httpClient, Options.Timeout);
         CardEntries = new CardEntriesClient(_httpClient, Options.Timeout);
+        Destinations = new DestinationsClient(_httpClient, Options.Timeout);
         Languages = new LanguagesClient(_httpClient, Options.Timeout);
     }
 
@@ -265,6 +268,9 @@ public sealed class OcctooClient : IDisposable
 
     /// <summary>Card entry search — the cards of a card definition and their related cards.</summary>
     public CardEntriesClient CardEntries { get; }
+
+    /// <summary>Destinations — the APIs that publish cards — with their versions and endpoints.</summary>
+    public DestinationsClient Destinations { get; }
 
     /// <summary>The tenant's languages and its default language.</summary>
     public LanguagesClient Languages { get; }

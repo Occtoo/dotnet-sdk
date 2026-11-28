@@ -171,7 +171,7 @@ for you. Full guides: [docs/authentication.md](docs/authentication.md) ·
 [docs/sources.md](docs/sources.md) · [docs/applications.md](docs/applications.md) ·
 [docs/managed-tags.md](docs/managed-tags.md) · [docs/assets.md](docs/assets.md) ·
 [docs/image-conversions.md](docs/image-conversions.md) · [docs/languages.md](docs/languages.md) ·
-[docs/events.md](docs/events.md).
+[docs/cards.md](docs/cards.md) · [docs/destinations.md](docs/destinations.md) · [docs/events.md](docs/events.md).
 
 Runnable samples under [`examples/`](examples), one project per capability:
 

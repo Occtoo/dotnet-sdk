@@ -81,6 +81,12 @@ public static class OcctooScopes
     /// <summary>Change cards, card definitions, and managed tags.</summary>
     public const string WriteCards = "write:cards";
 
+    /// <summary>Read destinations, their versions, endpoints and publishes.</summary>
+    public const string ReadDestinations = "read:destinations";
+
+    /// <summary>Create, change, publish and delete destinations, versions and endpoints.</summary>
+    public const string WriteDestinations = "write:destinations";
+
     /// <summary>Read the segments of card definitions.</summary>
     public const string ReadSegments = "read:segments";
 
