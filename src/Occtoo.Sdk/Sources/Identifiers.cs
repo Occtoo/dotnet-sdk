@@ -99,6 +99,14 @@ public readonly partial struct LanguageCode
 
     private static string NormalizeInput(string input) => Iso.Normalize(input);
 
+    // A code the platform already holds is kept exactly as stored, even when it
+    // isn't ISO: the platform matches codes exactly, so normalizing or dropping
+    // one would lose or rename a tenant's language on the way back.
+#pragma warning disable VOG010 // the one deliberate unvalidated construction
+    internal static Maybe<LanguageCode> Read(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? Maybe<LanguageCode>.None : new LanguageCode(value);
+#pragma warning restore VOG010
+
     private static Validation Validate(string input) =>
         Iso.IsValid(input)
             ? Validation.Ok
