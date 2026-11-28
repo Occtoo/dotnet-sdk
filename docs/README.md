@@ -8,6 +8,7 @@ Occtoo lives at [docs.occtoo.com](https://docs.occtoo.com).
 | [authentication.md](authentication.md) | Every way to authenticate, which to choose, and what the SDK handles for you |
 | [applications.md](applications.md) | Managing the tenant's applications and their grants — the identities behind client credentials |
 | [cards.md](cards.md) | Card identifiers and the `Where` condition language shared by segments, exports and card search |
+| [destinations.md](destinations.md) | Destinations as Studio creates them, their versions, endpoints and publishes |
 | [managed-tags.md](managed-tags.md) | Managed tags and their plain or localized values |
 | [languages.md](languages.md) | The tenant's languages, its default language, and how stored codes read back |
 | [sources.md](sources.md) | Typed ingest: the entry model, value objects, and the receipt | plus source and property management
