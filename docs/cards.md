@@ -162,3 +162,35 @@ sent, never in meaning, and branches the SDK doesn't model are kept as they
 are. `Update(segment.Edit().WithWhere(…))` changes only what you set; a new
 condition or language starts tagging again. `Delete` archives the segment, and
 an archived segment is no longer listed or read.
+
+## Relation definitions
+
+`client.RelationDefinitions` links the cards of a source and a target card
+definition (`/v1/relation-definitions`, `read:cards` / `write:cards`). A source
+card is related to the target cards whose matched card property holds its own
+value. Segments (`Where.Related`) and destination endpoints follow relation
+definitions by id.
+
+```csharp
+await client.RelationDefinitions.Create(
+    CreateRelationDefinition.WithId("productVariants", "Product variants")
+        .From("products", "sku")
+        .To("variants", "parentSku")
+        .Labelled("Variants", "Variant of")
+        .OrderedBy(RelationOrder.ByTargetProperty("rank")));
+```
+
+Both card definitions must be `Active` and different; the relation id can't
+match a card property id of either. The matched properties must be indexed
+`Text` or `List` card properties, not both lists, or `id` for the card id. The
+links are built in the background: the relation definition is `Initializing`,
+then `Active`.
+
+`RelationOrder.ByTargetProperty` orders the targets by a `Decimal` or `Integer`
+card property of the target card definition; `RelationOrder.BySourceList`
+orders them as the values of a `List` card property on the source card.
+
+`Update(relation.Edit().WithMatch(…))` rebuilds the links (`Updating`, then
+`Active`), and is a `ConflictError` while the relation definition isn't
+`Active`. `Delete` removes it for good; one a segment or destination endpoint
+uses is a `ConflictError`.
