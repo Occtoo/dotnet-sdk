@@ -159,6 +159,15 @@ var properties = await client.Sources.UpsertProperties("products",
     }, cancellationToken);
 ```
 
+`DeleteProperties` starts deleting several properties in one request, like `DeleteProperty` for each. It needs at least one id: an empty list is a `ValidationError` before the request.
+
+`Purge` removes every entry of a source and keeps the source, its properties and folders. It returns the source with `SourceStatus.Purging` until the background purge finishes; a second purge in that time is a `ConflictError`.
+
+```csharp
+await client.Sources.DeleteProperties("products", [PropertyId.From("legacy-color"), PropertyId.From("legacy-size")]);
+await client.Sources.Purge("products");
+```
+
 `List` and `ListProperties` page forward the same way the applications
 surface does — see [applications.md](applications.md#listing) for cursors
 and the paging loop. Every `Source` carries its `SourceType` (`Generic` or `Media`); lists filter
@@ -186,6 +195,13 @@ await client.Sources.ListFolders(media)
     .Bind(rootId => client.Sources.ListFolders(media, rootId))
     .Map(children => children.Items.Single(folder => folder.SafeName == "catalogue").Id)
     .Bind(folderId => client.Assets.Upload(media, [AssetUpload.FromFile("logo_1", "files/logo.png")], folderId));
+```
+
+`CreateFolder`, `RenameFolder`, `MoveFolder` and `DeleteFolder` (`write:sources`) change the tree. A new folder goes under a parent of the same source; its `FolderSafeName` — ASCII letters and digits only, checked at construction — becomes the last segment of its `Path` and can't change later. A move takes the folder's subfolders with it. The root folder can't be renamed, moved or deleted.
+
+```csharp
+await client.Sources.CreateFolder(media, new CreateSourceFolder(rootId, "Catalogue", FolderSafeName.From("catalogue")))
+    .Bind(folder => client.Sources.MoveFolder(media, folder.Id, archiveId));
 ```
 
 ## Reading entries

@@ -83,6 +83,12 @@ public sealed record CreateSource(SourceId Id, string Name)
 }
 
 /// <summary>
+/// A new folder under <c>ParentId</c>, a folder of the same source; the root
+/// folder is the one without a parent.
+/// </summary>
+public sealed record CreateSourceFolder(FolderId ParentId, string DisplayName, FolderSafeName SafeName);
+
+/// <summary>
 /// Changes to a source's metadata. Absent fields are left unchanged; an
 /// empty <c>Description</c> clears it.
 /// </summary>

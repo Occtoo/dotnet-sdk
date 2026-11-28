@@ -91,6 +91,12 @@ internal sealed record CreateSourceDto(string Id, string Name, string? Descripti
 
 internal sealed record UpdateSourceDto(string? Name, string? Description);
 
+internal sealed record CreateSourceFolderDto(Guid ParentId, string DisplayName, string SafeName);
+
+internal sealed record UpdateSourceFolderDto(string DisplayName);
+
+internal sealed record MoveSourceFolderDto(Guid ParentId);
+
 internal sealed record UpsertSourcePropertyDto(
     string DisplayName,
     SourcePropertyType? Type,
@@ -152,5 +158,8 @@ internal sealed record ForwardPageDto<T>
 [JsonSerializable(typeof(ForwardPageDto<SourcePropertyDto>))]
 [JsonSerializable(typeof(SourceFolderDto))]
 [JsonSerializable(typeof(ForwardPageDto<SourceFolderDto>))]
+[JsonSerializable(typeof(CreateSourceFolderDto))]
+[JsonSerializable(typeof(UpdateSourceFolderDto))]
+[JsonSerializable(typeof(MoveSourceFolderDto))]
 internal sealed partial class SourcesJsonContext : JsonSerializerContext;
 

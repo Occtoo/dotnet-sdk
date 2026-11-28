@@ -206,3 +206,16 @@ public readonly partial struct Delimiter
     internal static Maybe<Delimiter> Read(string? value) =>
         value is { Length: > 0 } && TryFrom(value, out var delimiter) ? Maybe.From(delimiter) : Maybe<Delimiter>.None;
 }
+
+/// <summary>
+/// A folder's name in its path: ASCII letters and digits only, no slashes or
+/// spaces. Immutable once the folder exists.
+/// </summary>
+[ValueObject<string>(toPrimitiveCasting: CastOperator.Explicit, fromPrimitiveCasting: CastOperator.None)]
+public readonly partial struct FolderSafeName
+{
+    private static Validation Validate(string input) =>
+        !string.IsNullOrEmpty(input) && input.All(char.IsAsciiLetterOrDigit)
+            ? Validation.Ok
+            : Validation.Invalid("A folder safe name must be ASCII letters and digits only.");
+}

@@ -290,6 +290,71 @@ public class SourceManagementTests
     }
 
     [Fact]
+    public async Task Folder_writes_send_their_bodies_to_the_folder_routes()
+    {
+        var shoes = FolderId.From(Guid.Parse("2f1d4a3c-0000-4000-8000-000000000002"));
+        using var handler = new StubHandler()
+            .Respond(HttpStatusCode.Created, RootFolderBody)
+            .Respond(HttpStatusCode.OK, RootFolderBody)
+            .Respond(HttpStatusCode.OK, RootFolderBody)
+            .Respond(HttpStatusCode.NoContent, "");
+        using var client = Client(handler);
+        var ct = TestContext.Current.CancellationToken;
+
+        (await client.Sources.CreateFolder(Products, new CreateSourceFolder(RootFolder, "Shoes", FolderSafeName.From("shoes")), ct)).IsSuccess.ShouldBeTrue();
+        (await client.Sources.RenameFolder(Products, shoes, "Footwear", ct)).IsSuccess.ShouldBeTrue();
+        (await client.Sources.MoveFolder(Products, shoes, RootFolder, ct)).IsSuccess.ShouldBeTrue();
+        (await client.Sources.DeleteFolder(Products, shoes, ct)).IsSuccess.ShouldBeTrue();
+
+        var folders = "https://api.occtoo.com/v1/sources/products/folders";
+        var requests = handler.Requests;
+        (requests[0].Method, requests[0].RequestUri!.AbsoluteUri).ShouldBe((HttpMethod.Post, folders));
+        JsonDocument.Parse(requests[0].Body!).RootElement.GetProperty("safeName").GetString().ShouldBe("shoes");
+        (requests[1].Method, requests[1].RequestUri!.AbsoluteUri).ShouldBe((HttpMethod.Patch, $"{folders}/{shoes.Value:D}"));
+        requests[1].Body.ShouldBe("""{"displayName":"Footwear"}""");
+        (requests[2].Method, requests[2].RequestUri!.AbsoluteUri).ShouldBe((HttpMethod.Post, $"{folders}/{shoes.Value:D}/move"));
+        requests[2].Body.ShouldBe($$"""{"parentId":"{{RootFolder.Value:D}}"}""");
+        (requests[3].Method, requests[3].RequestUri!.AbsoluteUri).ShouldBe((HttpMethod.Delete, $"{folders}/{shoes.Value:D}"));
+    }
+
+    [Fact]
+    public void A_folder_safe_name_is_letters_and_digits_only()
+    {
+        FolderSafeName.TryFrom("shoes2026").IsSuccess.ShouldBeTrue();
+        FolderSafeName.TryFrom("new shoes").IsSuccess.ShouldBeFalse();
+        FolderSafeName.TryFrom("a/b").IsSuccess.ShouldBeFalse();
+        FolderSafeName.TryFrom("").IsSuccess.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task Purge_posts_to_the_purge_route_and_returns_the_source()
+    {
+        using var handler = new StubHandler().Respond(HttpStatusCode.Accepted, SourceBody.Replace("\"Active\"", "\"Purging\""));
+        using var client = Client(handler);
+
+        var result = await client.Sources.Purge(Products, TestContext.Current.CancellationToken);
+
+        result.Value.Status.GetValueOrThrow().ShouldBe(SourceStatus.Purging);
+        handler.Requests.Single().Method.ShouldBe(HttpMethod.Post);
+        handler.Requests.Single().RequestUri!.AbsoluteUri.ShouldBe("https://api.occtoo.com/v1/sources/products/purge");
+    }
+
+    [Fact]
+    public async Task DeleteProperties_repeats_the_id_parameter_and_refuses_an_empty_list()
+    {
+        using var handler = new StubHandler().Respond(HttpStatusCode.NoContent, "");
+        using var client = Client(handler);
+        var ct = TestContext.Current.CancellationToken;
+
+        (await client.Sources.DeleteProperties(Products, [], ct)).Error.ShouldBeOfType<ValidationError>();
+        (await client.Sources.DeleteProperties(Products, [PropertyId.From("color"), PropertyId.From("size")], ct)).IsSuccess.ShouldBeTrue();
+
+        var request = handler.Requests.ShouldHaveSingleItem();
+        request.Method.ShouldBe(HttpMethod.Delete);
+        request.RequestUri!.AbsoluteUri.ShouldBe("https://api.occtoo.com/v1/sources/products/properties?id=color&id=size");
+    }
+
+    [Fact]
     public async Task A_rejection_classifies_like_every_other_surface()
     {
         using var handler = new StubHandler().Respond(HttpStatusCode.NotFound, """{ "title": "no such source" }""");
