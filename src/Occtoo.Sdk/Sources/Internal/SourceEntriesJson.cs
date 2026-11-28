@@ -43,38 +43,42 @@ internal sealed record StoredPropertyDto
         var type = Enums.Read<SourcePropertyType>(Type);
         return new(
             PropertyId.From(Id),
-            ReadValue(Value, type),
+            StoredValues.Read(Value, type, Id),
             type,
             Sources.Delimiter.Read(Delimiter),
             LastUpdated,
             LanguageCode.Read(Language));
     }
+}
 
-    // Values never fall back silently: anything the PropertyValue union cannot
-    // hold faithfully is a DataTypeError naming the property.
-    private PropertyValue ReadValue(JsonElement value, Maybe<SourcePropertyType> type) => value.ValueKind switch
+// Values never fall back silently: anything the PropertyValue union cannot
+// hold faithfully is a DataTypeError naming the property. Shared by stored
+// source entries and card entries, which carry values the same way.
+internal static class StoredValues
+{
+    internal static PropertyValue Read(JsonElement value, Maybe<SourcePropertyType> type, string propertyId) => value.ValueKind switch
     {
         JsonValueKind.Null or JsonValueKind.Undefined => PropertyValue.Clear,
         JsonValueKind.True => PropertyValue.Boolean(true),
         JsonValueKind.False => PropertyValue.Boolean(false),
-        JsonValueKind.Array => PropertyValue.List([.. value.EnumerateArray().Select(ListItem)]),
+        JsonValueKind.Array => PropertyValue.List([.. value.EnumerateArray().Select(item => ListItem(item, propertyId))]),
         JsonValueKind.Number when type == SourcePropertyType.Integer && value.TryGetInt64(out var integer) =>
             PropertyValue.Integer(integer),
         JsonValueKind.Number when value.TryGetDecimal(out var number) => PropertyValue.Decimal(number),
         JsonValueKind.Number => throw new DataTypeException(
-            $"Property '{Id}' holds {value.GetRawText()}, outside the range a decimal can represent."),
+            $"Property '{propertyId}' holds {value.GetRawText()}, outside the range a decimal can represent."),
         JsonValueKind.String when type == SourcePropertyType.Timestamp
                                   && DateTimeOffset.TryParse(value.GetString(), CultureInfo.InvariantCulture,
                                       DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var timestamp) =>
             PropertyValue.Timestamp(timestamp),
         JsonValueKind.String => PropertyValue.Text(value.GetString()!),
-        _ => throw new DataTypeException($"Property '{Id}' holds a JSON {value.ValueKind}, which no property type represents."),
+        _ => throw new DataTypeException($"Property '{propertyId}' holds a JSON {value.ValueKind}, which no property type represents."),
     };
 
-    private string ListItem(JsonElement item) =>
+    private static string ListItem(JsonElement item, string propertyId) =>
         item.ValueKind == JsonValueKind.String
             ? item.GetString()!
-            : throw new DataTypeException($"Property '{Id}' holds a list item that is a JSON {item.ValueKind}, not a string.");
+            : throw new DataTypeException($"Property '{propertyId}' holds a list item that is a JSON {item.ValueKind}, not a string.");
 }
 
 internal sealed record StoredEntriesDto
