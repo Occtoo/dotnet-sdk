@@ -192,6 +192,20 @@ public sealed class SourcesClient
         CancellationToken cancellationToken = default) =>
         OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Delete, SourceUri(sourceId)), "delete source", cancellationToken, SourceTag(sourceId));
 
+    /// <summary>
+    /// Starts removing every entry of a source; the source, its properties and
+    /// folders stay. The returned source reports <see cref="SourceStatus.Purging"/>
+    /// until the purge finishes, and a second purge meanwhile is a
+    /// <see cref="ConflictError"/>.
+    /// </summary>
+    public Task<Result<Source, OcctooError>> Purge(
+        SourceId sourceId,
+        CancellationToken cancellationToken = default) =>
+        OcctooTransport.Send(_httpClient, _requestTimeout,
+                OcctooTransport.Request(HttpMethod.Post, new Uri($"{SourceUri(sourceId)}/purge", UriKind.Relative)),
+                "purge source", SourcesJsonContext.Default.SourceDto, cancellationToken, SourceTag(sourceId))
+            .MapResponse(dto => dto.ToModel());
+
     /// <summary>Reads one page of a source's properties.</summary>
     public Task<Result<Page<SourceProperty>, OcctooError>> ListProperties(
         SourceId sourceId,
@@ -276,6 +290,25 @@ public sealed class SourcesClient
             "delete source property", cancellationToken, PropertyTag(sourceId, propertyId));
 
     /// <summary>
+    /// Starts deleting several properties and their values, like
+    /// <see cref="DeleteProperty"/> for each. At least one id is required.
+    /// </summary>
+    public Task<UnitResult<OcctooError>> DeleteProperties(
+        SourceId sourceId,
+        IReadOnlyList<PropertyId> propertyIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (propertyIds is null or { Count: 0 })
+            return Task.FromResult(UnitResult.Failure<OcctooError>(new ValidationError("At least one property id is required.")));
+
+        var uri = new QueryString($"v1/sources/{Uri.EscapeDataString(sourceId.Value)}/properties")
+            .AddEach("id", [.. propertyIds.Select(id => id.Value)])
+            .ToUri();
+        return OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Delete, uri),
+            "delete source properties", cancellationToken, SourceTag(sourceId));
+    }
+
+    /// <summary>
     /// Reads one page of a source's folders, root included, ordered by path.
     /// A <paramref name="parentId"/> narrows it to that folder's direct
     /// children; keep it when following <see cref="Page{T}.Next"/>.
@@ -320,6 +353,72 @@ public sealed class SourcesClient
                 cancellationToken,
                 [new("occtoo.source.id", sourceId.Value), new("occtoo.folder.id", folderId.Value)])
             .MapResponse(dto => dto.ToModel());
+
+    /// <summary>Creates a folder under <see cref="CreateSourceFolder.ParentId"/>.</summary>
+    public Task<Result<SourceFolder, OcctooError>> CreateFolder(
+        SourceId sourceId,
+        CreateSourceFolder folder,
+        CancellationToken cancellationToken = default)
+    {
+        if (folder is null || string.IsNullOrWhiteSpace(folder.DisplayName))
+            return Task.FromResult(Result.Failure<SourceFolder, OcctooError>(new ValidationError("A folder display name is required.")));
+
+        var body = new CreateSourceFolderDto(folder.ParentId.Value, folder.DisplayName, folder.SafeName.Value);
+        return OcctooTransport.Send(_httpClient, _requestTimeout,
+                OcctooTransport.Request(HttpMethod.Post, FoldersUri(sourceId), body, SourcesJsonContext.Default.CreateSourceFolderDto),
+                "create source folder", SourcesJsonContext.Default.SourceFolderDto, cancellationToken, SourceTag(sourceId))
+            .MapResponse(dto => dto.ToModel());
+    }
+
+    /// <summary>Changes a folder's display name. The root folder can't be renamed.</summary>
+    public Task<Result<SourceFolder, OcctooError>> RenameFolder(
+        SourceId sourceId,
+        FolderId folderId,
+        string displayName,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(displayName))
+            return Task.FromResult(Result.Failure<SourceFolder, OcctooError>(new ValidationError("A folder display name is required.")));
+
+        return OcctooTransport.Send(_httpClient, _requestTimeout,
+                OcctooTransport.Request(HttpMethod.Patch, FolderUri(sourceId, folderId), new UpdateSourceFolderDto(displayName),
+                    SourcesJsonContext.Default.UpdateSourceFolderDto),
+                "rename source folder", SourcesJsonContext.Default.SourceFolderDto, cancellationToken, FolderTag(sourceId, folderId))
+            .MapResponse(dto => dto.ToModel());
+    }
+
+    /// <summary>
+    /// Moves a folder, with its subfolders, under another folder of the same
+    /// source. The root folder can't be moved.
+    /// </summary>
+    public Task<Result<SourceFolder, OcctooError>> MoveFolder(
+        SourceId sourceId,
+        FolderId folderId,
+        FolderId newParentId,
+        CancellationToken cancellationToken = default) =>
+        OcctooTransport.Send(_httpClient, _requestTimeout,
+                OcctooTransport.Request(HttpMethod.Post,
+                    new Uri($"{FolderUri(sourceId, folderId)}/move", UriKind.Relative),
+                    new MoveSourceFolderDto(newParentId.Value), SourcesJsonContext.Default.MoveSourceFolderDto),
+                "move source folder", SourcesJsonContext.Default.SourceFolderDto, cancellationToken, FolderTag(sourceId, folderId))
+            .MapResponse(dto => dto.ToModel());
+
+    /// <summary>Deletes a folder. The root folder can't be deleted.</summary>
+    public Task<UnitResult<OcctooError>> DeleteFolder(
+        SourceId sourceId,
+        FolderId folderId,
+        CancellationToken cancellationToken = default) =>
+        OcctooTransport.Send(_httpClient, _requestTimeout, OcctooTransport.Request(HttpMethod.Delete, FolderUri(sourceId, folderId)),
+            "delete source folder", cancellationToken, FolderTag(sourceId, folderId));
+
+    private static Uri FoldersUri(SourceId sourceId) =>
+        new($"v1/sources/{Uri.EscapeDataString(sourceId.Value)}/folders", UriKind.Relative);
+
+    private static Uri FolderUri(SourceId sourceId, FolderId folderId) =>
+        new($"v1/sources/{Uri.EscapeDataString(sourceId.Value)}/folders/{folderId.Value:D}", UriKind.Relative);
+
+    private static KeyValuePair<string, object?>[] FolderTag(SourceId sourceId, FolderId folderId) =>
+        [new("occtoo.source.id", sourceId.Value), new("occtoo.folder.id", folderId.Value)];
 
     private static KeyValuePair<string, object?>[] SourceTag(SourceId sourceId) => [new("occtoo.source.id", sourceId.Value)];
 
