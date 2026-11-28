@@ -192,6 +192,20 @@ public class ResilienceTests
     }
 
     [Fact]
+    public async Task A_card_entry_search_is_replayed_because_it_changes_nothing()
+    {
+        using var handler = new StubHandler()
+            .Respond(HttpStatusCode.BadGateway, "{}")
+            .Respond(HttpStatusCode.OK, """{ "items": [], "after": null, "totalCount": null, "lifecycleStates": [], "facets": [] }""");
+        using var client = Client(handler, FastRetries);
+
+        var result = await client.CardEntries.Search("products", Occtoo.Cards.CardSearch.All(), TestContext.Current.CancellationToken);
+
+        result.IsSuccess.ShouldBeTrue();
+        handler.RequestCount.ShouldBe(2);
+    }
+
+    [Fact]
     public async Task A_durable_consumer_pull_is_replayed_because_it_resumes_the_workers_own_lease()
     {
         using var handler = new StubHandler()

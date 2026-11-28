@@ -194,3 +194,29 @@ orders them as the values of a `List` card property on the source card.
 `Active`), and is a `ConflictError` while the relation definition isn't
 `Active`. `Delete` removes it for good; one a segment or destination endpoint
 uses is a `ConflictError`.
+
+## Searching card entries
+
+`client.CardEntries` searches the indexed entries of a card definition
+(`/v1/card-definitions/{cardId}/entries/search`, `read:cards`). Values come
+back as the same `PropertyValue` union ingest writes and entry reads return.
+
+```csharp
+var result = await client.CardEntries.Search("products",
+    CardSearch.Matching(Where.Integer("stock").Gt(0), LanguageCode.From("en"))
+        .Select("title", "price")
+        .OrderBy("price", SortDirection.Descending)
+        .FacetOn(CardFacet.On("brand").SortedBy(FacetOrder.Count).Take(10))
+        .Take(50));
+```
+
+- **Selection:** without `Select` each entry carries only its id and timestamps. A localized property yields one value per language.
+- **Paging:** `Take` (1–100, default 25) and `ContinueAfter(page.Next)` page forward; `WithTotal` counts every match. An activation of the card definition invalidates cursors.
+- **Facets:** `FacetOn(CardFacet.On(property))` returns the distinct values among the matches with their counts; `Containing`, `SortedBy`, `Take`, `Excluding` and `ContinueAfter` narrow and page them. `FacetsOnly` skips the entries.
+- **Segments:** `WithSegments` adds the segments each entry is a member of.
+- **Limits:** up to 100 properties, 10 sort keys and 10 facets; a response over 8 MiB is refused.
+
+`SearchRelated(cardDefinitionId, entryId, relationDefinitionId, search)` runs
+the same search over the cards related to one card entry. A search changes
+nothing, so the SDK resends it after a transient failure like any read.
+Lifecycle readiness is not modelled yet.
