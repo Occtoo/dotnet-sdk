@@ -290,6 +290,43 @@ Two details matter in a real receiver:
 During signing-secret rotation the signature header may carry several
 space-separated signatures; the delivery is authentic when any matches.
 
+### Managing destinations
+
+`client.Events.Destinations` creates and runs them (`/v1/event-destinations`,
+`read:eventdestinations` / `write:eventdestinations`). The filter is the same
+`EventFilter` pull and SSE take; every branch must name an event type, which
+`OfType<T>` guarantees. Only events after a destination becomes active reach it.
+
+```csharp
+var created = await client.Events.Destinations.Create(
+    CreateEventDestination.Webhook("Orders hook", new Uri("https://hooks.example.com/occtoo"),
+        EventFilter.OfType<SourceEntryEvent>()));
+
+// Shown once: store it, then pass signingSecret.Value to OcctooWebhook.Verify.
+var signingSecret = created.Value.SigningSecret.GetValueOrThrow();
+
+await client.Events.Destinations.Verify(created.Value.Destination.Id);
+```
+
+| Factory | Starts as | Configuration |
+|---|---|---|
+| `CreateEventDestination.Webhook(name, endpoint, filter)` | `PendingVerification` | An HTTPS endpoint; returns the signing secret |
+| `CreateEventDestination.AzureStorageQueue(name, connectionString, queueName, filter)` | `Active` | `AzureConnectionString`, stored encrypted and never returned |
+| `CreateEventDestination.AzureServiceBus(name, connectionString, entityName, filter)` | `Active` | `AzureConnectionString` and a queue or topic name |
+| `CreateEventDestination.DurableConsumer(name, filter)` | `Active` | None; read it with `client.Events.Batch` |
+
+- **`Verify`** sends the CloudEvents handshake (an `OPTIONS` request with `WebHook-Request-Origin`) and activates the webhook when its endpoint allows the origin. A failed handshake is a `ValidationError`; a webhook that isn't pending verification is a `ConflictError`.
+- **`Update(destination.Edit().WithName(…).WithFilter(…))`** changes only what you set. A new webhook endpoint (`WithWebhookEndpoint`) returns the webhook to `PendingVerification`; new Azure connection details (`WithAzureStorageQueue` / `WithAzureServiceBus`) cancel pending deliveries.
+- **`Pause`** cancels a push destination's pending deliveries and stops a durable consumer handing out batches; **`Resume`** restarts delivery. A push destination skips what happened while paused, while a durable consumer continues where it stopped. Pausing a destination that isn't active, or resuming one that isn't paused, is a `ConflictError`.
+- **`Delete`** cancels pending deliveries and succeeds even when the destination is already gone.
+- **`ListDeliveries`** shows a push destination's recent deliveries, newest first, with attempts, the last response status and error. Delivered and cancelled deliveries are kept for an hour, dead-lettered ones for seven days.
+
+`AzureConnectionString` and `WebhookSigningSecret` print as `***`; read
+`.Value` where the raw string is needed.
+
+`client.Events.ListTypes()` lists the published event types with their schema
+version, schema URL and the properties a filter can narrow them by.
+
 ## Durable consumers: leased batches
 
 Pull and SSE leave the position to the caller — persist a cursor, resume from

@@ -180,3 +180,78 @@ public readonly partial struct UserId
             ? Validation.Invalid("A user id must not be empty.")
             : Validation.Ok;
 }
+
+/// <summary>An event destination's display name: not blank, at most 200 characters.</summary>
+[ValueObject<string>(toPrimitiveCasting: CastOperator.Explicit, fromPrimitiveCasting: CastOperator.None)]
+public readonly partial struct EventDestinationName
+{
+    /// <summary>Converts a string through the same validation as <see cref="From"/>.</summary>
+    /// <exception cref="ValueObjectValidationException">The value is invalid.</exception>
+    public static implicit operator EventDestinationName(string value) => From(value);
+
+    private static Validation Validate(string input) => input switch
+    {
+        _ when string.IsNullOrWhiteSpace(input) => Validation.Invalid("An event destination name must not be empty."),
+        { Length: > 200 } => Validation.Invalid("An event destination name must be at most 200 characters."),
+        _ => Validation.Ok,
+    };
+}
+
+/// <summary>
+/// The secret that signs a webhook's deliveries — pass <c>Value</c> to
+/// <see cref="OcctooWebhook.Verify"/>. Occtoo shows it once, when the webhook is
+/// created.
+/// </summary>
+[ValueObject<string>(toPrimitiveCasting: CastOperator.Explicit, fromPrimitiveCasting: CastOperator.None)]
+public readonly partial struct WebhookSigningSecret
+{
+    private static Validation Validate(string input) =>
+        string.IsNullOrWhiteSpace(input) ? Validation.Invalid("A signing secret must not be empty.") : Validation.Ok;
+
+    /// <summary>A masked placeholder — the secret itself is never printed.</summary>
+    public override string ToString() => "***";
+
+    /// <summary>A masked placeholder — the secret itself is never printed.</summary>
+    public string ToString(IFormatProvider? provider) => "***";
+}
+
+/// <summary>
+/// An Azure Storage or Service Bus connection string. Occtoo stores it
+/// encrypted and never returns it.
+/// </summary>
+[ValueObject<string>(toPrimitiveCasting: CastOperator.Explicit, fromPrimitiveCasting: CastOperator.None)]
+public readonly partial struct AzureConnectionString
+{
+    private static Validation Validate(string input) =>
+        string.IsNullOrWhiteSpace(input) ? Validation.Invalid("A connection string must not be empty.") : Validation.Ok;
+
+    /// <summary>A masked placeholder — the connection string is never printed.</summary>
+    public override string ToString() => "***";
+
+    /// <summary>A masked placeholder — the connection string is never printed.</summary>
+    public string ToString(IFormatProvider? provider) => "***";
+}
+
+/// <summary>The name of an Azure Storage queue.</summary>
+[ValueObject<string>(toPrimitiveCasting: CastOperator.Explicit, fromPrimitiveCasting: CastOperator.None)]
+public readonly partial struct AzureStorageQueueName
+{
+    /// <summary>Converts a string through the same validation as <see cref="From"/>.</summary>
+    /// <exception cref="ValueObjectValidationException">The value is invalid.</exception>
+    public static implicit operator AzureStorageQueueName(string value) => From(value);
+
+    private static Validation Validate(string input) =>
+        string.IsNullOrWhiteSpace(input) ? Validation.Invalid("A queue name must not be empty.") : Validation.Ok;
+}
+
+/// <summary>The name of an Azure Service Bus queue or topic.</summary>
+[ValueObject<string>(toPrimitiveCasting: CastOperator.Explicit, fromPrimitiveCasting: CastOperator.None)]
+public readonly partial struct AzureServiceBusEntityName
+{
+    /// <summary>Converts a string through the same validation as <see cref="From"/>.</summary>
+    /// <exception cref="ValueObjectValidationException">The value is invalid.</exception>
+    public static implicit operator AzureServiceBusEntityName(string value) => From(value);
+
+    private static Validation Validate(string input) =>
+        string.IsNullOrWhiteSpace(input) ? Validation.Invalid("A queue or topic name must not be empty.") : Validation.Ok;
+}

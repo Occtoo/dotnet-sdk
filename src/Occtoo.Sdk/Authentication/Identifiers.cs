@@ -100,6 +100,12 @@ public static class OcctooScopes
     /// <summary>Stream events over SSE.</summary>
     public const string ReadEventsSse = "read:events:sse";
 
+    /// <summary>Read the tenant's event destinations and their deliveries.</summary>
+    public const string ReadEventDestinations = "read:eventdestinations";
+
+    /// <summary>Create, change, pause and delete event destinations.</summary>
+    public const string WriteEventDestinations = "write:eventdestinations";
+
     /// <summary>
     /// Makes interactive sign-ins return a refresh token, so they survive a
     /// process restart.

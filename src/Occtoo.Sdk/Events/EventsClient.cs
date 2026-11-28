@@ -49,7 +49,27 @@ public sealed class EventsClient
         _logger = logger;
         _requestTimeout = requestTimeout;
         Batch = new EventBatchClient(httpClient, logger, requestTimeout);
+        Destinations = new EventDestinationsClient(httpClient, requestTimeout);
     }
+
+    /// <summary>
+    /// The tenant's event destinations — where events are pushed (webhooks,
+    /// Azure queues) or leased from (durable consumers, read with
+    /// <see cref="Batch"/>).
+    /// </summary>
+    public EventDestinationsClient Destinations { get; }
+
+    /// <summary>
+    /// Lists the published event types and their schema versions. Needs no
+    /// scope; the typed <see cref="CloudEvent"/> records already cover the
+    /// types this SDK version knows.
+    /// </summary>
+    public Task<Result<IReadOnlyList<EventTypeDescriptor>, OcctooError>> ListTypes(
+        CancellationToken cancellationToken = default) =>
+        OcctooTransport.Send(_httpClient, _requestTimeout,
+                OcctooTransport.Request(HttpMethod.Get, new Uri("v1/event-types", UriKind.Relative)), "list event types",
+                Internal.EventDestinationsJsonContext.Default.EventTypeDtoArray, cancellationToken)
+            .MapResponse(IReadOnlyList<EventTypeDescriptor> (types) => [.. OcctooTransport.Elements(types, "event types").Select(type => type.ToModel())]);
 
     /// <summary>
     /// Durable consumers — leased batches that competing workers pull and
